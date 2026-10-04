@@ -50,9 +50,9 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
 | 16 | Auth later | OAuth 2.1 on the MCP endpoint (phase 2), so it works as a claude.ai custom connector |
 | 17 | Text format | Markdown for descriptions and comments |
 | 18 | Search | SQLite FTS5 over titles, descriptions, comments |
-| 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `AGENTS.md` |
+| 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-usage.md` |
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
-| 21 | Deployment | **Open (partly)**: align with what already runs on the VPS (likely Docker; to be verified). Network exposure is decided (Tailscale) |
+| 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`omni`); images built on the dev Mac and loaded with `docker save \| ssh omni docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
 | 22 | Rollout | Build, pilot on one new project for 1-2 weeks, then import + cut over |
 
 ---
@@ -90,9 +90,8 @@ Principles:
 7. **Everything stateful lives under `DATA_DIR`** (default `/data`): the DB and attachments. Config is env vars. This keeps it deployable under Docker or systemd.
 
 ### 3.1 Tailscale setup
-- The VPS joins the tailnet with a tag, e.g. `tag:tracker`.
-- Tailscale ACL: allow only your own devices (or `tag:agent-host` plus your user) to reach `tag:tracker` on port 443. Everything else denied.
-- Publish with `tailscale serve` (HTTPS on 443 with a Tailscale-issued certificate), mapping paths to local ports as in the diagram. Exact commands to be verified against the installed Tailscale version.
+- The VPS is the existing tailnet node `omni` (`omni.tail2b3fbf.ts.net`). It stays untagged and user-owned: **no `tag:tracker` and no ACL change in v1** (the node is shared with other apps; access is bounded by the tailnet itself plus bearer tokens and the dashboard access check). Revisit if other people join the tailnet.
+- Publish with `tailscale serve` on **HTTPS 443** (Tailscale-issued certificate), mapping paths to local ports as in the diagram: `/` to the dashboard (`127.0.0.1:3000`), `/mcp` and `/v1/*` to the API (`127.0.0.1:8787`). `BASE_URL` is `https://omni.tail2b3fbf.ts.net`. Port 443 on `omni` was freed for the tracker (no serve config remained, verified 2026-10-04); the old `/` -> 3773 entry is gone. Exact commands to be verified against the installed Tailscale version (1.102.4).
 - **Do not enable Funnel** in v1 (Funnel makes the service public).
 - Caveats:
   - Any machine or runtime that needs the tracker must be on the tailnet. Cloud-hosted agents and CI that are not on the tailnet cannot reach it (they would need a Tailscale auth key / ephemeral node, or a later public path).
@@ -104,14 +103,10 @@ Principles:
 
 ## 4. Prerequisites (do before any build work)
 
-1. **Add a 2-4 GB swapfile on the VPS.** The box has no swap and about 1.8 GiB free; any spike invokes the OOM killer. This is worth doing independent of this project.
-2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built elsewhere (CI or a dev machine), using Next.js `output: 'standalone'` for the dashboard, and pulled to the VPS. The VPS only runs `node server.js`. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
-3. **Inspect the VPS** (answers needed for deployment, section 17):
-   - Is Docker running? Which containers?
-   - Is Tailscale already installed on the VPS, and does `tailscale serve` already publish anything (it shares port 443 on the node)?
-   - Which ports are in use?
-   - What backup process already exists?
-4. **Tailscale ACL tag** for the VPS (`tag:tracker`) and rules limiting access to your devices.
+1. **Add a 4 GB swapfile on the VPS** (decided). The box has no swap and about 1.9 GiB available; any spike invokes the OOM killer. This is the one change to the shared VPS and needs Mattia's explicit go-ahead when it is done.
+2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built on the dev Mac (linux/amd64), using Next.js `output: 'standalone'` for the dashboard, and loaded onto the VPS over the tailnet. The VPS only runs `node server.js` inside the containers. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
+3. **VPS inspection (DONE, 2026-10-04).** `omni`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only `postgres-omni`; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
+4. **No Tailscale ACL tag** in v1 (see 3.1).
 
 Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`) roughly 200-400 MB. Total about 0.3-0.55 GB, which fits the headroom only with the swapfile in place. If memory gets tight, fall back to serving a static dashboard build from the Hono service (no Next server).
 
@@ -135,10 +130,10 @@ Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`
 
 Note on MCP + Hono: the SDK's Streamable HTTP transport has historically been written for Node `req`/`res`. Check the current SDK for a web-standard (Fetch API) transport first. If unavailable, use the raw Node request/response objects exposed by `@hono/node-server` and delegate `/mcp` to the SDK transport. Verify against current SDK docs at build time rather than assuming.
 
-Repo layout (monorepo, pnpm workspaces):
+Repo layout (monorepo, pnpm workspaces). **The tracker is built inside the existing `linear-matti` repo, at its root** (decision: no separate repo or folder). This spec stays at the root as `tracker-spec.md`. The root `AGENTS.md` already holds the repo's agent-skills configuration and is left as is; the tracker's own agent-usage guide goes in `docs/agent-usage.md` instead. `docs/` already exists (`docs/agents/`, `docs/adr/`) and is shared.
 
 ```
-tracker/
+linear-matti/        # repo root
   apps/
     api/            # Hono service: REST + MCP + attachments
       src/
@@ -154,9 +149,11 @@ tracker/
     web/            # Next.js dashboard (self-hosted on the VPS)
   packages/
     shared/         # zod schemas, types, constants (statuses, priorities)
-  AGENTS.md
+  deploy/           # compose file, deploy script, backup scripts
+  AGENTS.md         # existing: agent-skills config (do not replace)
   README.md
-  docs/
+  docs/             # shared with existing docs/agents; adds agent-usage.md, mcp-tools.md, agent-setup.md, backup-restore.md
+  tracker-spec.md   # this spec
 ```
 
 ---
@@ -517,7 +514,7 @@ Concurrency: PATCH accepts optional `If-Match: <updated_at>` (or `expectedUpdate
   6. Tool descriptions are terse but state enums, defaults, and gotchas, since they cost context on every agent session.
 - Tool list (about 20): see Appendix A.
 - Resources and prompts (e.g. `issue://ABC-123`, a "triage backlog" prompt): **deferred**, add after observing real agent usage.
-- Provide an `AGENTS.md` snippet teaching agents the workflow conventions (see section 15).
+- Provide an agent-usage snippet (`docs/agent-usage.md`) teaching agents the workflow conventions (see section 15).
 
 ---
 
@@ -567,7 +564,7 @@ Everything configurable via env vars (validated with Zod at startup; fail fast w
 |----------|---------|---------|
 | `PORT` | `8787` | HTTP port |
 | `DATA_DIR` | `/data` | SQLite file + attachments |
-| `BASE_URL` | (required) | Externally visible base URL, e.g. `https://tracker.<tailnet>.ts.net` (used to build attachment links in responses) |
+| `BASE_URL` | (required) | Externally visible base URL, e.g. `https://omni.tail2b3fbf.ts.net` (used to build attachment links in responses) |
 | `MAX_ATTACHMENT_BYTES` | `10485760` | Per-file cap |
 | `MAX_MCP_UPLOAD_BYTES` | `5242880` | Base64 upload cap |
 | `DEFAULT_ISSUE_KEY` | `MAT` | Issue prefix used when a project is created without an explicit key |
@@ -576,7 +573,7 @@ Everything configurable via env vars (validated with Zod at startup; fail fast w
 | `LOG_LEVEL` | `info` | |
 | `TRUST_PROXY` | `true` | Read client IP from `X-Forwarded-For` when behind a proxy |
 
-**Dashboard (web container on the VPS)**: `TRACKER_API_URL`, `TRACKER_API_TOKEN`, `DASHBOARD_ALLOWED_LOGINS`, and (fallback login only) `DASHBOARD_PASSWORD_HASH`, `SESSION_SECRET`.
+**Dashboard (web container on the VPS)**: `TRACKER_API_URL`, `TRACKER_API_TOKEN`, `DASHBOARD_ALLOWED_LOGINS`. (`DASHBOARD_PASSWORD_HASH` and `SESSION_SECRET` exist only if the fallback login in 7.3 is built, which happens only if the deploy-time header check fails.)
 
 Hostname: the default is the node's MagicDNS name (`<node>.<tailnet>.ts.net`), so no domain purchase or DNS work is needed. If you later want a custom domain (for example for the OAuth phase), only `BASE_URL` and the proxy config change; nothing in code hardcodes a host.
 
@@ -584,23 +581,22 @@ Hostname: the default is the node's MagicDNS name (`<node>.<tailnet>.ts.net`), s
 
 ## 14. Deployment and backups
 
-### 14.1 Deployment (partly open: align with the VPS)
-Other things already run on the VPS (likely under Docker; to be verified). The exact compose layout is finalized after the VPS inspection in section 4. Fixed already:
-- Two services: `api` (Hono, port 8787) and `web` (Next.js standalone, port 3000), both bound to localhost / an internal network, never to a public interface.
-- `tailscale serve` is the only publisher (3.1). It must coexist with anything already served from the VPS's tailnet node on port 443; if that port is taken, use a different serve port or path.
-- Single data directory, config from env vars: works under Docker Compose or systemd.
+### 14.1 Deployment (decided)
+Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/postgres-omni/docker-compose.yml`:
+- Two services: `api` (Hono, port 8787) and `web` (Next.js standalone, port 3000), both bound to localhost, never to a public interface. `restart: unless-stopped`.
+- `tailscale serve` is the only publisher (3.1), on port 443.
+- Single data directory (`/data` volume), config from env vars.
 - `GET /healthz` on the API for container health checks.
-- Images built off-box (CI or dev machine) and pulled on the VPS. No builds on the VPS.
-- Memory limits suggestion: `api` 256 MB, `web` 512 MB.
+- Images built on the dev Mac (linux/amd64, buildx) and shipped with `docker save | ssh omni docker load`, then `docker compose up -d`. No registry, no CI in v1. A deploy script in the repo wraps these steps. No builds on the VPS.
+- Memory limits: `api` 256 MB, `web` 512 MB, with a 4 GB swapfile on the host.
+- Repo tooling: Biome (lint and format) and pnpm workspaces; pnpm is dev-only.
 - Docker caveat: published ports must be bound to `127.0.0.1` (e.g. `127.0.0.1:8787:8787`); Docker's default publishing bypasses some firewall rules.
 
-### 14.2 Backups (open; Tailscale makes it simple)
-Requirements regardless of method:
-- Back up the SQLite DB **safely** (Litestream, or `sqlite3 .backup` / `VACUUM INTO`; never a plain file copy while running).
-- Back up `/data/attachments`.
-- Store off the VPS.
-- Document a tested **restore** procedure, and test it once before the pilot ends.
-Options now that everything is on a tailnet: nightly `.backup` + rsync over Tailscale to another of your machines (no cloud account needed), or Litestream to S3-compatible storage if you want continuous off-site replication. Check what backup process the VPS already has before adding one.
+### 14.2 Backups (decided)
+- A **daily** job on the VPS writes a consistent DB snapshot using SQLite's online backup (`better-sqlite3` backup / `VACUUM INTO`, run from the tracker's own runtime because the host has no `sqlite3` CLI). Never a plain file copy of the live DB. Default: keep the last 3 snapshots on the VPS.
+- The **Windows machine pulls manually** over the tailnet (documented rsync-style script): latest snapshot plus `/data/attachments`. Keep the last 3 copies there. Accepted: the off-box copy can be stale, and losing some recent work is tolerable in v1. No Litestream, no cloud account.
+- Document a tested **restore** procedure in the README (restore the Windows copy into a scratch folder or container, start the service on it, check issues and attachments load) and run it once before the pilot ends.
+- No backup process existed on the VPS, so there is nothing to integrate with.
 
 ---
 
@@ -615,7 +611,7 @@ Options now that everything is on a tailnet: nightly `.backup` + rsync over Tail
 
 ### Documentation
 - `README.md`: what it is, architecture, local dev, config table, deploy notes, backup/restore.
-- `AGENTS.md` (for agents using the tracker, also usable as a snippet in other repos):
+- `docs/agent-usage.md` (the AGENTS.md-style guide for agents using the tracker, also usable as a snippet in other repos):
   - Always `list_issues` / search before creating duplicates.
   - Reference issues by identifier in commits and comments.
   - Status conventions (move to In Progress when starting, In Review when a PR/diff is ready, Done only when verified).
@@ -649,7 +645,7 @@ Options now that everything is on a tailnet: nightly `.backup` + rsync over Tail
 - Each imported issue gets an activity row `issue_created` with a note `imported from Linear`.
 
 ### 16.3 Cutover
-- Update agent MCP configs (Claude Code settings, Codex config, etc.) and the `AGENTS.md` snippet.
+- Update agent MCP configs (Claude Code settings, Codex config, etc.) and the agent-usage snippet.
 - Optionally run both MCP servers for a short overlap; no continuing two-way sync.
 - Export a final Linear JSON backup before canceling.
 
@@ -660,7 +656,7 @@ Options now that everything is on a tailnet: nightly `.backup` + rsync over Tail
 Each phase ends with passing tests and a short demo.
 
 **Phase 0: Prerequisites**
-- Add swapfile. Inspect VPS (Docker, reverse proxy, ports, backups). Choose domain placement. Create repo, tooling, CI that builds the Docker image.
+- Add 4 GB swapfile (needs explicit go-ahead). Create repo and tooling (Biome, pnpm workspaces), Dockerfiles, and the build-on-Mac deploy script (no CI). VPS inspection and domain placement are already decided.
 
 **Phase 1: Core service + DB**
 - Schema, migrations, config, service layer for projects, milestones, issues, labels, comments, relations, activity, soft delete/restore, FTS.
@@ -677,10 +673,10 @@ Each phase ends with passing tests and a short demo.
 - Storage interface + local-disk implementation, multipart upload, MCP `create_attachment` / `get_attachment`, download route, validation, SSRF protection, tests.
 
 **Phase 5: Deploy backend**
-- Finalize deployment and backup approach (open items), join the VPS to the tailnet with its tag and ACLs, publish with `tailscale serve`, create tokens, confirm nothing is publicly reachable, test restore.
+- Compose stack in `/opt/tracker`, publish with `tailscale serve` on 443 (no tag or ACL change), daily snapshot job and Windows pull script, create tokens, confirm nothing new is publicly reachable, verify the identity header from Mac and Windows, test restore.
 
 **Phase 6: Docs for agents**
-- README, `AGENTS.md`, generated MCP tool docs.
+- README, `docs/agent-usage.md`, generated MCP tool docs.
 
 **Phase 7: Dashboard design (prototype phase)**
 - Reference repos, optional Linear-clone survey, clickable prototypes, approval. (Can run in parallel with phases 1-6.)
@@ -702,16 +698,16 @@ Each phase ends with passing tests and a short demo.
 
 - **O1 (RESOLVED): identifier prefixes.** All projects use the single key `MAT`; the shared-key design in 6.2 handles it, and the Linear import keeps every `MAT-n` identifier valid. Original note, kept for context: **identifier prefixes vs Linear's model.** In Linear, `ABC-123` comes from a *team*, and a team normally contains many *projects*. This spec puts the prefix on the project (as decided) but stores the counter on a separate `issue_keys` table, so several projects can share one key. Confirm during the import design: if your Linear workspace has one team spanning many projects, you want those projects to share a key (e.g. all `BD-*`) so old identifiers stay valid. If each of your projects already has its own team/key, the default one-key-per-project works as is.
 - **O2 (RESOLVED): Domain/exposure.** Tailnet-only via `tailscale serve` on a MagicDNS hostname; no domain needed. A custom domain is only relevant for the future OAuth phase.
-- **O3: VPS deployment alignment.** Docker layout, ports, and whether `tailscale serve` is already in use on the VPS (section 4).
-- **O4: Backups.** Method chosen together with O3 (section 14.2).
+- **O3 (RESOLVED): VPS deployment alignment.** Docker Compose on `omni`, serve on port 443 (freed), Mac-built images, 4 GB swap (sections 3.1, 14.1).
+- **O4 (RESOLVED): Backups.** Daily snapshot on the VPS, manual pull to the Windows machine, keep 3 (section 14.2).
 - **O5: Dashboard design.** Reference repos and prototypes (section 12.4).
 - **O6: Import scope.** Everything vs open issues only; decided after the pilot.
 - **O7: OAuth.** Phase 2; confirm which clients need it (claude.ai custom connector, mobile).
-- **O8: Dashboard login.** Tailscale identity header assumed with a password fallback; confirm the header is available with your serve setup.
-- **O11: Non-tailnet clients.** Cloud agents, CI, or any runtime not on the tailnet cannot reach the tracker. List which agents run where; add an ephemeral Tailscale node for them or accept the limitation until the OAuth/public-MCP phase.
-- **O12: Memory headroom.** Dashboard adds about 200-400 MB; confirm after swap is in place. Fallback: static dashboard served by the API.
+- **O8 (RESOLVED): Dashboard login.** Identity header check only (`Tailscale-User-Login` vs `DASHBOARD_ALLOWED_LOGINS`); the password fallback (7.3) is built only if the deploy-time header check from Mac and Windows fails. Local header forging by other processes on `omni` is accepted for v1; document in the README.
+- **O11 (RESOLVED): Non-tailnet clients.** v1 agent hosts are Claude Code/Codex on the Mac and the Windows machine, both on the tailnet. CI, cloud agents and phone are unsupported until the OAuth phase.
+- **O12: Memory headroom.** Dashboard adds about 200-400 MB; confirm after the 4 GB swap is in place. Fallback: static dashboard served by the API.
 - **O9: Italian-language search quality.** FTS5 with `unicode61` is language-agnostic but stems English only; revisit if search quality in Italian content is poor.
-- **O10: Agent purge.** Disabled by default; confirm you are comfortable with that.
+- **O10 (RESOLVED): Agent purge.** Disabled by default (`ALLOW_AGENT_PURGE=false`); confirmed.
 
 ---
 
