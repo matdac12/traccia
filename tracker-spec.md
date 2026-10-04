@@ -50,7 +50,7 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
 | 16 | Auth later | OAuth 2.1 on the MCP endpoint (phase 2), so it works as a claude.ai custom connector |
 | 17 | Text format | Markdown for descriptions and comments |
 | 18 | Search | SQLite FTS5 over titles, descriptions, comments |
-| 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-usage.md` |
+| 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-snippet.md` |
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
 | 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`omni`); images built on the dev Mac and loaded with `docker save \| ssh omni docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
 | 22 | Rollout | Build, pilot on one new project for 1-2 weeks, then import + cut over |
@@ -130,7 +130,7 @@ Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`
 
 Note on MCP + Hono: the SDK's Streamable HTTP transport has historically been written for Node `req`/`res`. Check the current SDK for a web-standard (Fetch API) transport first. If unavailable, use the raw Node request/response objects exposed by `@hono/node-server` and delegate `/mcp` to the SDK transport. Verify against current SDK docs at build time rather than assuming.
 
-Repo layout (monorepo, pnpm workspaces). **The tracker is built inside the existing `linear-matti` repo, at its root** (decision: no separate repo or folder). This spec stays at the root as `tracker-spec.md`. The root `AGENTS.md` already holds the repo's agent-skills configuration and is left as is; the tracker's own agent-usage guide goes in `docs/agent-usage.md` instead. `docs/` already exists (`docs/agents/`, `docs/adr/`) and is shared.
+Repo layout (monorepo, pnpm workspaces). **The tracker is built inside the existing `linear-matti` repo, at its root** (decision: no separate repo or folder). This spec stays at the root as `tracker-spec.md`. The root `AGENTS.md` already holds the repo's agent-skills configuration and is left as is; the tracker's own agent snippet goes in `docs/agent-snippet.md` instead. `docs/` already exists (`docs/agents/`, `docs/adr/`) and is shared.
 
 ```
 linear-matti/        # repo root
@@ -152,7 +152,7 @@ linear-matti/        # repo root
   deploy/           # compose file, deploy script, backup scripts
   AGENTS.md         # existing: agent-skills config (do not replace)
   README.md
-  docs/             # shared with existing docs/agents; adds agent-usage.md, mcp-tools.md, agent-setup.md, backup-restore.md
+  docs/             # shared with existing docs/agents; adds agent-snippet.md, mcp-tools.md, agent-setup.md, backup-restore.md
   tracker-spec.md   # this spec
 ```
 
@@ -514,7 +514,7 @@ Concurrency: PATCH accepts optional `If-Match: <updated_at>` (or `expectedUpdate
   6. Tool descriptions are terse but state enums, defaults, and gotchas, since they cost context on every agent session.
 - Tool list (about 20): see Appendix A.
 - Resources and prompts (e.g. `issue://ABC-123`, a "triage backlog" prompt): **deferred**, add after observing real agent usage.
-- Provide an agent-usage snippet (`docs/agent-usage.md`) teaching agents the workflow conventions (see section 15).
+- Provide an agent snippet (`docs/agent-snippet.md`) teaching agents the workflow conventions (see section 15).
 
 ---
 
@@ -611,7 +611,7 @@ Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/
 
 ### Documentation
 - `README.md`: what it is, architecture, local dev, config table, deploy notes, backup/restore.
-- `docs/agent-usage.md` (the AGENTS.md-style guide for agents using the tracker, also usable as a snippet in other repos):
+- `docs/agent-snippet.md` (the AGENTS.md-style guide for agents using the tracker, also usable as a snippet in other repos):
   - Always `list_issues` / search before creating duplicates.
   - Reference issues by identifier in commits and comments.
   - Status conventions (move to In Progress when starting, In Review when a PR/diff is ready, Done only when verified).
@@ -645,7 +645,7 @@ Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/
 - Each imported issue gets an activity row `issue_created` with a note `imported from Linear`.
 
 ### 16.3 Cutover
-- Update agent MCP configs (Claude Code settings, Codex config, etc.) and the agent-usage snippet.
+- Update agent MCP configs (Claude Code settings, Codex config, etc.) and the agent snippet.
 - Optionally run both MCP servers for a short overlap; no continuing two-way sync.
 - Export a final Linear JSON backup before canceling.
 
@@ -676,7 +676,7 @@ Each phase ends with passing tests and a short demo.
 - Compose stack in `/opt/tracker`, publish with `tailscale serve` on 443 (no tag or ACL change), daily snapshot job and Windows pull script, create tokens, confirm nothing new is publicly reachable, verify the identity header from Mac and Windows, test restore.
 
 **Phase 6: Docs for agents**
-- README, `docs/agent-usage.md`, generated MCP tool docs.
+- README, `docs/agent-snippet.md`, generated MCP tool docs.
 
 **Phase 7: Dashboard design (prototype phase)**
 - Reference repos, optional Linear-clone survey, clickable prototypes, approval. (Can run in parallel with phases 1-6.)
