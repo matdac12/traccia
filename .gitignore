@@ -1,2 +1,12 @@
 opencode.json
 skills-lock.json
+
+node_modules
+dist
+.next
+.env
+/data
+*.db
+*.db-wal
+*.db-shm
+.claude/worktrees/
