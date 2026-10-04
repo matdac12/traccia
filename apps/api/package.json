@@ -5,16 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "tracker": "tsx src/cli/index.ts",
     "typecheck": "tsc -p .",
     "test": "vitest run"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",
     "@linear-matti/shared": "workspace:*",
-    "hono": "^4.9.0"
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.9.0",
+    "ulid": "^3.0.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.31.11",
     "tsx": "^4.20.0"
   }
 }
