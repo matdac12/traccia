@@ -81,6 +81,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key used when a project is created without one |
 | `ALLOW_AGENT_PURGE` | api | `false` | Whether `agent` tokens may purge |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Requests per minute, per token |
+| `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Requests per minute, per `you` token (the dashboard fans out several requests per page). Agent tokens keep `RATE_LIMIT_PER_MIN` |
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | api | `true` | Read the client IP from `X-Forwarded-For` |
 | `SOURCE_URL_EXTRA_PORTS` | api | empty | Comma-separated extra ports MCP `sourceUrl` fetches may use besides 443. Empty means 443 only |

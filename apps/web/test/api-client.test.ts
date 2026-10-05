@@ -10,6 +10,36 @@ function client(res: Response) {
   return { fetchMock, api: createApiClient({ baseUrl: "http://api:8787", token: "tok_secret", fetch: fetchMock as never }) };
 }
 
+describe("api client 429 handling", () => {
+  const rateLimited = () => json({ error: { code: "rate_limited", message: "Rate limit exceeded", details: {} } }, 429);
+  const make = (responses: Response[]) => {
+    const fetchMock = vi.fn(async () => responses.shift()!);
+    const sleep = vi.fn(async () => {});
+    const api = createApiClient({ baseUrl: "http://api:8787", token: "t", fetch: fetchMock as never, sleep });
+    return { fetchMock, sleep, api };
+  };
+  const schema = z.object({ n: z.number() });
+
+  it("retries once after Retry-After and returns the result", async () => {
+    const limited = new Response(null, { status: 429, headers: { "retry-after": "2" } });
+    const { api, fetchMock, sleep } = make([limited, json({ n: 1 })]);
+    expect(await api.request("/x", { schema })).toEqual({ n: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleep).toHaveBeenCalledWith(2000);
+  });
+  it("caps the wait", async () => {
+    const limited = new Response(null, { status: 429, headers: { "retry-after": "60" } });
+    const { api, sleep } = make([limited, json({ n: 1 })]);
+    await api.request("/x", { schema });
+    expect(sleep).toHaveBeenCalledWith(5000);
+  });
+  it("gives up after one retry with a rate_limited ApiError", async () => {
+    const { api, fetchMock } = make([rateLimited(), rateLimited()]);
+    await expect(api.request("/x", { schema })).rejects.toMatchObject({ status: 429, code: "rate_limited" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("api client", () => {
   it("sends the bearer token, builds the query and parses the response", async () => {
     const { api, fetchMock } = client(json({ n: 1 }));
