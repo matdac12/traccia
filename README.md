@@ -19,3 +19,7 @@ pnpm lint && pnpm typecheck && pnpm test
 pnpm --filter api dev   # serves http://localhost:3000/healthz
 pnpm format             # apply Biome formatting
 ```
+
+## Backup and restore
+
+A daily SQLite snapshot on the VPS (`tracker db snapshot`), a manual pull to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md).

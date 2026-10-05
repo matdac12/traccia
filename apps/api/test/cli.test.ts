@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -279,47 +280,55 @@ describe("tracker db snapshot", () => {
     copy.close();
   });
 
-  it("is consistent while another connection writes in a loop", async () => {
+  it("is consistent while another process writes in a loop", async () => {
     const e = await migrated();
-    const writer = new Database(join(e.DATA_DIR, "tracker.db"));
-    writer.pragma("journal_mode = WAL");
-    writer.pragma("busy_timeout = 5000");
-    writer.exec("CREATE TABLE pairs (id INTEGER PRIMARY KEY, grp INTEGER)");
-    const insert = writer.prepare("INSERT INTO pairs (grp) VALUES (?)");
-    const pair = writer.transaction((g: number) => {
-      insert.run(g);
-      insert.run(g);
-    });
-    let stop = false;
-    let g = 0;
-    const loop = (async () => {
-      while (!stop) {
-        pair(g++);
-        await new Promise((r) => setImmediate(r));
+    // A separate process commits two-row transactions as fast as it can, so
+    // writes genuinely overlap each snapshot.
+    const writerScript = `
+      const D = require("better-sqlite3");
+      const db = new D(process.argv[1]);
+      db.pragma("journal_mode = WAL");
+      db.pragma("busy_timeout = 5000");
+      db.exec("CREATE TABLE pairs (id INTEGER PRIMARY KEY, grp INTEGER)");
+      const ins = db.prepare("INSERT INTO pairs (grp) VALUES (?)");
+      const pair = db.transaction((g) => { ins.run(g); ins.run(g); });
+      console.log("ready");
+      for (let g = 0; ; g++) pair(g);
+    `;
+    const writer = spawn(
+      process.execPath,
+      ["-e", writerScript, join(e.DATA_DIR, "tracker.db")],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    try {
+      await new Promise<void>((resolve, reject) => {
+        writer.once("error", reject);
+        writer.once("exit", (c) => reject(new Error(`writer exited ${c}`)));
+        writer.stdout.once("data", () => resolve());
+      });
+      const dir = join(e.DATA_DIR, "backups");
+      for (let i = 0; i < 3; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        expect((await run(e, "--keep", "10")).code).toBe(0);
+        await new Promise((r) => setTimeout(r, 1100));
       }
-    })();
-    const dir = join(e.DATA_DIR, "backups");
-    for (let i = 0; i < 3; i++) {
-      await new Promise((r) => setTimeout(r, 10));
-      expect((await run(e, "--keep", "10")).code).toBe(0);
-      await new Promise((r) => setTimeout(r, 1100));
+      for (const f of snapshots(dir)) {
+        const copy = new Database(join(dir, f), { readonly: true });
+        expect(copy.pragma("integrity_check")).toEqual([
+          { integrity_check: "ok" },
+        ]);
+        const rows = copy
+          .prepare("SELECT grp, count(*) AS n FROM pairs GROUP BY grp")
+          .all() as { n: number }[];
+        expect(rows.length).toBeGreaterThan(0);
+        expect(rows.every((r) => r.n === 2)).toBe(true);
+        copy.close();
+      }
+      expect(snapshots(dir)).toHaveLength(3);
+    } finally {
+      writer.removeAllListeners("exit");
+      writer.kill();
     }
-    stop = true;
-    await loop;
-    writer.close();
-
-    for (const f of snapshots(dir)) {
-      const copy = new Database(join(dir, f), { readonly: true });
-      expect(copy.pragma("integrity_check")).toEqual([
-        { integrity_check: "ok" },
-      ]);
-      const rows = copy
-        .prepare("SELECT grp, count(*) AS n FROM pairs GROUP BY grp")
-        .all() as { n: number }[];
-      expect(rows.every((r) => r.n === 2)).toBe(true);
-      copy.close();
-    }
-    expect(snapshots(dir)).toHaveLength(3);
   }, 20_000);
 
   it("keeps exactly the newest N and ignores unrelated files", async () => {

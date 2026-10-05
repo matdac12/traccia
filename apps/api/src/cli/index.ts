@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { ConfigError, loadConfig, loadConfigFromEnv } from "../config.js";
-import { type Db, openDatabase } from "../db/connection.js";
+import { type Db, databasePath, openDatabase } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
 import { SnapshotError, takeSnapshot } from "../db/snapshot.js";
 import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
@@ -92,14 +92,12 @@ function runSnapshot(
   } catch (err) {
     throw new UsageError(errorMessage(err));
   }
+  // takeSnapshot validates --keep, so a bad value fails there with a clear error.
   const keep = values.keep === undefined ? 3 : Number(values.keep);
-  if (!Number.isInteger(keep) || keep < 1) {
-    throw new UsageError("--keep must be a positive integer");
-  }
   const config = env ? loadConfig(env) : loadConfigFromEnv();
   // Never create an empty database just to snapshot it.
-  if (!existsSync(join(config.dataDir, "tracker.db"))) {
-    throw new SnapshotError(`No database at ${config.dataDir}/tracker.db`);
+  if (!existsSync(databasePath(config.dataDir))) {
+    throw new SnapshotError(`No database at ${databasePath(config.dataDir)}`);
   }
   const { sqlite } = openDatabase(config.dataDir);
   try {

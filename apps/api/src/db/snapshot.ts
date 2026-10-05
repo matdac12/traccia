@@ -2,6 +2,7 @@ import {
   accessSync,
   chmodSync,
   constants,
+  existsSync,
   mkdirSync,
   readdirSync,
   renameSync,
@@ -66,6 +67,11 @@ export function takeSnapshot(
   const name = snapshotName(options.now ?? new Date());
   const finalPath = join(outDir, name);
   const partialPath = join(outDir, `.${name}.partial`);
+  if (existsSync(finalPath)) {
+    throw new SnapshotError(
+      `${finalPath} already exists; try again in a second.`,
+    );
+  }
   rmSync(partialPath, { force: true });
 
   try {
