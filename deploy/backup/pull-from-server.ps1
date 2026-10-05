@@ -1,19 +1,20 @@
 <#
 .SYNOPSIS
-  Pulls the latest Traccia snapshot and attachments from omni into a dated
-  folder on this Windows machine, then keeps only the newest copies.
+  Pulls the latest Traccia snapshot and attachments from your server into a
+  dated folder on this Windows machine, then keeps only the newest copies.
 
 .DESCRIPTION
   Read-only on the VPS: it lists the snapshots and streams a tar of the newest
-  snapshot plus /data/attachments over ssh. Nothing on omni is written or
+  snapshot plus /data/attachments over ssh. Nothing on the server is written or
   deleted. Retention only ever deletes older pulled folders on THIS machine.
 
   Needs the Windows OpenSSH client (ssh.exe) and tar.exe (both ship with
-  Windows 10 1803+ / Windows 11), and a working tailnet connection to omni.
+  Windows 10 1803+ / Windows 11), and a working tailnet connection to the
+  server.
   The tar is streamed with Start-Process -RedirectStandardOutput because
   PowerShell's own pipeline would corrupt binary data.
 
-  First real run (MAT-1716) found that Git's GNU tar breaks on C:\ paths, so
+  First real run (TRC-42) found that Git's GNU tar breaks on C:\ paths, so
   the script calls %SystemRoot%\System32\tar.exe explicitly. Use -WhatIf first.
 
 .PARAMETER Destination
@@ -23,30 +24,31 @@
   How many pulled copies to keep, newest first. Default 3.
 
 .PARAMETER HostName
-  ssh host. Default omni.
+  Required. ssh alias or hostname of your server (the same value you pass as
+  DEPLOY_HOST to deploy.sh).
 
 .PARAMETER RemoteDir
-  Compose directory on the host. Default /opt/tracker (the directory keeps its pre-rename name on omni).
+  Compose directory on the host. Default /opt/tracker (the directory keeps its pre-rename name on the server).
 
 .EXAMPLE
-  .\pull-from-omni.ps1 -WhatIf     # print the steps, touch nothing
+  .\pull-from-server.ps1 -HostName my-vps -WhatIf   # print the steps, touch nothing
 
 .EXAMPLE
-  .\pull-from-omni.ps1
+  .\pull-from-server.ps1 -HostName my-vps
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
   [string]$Destination = (Join-Path $HOME 'traccia-backups'),
   [ValidateRange(1, 1000)][int]$Keep = 3,
-  [string]$HostName = 'omni',
+  [Parameter(Mandatory = $true)][string]$HostName,
   [string]$RemoteDir = '/opt/tracker'
 )
 
 $ErrorActionPreference = 'Stop'
 
-# The "ssh omni" alias in the ssh config sets RemoteCommand/RequestTTY, which
-# break scripted use, so override both. BatchMode fails fast instead of
-# prompting for a password.
+# The server's ssh config may set RemoteCommand/RequestTTY, which break
+# scripted use, so override both. BatchMode fails fast instead of prompting
+# for a password.
 $sshOpts = @('-o', 'RemoteCommand=none', '-o', 'RequestTTY=no', '-o', 'BatchMode=yes')
 
 # Remote commands contain no double quotes, so Windows PowerShell's argument
@@ -59,14 +61,14 @@ $tarCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'cd /data && tar -c
 $tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
 
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$target = Join-Path $Destination "omni-$stamp"
-$tarFile = Join-Path $Destination ".omni-$stamp.tar.partial"
+$target = Join-Path $Destination "traccia-$stamp"
+$tarFile = Join-Path $Destination ".traccia-$stamp.tar.partial"
 
 if ($WhatIfPreference) {
   Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$listCmd`"   (pick the newest traccia-<UTC>.db or pre-rename tracker-<UTC>.db)"
   Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$($tarCmd -f '<newest>')`" > $tarFile"
   Write-Host "[WhatIf] $tarExe -xf $tarFile -C $target"
-  Write-Host "[WhatIf] keep the newest $Keep omni-* folders in $Destination, delete older ones (local only)"
+  Write-Host "[WhatIf] keep the newest $Keep traccia-* folders in $Destination, delete older ones (local only)"
   return
 }
 
@@ -116,13 +118,13 @@ if (Test-Path -LiteralPath $attachmentsDir -PathType Container) {
   Write-Host "  attachments: $attachmentsDir"
 }
 else {
-  Write-Host '  attachments: none (no attachments on omni)'
+  Write-Host '  attachments: none (no attachments on the server)'
 }
 
 # 4. Retention, local folders only, only after a successful pull. The dated
 # names sort chronologically.
 $old = Get-ChildItem -LiteralPath $Destination -Directory |
-  Where-Object { $_.Name -match '^omni-\d{8}-\d{6}$' } |
+  Where-Object { $_.Name -match '^traccia-\d{8}-\d{6}$' } |
   Sort-Object Name -Descending |
   Select-Object -Skip $Keep
 foreach ($dir in $old) {

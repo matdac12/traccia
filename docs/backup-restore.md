@@ -54,14 +54,14 @@ Cron alternative, if you prefer it: `30 3 * * * cd /opt/tracker && docker compos
 
 ## Pulling to the Windows machine
 
-Script: `deploy/backup/pull-from-omni.ps1` (PowerShell, Windows 10 1803+ or 11).
+Script: `deploy/backup/pull-from-server.ps1` (PowerShell, Windows 10 1803+ or 11). `-HostName` is required: pass your server's ssh alias or hostname (the same value as `DEPLOY_HOST`).
 
-> **Run with `-WhatIf` first.** The first real run on Windows (MAT-1716) failed because Git for Windows' GNU `tar` comes first on `PATH` and reads `C:\...` as `host:path`; the script now calls `%SystemRoot%\System32\tar.exe` explicitly.
+> **Run with `-WhatIf` first.** The first real run on Windows (TRC-42) failed because Git for Windows' GNU `tar` comes first on `PATH` and reads `C:\...` as `host:path`; the script now calls `%SystemRoot%\System32\tar.exe` explicitly.
 
 ```powershell
-.\pull-from-omni.ps1 -WhatIf   # print the steps, touch nothing
-.\pull-from-omni.ps1           # pull into $HOME\traccia-backups\omni-<yyyyMMdd-HHmmss>
-.\pull-from-omni.ps1 -Destination D:\backups -Keep 3
+.\pull-from-server.ps1 -HostName <your-server> -WhatIf   # print the steps, touch nothing
+.\pull-from-server.ps1 -HostName <your-server>           # pull into $HOME\traccia-backups\traccia-<yyyyMMdd-HHmmss>
+.\pull-from-server.ps1 -HostName <your-server> -Destination D:\backups -Keep 3
 ```
 
 Tooling choice: the Windows OpenSSH client (`ssh.exe`) plus the built-in `tar.exe`. There is no `rsync` on Windows by default, and the data sits in a Docker volume that only root can read on the host, so the script asks the container to stream a tar over ssh (`docker compose exec -T api tar ... -cf -`) and extracts it locally. The stream goes through `Start-Process -RedirectStandardOutput`, because the PowerShell pipeline is not binary-safe.
@@ -69,16 +69,16 @@ Tooling choice: the Windows OpenSSH client (`ssh.exe`) plus the built-in `tar.ex
 It:
 
 1. Lists `/data/backups` and picks the newest `traccia-*.db` (or pre-rename `tracker-*.db`).
-2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\traccia-….db` and `attachments\`). If <your-server> has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on <your-server>)`; that is not an error.
-3. Only after a successful pull, deletes older `omni-*` folders beyond `-Keep` (default 3).
+2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `traccia-<timestamp>\` (`backups\traccia-….db` and `attachments\`). If <your-server> has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on <your-server>)`; that is not an error.
+3. Only after a successful pull, deletes older `traccia-*` folders beyond `-Keep` (default 3).
 
-It never writes to or deletes anything on the VPS. Retention touches only folders matching `omni-<digits>-<digits>` in the destination. Pull after the daily timer has run at least once, otherwise it stops with "No snapshot found".
+It never writes to or deletes anything on the VPS. Retention touches only folders matching `traccia-<digits>-<digits>` in the destination. Pull after the daily timer has run at least once, otherwise it stops with "No snapshot found".
 
 ## Restore procedure
 
 Do this into a scratch location, not over production. The first time is the restore test (once, before the pilot ends). For a real disaster, the same steps apply but the final data goes into the `traccia-data` volume on the new host.
 
-Use the newest folder from the Windows pull: `omni-<timestamp>\backups\traccia-<UTC>.db` (or the pre-rename `tracker-<UTC>.db`) and `omni-<timestamp>\attachments\`.
+Use the newest folder from the Windows pull: `traccia-<timestamp>\backups\traccia-<UTC>.db` (or the pre-rename `tracker-<UTC>.db`) and `traccia-<timestamp>\attachments\`.
 
 The restore machine needs Docker and the `traccia-api:latest` image. If it doesn't have the image, either build it there from the repo root (`docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile -t traccia-api:latest .`), or save it on the machine that has it and move the tar over (tailnet/Taildrop or a share), then load it:
 
@@ -101,7 +101,7 @@ ssh -o RemoteCommand=none -o RequestTTY=no <your-server> 'cd /opt/tracker && doc
 1. **Lay out a scratch data dir.** The API expects `traccia.db` and `attachments/` side by side:
 
    ```powershell
-   $pull = "$HOME\traccia-backups\omni-<timestamp>"
+   $pull = "$HOME\traccia-backups\traccia-<timestamp>"
    $scratch = "$HOME\traccia-restore-test"
    New-Item -ItemType Directory -Force "$scratch" | Out-Null
    Copy-Item "$pull\backups\traccia-<UTC>.db" "$scratch\traccia.db"
