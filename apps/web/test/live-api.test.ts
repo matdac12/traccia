@@ -64,6 +64,18 @@ describe("refreshIssueGroups", () => {
     expect(follow.getAll("cursor")).toEqual(["todo:c1"]);
   });
 
+  it("only reads the chosen statuses, in one request each time", async () => {
+    fetchMock.mockImplementation(async (u: URL) =>
+      json({ groups: new URL(String(u)).searchParams.getAll("status").map((s) => group(s, [])), syncToken: "t" }),
+    );
+    const { refreshIssueGroups, listIssueGroups } = await import("../lib/api/issues");
+    const filters = { ...DEFAULT_FILTERS, status: ["todo" as const, "done" as const] };
+    expect((await listIssueGroups(filters)).groups.map((g) => g.status)).toEqual(["todo", "done"]);
+    expect((await refreshIssueGroups(filters, {}, false)).map((g) => g.status)).toEqual(["todo", "done"]);
+    expect(calledUrls()).toHaveLength(2);
+    expect(calledUrls()[0]!.searchParams.getAll("status")).toEqual(["todo", "done"]);
+  });
+
   it("lists by board position for the board", async () => {
     fetchMock.mockImplementation(async () => json(groupsBody(group("todo", []))));
     const { refreshIssueGroups } = await import("../lib/api/issues");

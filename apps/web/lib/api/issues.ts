@@ -1,6 +1,6 @@
 import "server-only";
-import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
-import { filtersToApiQuery, type IssueFilters } from "../issue-filters";
+import type { IssueStatus } from "@traccia/shared";
+import { filtersToApiQuery, visibleStatuses, type IssueFilters } from "../issue-filters";
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError, api } from "./client";
@@ -18,8 +18,8 @@ export function listIssuePage(filters: IssueFilters, status: IssueStatus, cursor
 
 type GroupCursors = Partial<Record<IssueStatus, string>>;
 
-/** `GET /issues/groups`: one request for the listed statuses (default all), each continuing from its own cursor. */
-function fetchGroups(filters: IssueFilters, statuses: readonly IssueStatus[] = ISSUE_STATUSES, cursors: GroupCursors = {}) {
+/** `GET /issues/groups`: one request for the listed statuses (default: the filters' visible ones), each continuing from its own cursor. */
+function fetchGroups(filters: IssueFilters, statuses: readonly IssueStatus[] = visibleStatuses(filters), cursors: GroupCursors = {}) {
   return api().request("/issues/groups", {
     schema: issueGroupsSchema,
     query: {

@@ -84,6 +84,7 @@ describe("pagination", () => {
     "createdAt",
     "priority",
     "sortOrder",
+    "title",
   ] as const) {
     for (const order of ["asc", "desc"] as const) {
       it(`pages 600 rows without gaps or repeats (${orderBy} ${order})`, () => {
