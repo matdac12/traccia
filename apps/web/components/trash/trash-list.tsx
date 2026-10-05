@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { purgeAction, restoreAction } from "@/app/(app)/trash/actions";
 import { Button } from "@/components/ui/button";
 import type { TrashItem, TrashType } from "@/lib/api/schemas";
-import { companions, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL } from "./trash-model";
+import { batchPeers, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL } from "./trash-model";
 
 const ICON = { issue: SquareCheck, comment: MessageSquare, project: FolderKanban, milestone: Flag, attachment: FileImage } satisfies Record<TrashType, unknown>;
 
@@ -76,7 +76,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
       <ul>
         {items.map((t) => {
           const Icon = ICON[t.type];
-          const together = companions(t, all);
+          const together = batchPeers(t, all);
           return (
             <li key={`${t.type}:${t.id}`} className="group flex min-h-11 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/40">
               <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -90,7 +90,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
                   with {together.length} {together.length === 1 ? "other" : "others"}
                 </span>
               ) : null}
-              <time dateTime={t.deletedAt} className="w-16 shrink-0 text-right text-xs text-muted-foreground">
+              <time dateTime={t.deletedAt} title={new Date(t.deletedAt).toLocaleString()} className="w-16 shrink-0 text-right text-xs text-muted-foreground">
                 {ago(t.deletedAt)}
               </time>
               <div className="flex shrink-0 gap-1">
@@ -135,7 +135,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
                   <span className="font-medium text-foreground">“{text?.name}”</span> will be deleted forever. {text?.warning}
                 </p>
                 {text?.withIt ? <p>{text.withIt}</p> : null}
-                <p>Only you can purge; agents cannot.</p>
+                <p>Purging is reserved for you.</p>
               </div>
             </AlertDialog.Description>
             {purgeError ? (

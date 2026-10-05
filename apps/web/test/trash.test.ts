@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../lib/api/client";
 import type { TrashItem } from "../lib/api/schemas";
-import { itemHref, purgeConfirmation, restoreSummary } from "../components/trash/trash-model";
+import { batchPeers, itemHref, purgeConfirmation, restoreSummary } from "../components/trash/trash-model";
 
 const restoreItem = vi.fn();
 const purgeItem = vi.fn();
@@ -47,7 +47,7 @@ describe("purge", () => {
   });
   it("displays a forbidden purge", async () => {
     purgeItem.mockRejectedValue(new ApiError(403, "forbidden", "This actor is not allowed to purge"));
-    expect(await purgeAction("issue", "i1")).toEqual({ ok: false, code: "forbidden", message: "Purge is not allowed for this token." });
+    expect(await purgeAction("issue", "i1")).toEqual({ ok: false, code: "forbidden", message: "Purge is not allowed for this actor." });
   });
   it("displays an unreachable API", async () => {
     purgeItem.mockRejectedValue(new ApiError(0, "unreachable", "boom"));
@@ -68,7 +68,10 @@ describe("purge confirmation", () => {
     const c = purgeConfirmation(all[0]!, all);
     expect(c.name).toBe("MAT-1 Fix it");
     expect(c.warning).toBe("This cannot be undone.");
-    expect(c.withIt).toBe("This also permanently removes 2 comments and 1 attachment deleted with it.");
+    expect(c.withIt).toBe("This also permanently removes at least 2 comments and 1 attachment deleted with it.");
+  });
+  it("badge counts only what a restore brings back", () => {
+    expect(batchPeers(all[0]!, all).map((i) => i.id)).toEqual(["c1", "a1"]);
   });
   it("has no children line for a lone item", () => {
     expect(purgeConfirmation(all[4]!, all).withIt).toBeNull();

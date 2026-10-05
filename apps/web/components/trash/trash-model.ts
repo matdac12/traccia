@@ -30,9 +30,15 @@ function describeCounts(byType: Partial<Record<TrashType, number>>): string {
 /** The part of a trash label that is the issue identifier ("MAT-12 Fix it" -> "MAT-12"). */
 export const issueIdentifier = (label: string) => label.split(" ")[0] ?? label;
 
+/** Other trashed items deleted in the same action: exactly what a restore brings back with `item`. */
+export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashItem[] {
+  if (item.deletedBatch === null) return [];
+  return all.filter((o) => !(o.type === item.type && o.id === item.id) && o.deletedBatch === item.deletedBatch);
+}
+
 /**
- * Other trashed items that go away with `item` when it is purged: the rest of its delete batch
- * plus, for an issue, every trashed comment and attachment that hangs off it.
+ * Other trashed items that go away with `item` when it is purged: its batch peers plus, for an
+ * issue, every trashed comment and attachment that hangs off it (even from an earlier batch).
  */
 export function companions(item: TrashItem, all: readonly TrashItem[]): TrashItem[] {
   return all.filter(
@@ -56,7 +62,12 @@ export function purgeConfirmation(item: TrashItem, all: readonly TrashItem[]) {
     title: `Purge ${TYPE_LABEL[item.type].toLowerCase()} permanently?`,
     name: item.label,
     warning: "This cannot be undone.",
-    withIt: others.length > 0 ? `This also permanently removes ${summarize(others)} deleted with it.` : null,
+    // Trash items do not say which project an issue belongs to, so for a project or issue the list
+    // can miss children deleted in an earlier batch: state it as a lower bound.
+    withIt:
+      others.length > 0
+        ? `This also permanently removes ${item.type === "project" || item.type === "issue" ? "at least " : ""}${summarize(others)} deleted with it.`
+        : null,
   };
 }
 
@@ -70,7 +81,7 @@ export function restoreSummary(result: RestoreResult): string {
     comment: counts.comments,
     attachment: counts.attachments,
   };
-  // The item itself is one of its own type; report everything.
+  // Several items came back (the batch): list them all; a lone item just names its type.
   const total = Object.values(extra).reduce((a, b) => a + (b ?? 0), 0);
   return total > 1 ? `Restored ${describeCounts(extra)}.` : `Restored ${type}.`;
 }
@@ -96,7 +107,7 @@ export type ActionError = { ok: false; code: string; message: string };
 export function errorText(code: string, message: string, verb: "restore" | "purge"): string {
   switch (code) {
     case "forbidden":
-      return verb === "purge" ? "Purge is not allowed for this token." : `You are not allowed to ${verb} this item.`;
+      return verb === "purge" ? "Purge is not allowed for this actor." : `You are not allowed to ${verb} this item.`;
     case "not_found":
       return "This item no longer exists. Reload to refresh the list.";
     case "conflict":

@@ -1,8 +1,9 @@
 "use server";
 
+import { restoreBodySchema } from "@linear-matti/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError } from "@/lib/api/client";
-import { TRASH_TYPES, type RestoreResult, type TrashType } from "@/lib/api/schemas";
+import type { RestoreResult, TrashType } from "@/lib/api/schemas";
 import { purgeItem, restoreItem } from "@/lib/api/trash";
 import { errorText, type ActionError } from "@/components/trash/trash-model";
 
@@ -14,14 +15,18 @@ function fail(err: unknown, verb: "restore" | "purge"): ActionError {
   return { ok: false, code: "unknown", message: `Could not ${verb} this item.` };
 }
 
-function valid(type: string, id: string): type is TrashType {
-  return (TRASH_TYPES as readonly string[]).includes(type) && id.length > 0;
+/** Same shape as the API's restore body, which covers every trash type. */
+function parse(type: string, id: string) {
+  const r = restoreBodySchema.safeParse({ type, id });
+  return r.success ? (r.data as { type: TrashType; id: string }) : null;
 }
 
 export async function restoreAction(type: string, id: string): Promise<RestoreOutcome> {
-  if (!valid(type, id)) return { ok: false, code: "validation_error", message: "Invalid item." };
+  const input = parse(type, id);
+  if (!input) return { ok: false, code: "validation_error", message: "Invalid item." };
   try {
-    const result = await restoreItem(type, id);
+    const result = await restoreItem(input.type, input.id);
+    // A restore brings items back into issue lists and the project nav too.
     revalidatePath("/", "layout");
     return { ok: true, result };
   } catch (err) {
@@ -30,9 +35,10 @@ export async function restoreAction(type: string, id: string): Promise<RestoreOu
 }
 
 export async function purgeAction(type: string, id: string): Promise<PurgeOutcome> {
-  if (!valid(type, id)) return { ok: false, code: "validation_error", message: "Invalid item." };
+  const input = parse(type, id);
+  if (!input) return { ok: false, code: "validation_error", message: "Invalid item." };
   try {
-    await purgeItem(type, id);
+    await purgeItem(input.type, input.id);
     revalidatePath("/trash");
     return { ok: true };
   } catch (err) {
