@@ -5,9 +5,9 @@ import { z } from "zod";
 import { canPurge } from "../../auth/permissions.js";
 import type { Db } from "../../db/connection.js";
 import { milestones } from "../../db/schema.js";
-import { resolveIssue } from "../../service/issues.js";
+import { type IssueUpdateHook, resolveIssue } from "../../service/issues.js";
 import { resolveProject } from "../../service/projects.js";
-import { loadRelations } from "../../service/relations.js";
+import { loadRelations, setBlockersTx } from "../../service/relations.js";
 import { resolveUpdatedAfter } from "../duration.js";
 import { toolError, toolResult } from "../errors.js";
 import type { McpContext } from "../server.js";
@@ -357,10 +357,16 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
       project: projectRef,
       milestoneId,
     });
-    if (labels?.length) {
-      services.issues.update(actor, created.identifier, { labels });
+    if (labels?.length || blockedBy?.length || blocks?.length) {
+      // Labels and blockers attach in one transaction.
+      services.issues.update(
+        actor,
+        created.identifier,
+        { labels },
+        blockedBy || blocks ? blockersHook(blockedBy, blocks) : undefined,
+      );
     }
-    return applyRelations(created.identifier, blockedBy, blocks);
+    return presentSaved(created.identifier, !!(blockedBy || blocks));
   }
 
   function updateIssue(
@@ -387,53 +393,31 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
         );
       }
     }
-    // Fields, labels and the optimistic-concurrency check commit atomically.
-    services.issues.update(actor, issue.identifier, {
-      ...rest,
-      title,
-      milestoneId,
-    });
-    return applyRelations(issue.identifier, blockedBy, blocks);
+    // Fields, labels, blocker sets, project move and the optimistic-concurrency
+    // check commit atomically: any failure leaves the issue untouched.
+    services.issues.update(
+      actor,
+      issue.identifier,
+      { ...rest, title, milestoneId },
+      blockersHook(blockedBy, blocks),
+    );
+    return presentSaved(issue.identifier, !!(blockedBy || blocks));
   }
 
-  /** Replaces blocker sets (when given) by diffing against the current ones. */
-  function applyRelations(
-    identifier: string,
+  /** Update hook that syncs blocker sets in the update transaction, if given. */
+  function blockersHook(
     blockedBy: string[] | undefined,
     blocks: string[] | undefined,
-  ) {
-    const issue = resolveIssue(db, identifier);
-    if (blockedBy || blocks) {
-      const current = loadRelations(db, issue.id);
-      const sync = (
-        want: string[] | undefined,
-        have: { identifier: string }[],
-        add: (other: string) => void,
-        remove: (other: string) => void,
-      ) => {
-        if (!want) return;
-        const wanted = new Set(want.map((r) => resolveIssue(db, r).identifier));
-        for (const h of have)
-          if (!wanted.has(h.identifier)) remove(h.identifier);
-        const present = new Set(have.map((h) => h.identifier));
-        for (const w of wanted) if (!present.has(w)) add(w);
-      };
-      sync(
-        blockedBy,
-        current.blockedBy,
-        (o) => services.relations.addBlocker(actor, o, issue.identifier),
-        (o) => services.relations.removeBlocker(actor, o, issue.identifier),
-      );
-      sync(
-        blocks,
-        current.blocks,
-        (o) => services.relations.addBlocker(actor, issue.identifier, o),
-        (o) => services.relations.removeBlocker(actor, issue.identifier, o),
-      );
-    }
+  ): IssueUpdateHook | undefined {
+    if (blockedBy === undefined && blocks === undefined) return undefined;
+    return (tx, updated, by) =>
+      setBlockersTx(tx, by, updated.id, { blockedBy, blocks });
+  }
+
+  function presentSaved(identifier: string, withRelations: boolean) {
     const fresh = resolveIssue(db, identifier);
     const relations =
-      blockedBy || blocks
+      withRelations
         ? (() => {
             const r = loadRelations(db, fresh.id);
             return {

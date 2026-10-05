@@ -2,9 +2,38 @@ import type { ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { attachmentIdFromUrl, fileUrl } from "@/lib/attachments";
 
-// Images are dropped: agent-written text must not make the viewer's browser fetch arbitrary URLs.
-const schema = { ...defaultSchema, tagNames: (defaultSchema.tagNames ?? []).filter((t) => t !== "img") };
+type HastNode = { type: string; tagName?: string; properties?: Record<string, unknown>; children?: HastNode[] };
+
+/**
+ * Agent-written text must not make the viewer's browser fetch arbitrary URLs, so the only images
+ * rendered are Traccia attachments: `<BASE_URL>/files/<id>` (what `create_attachment` produces) is
+ * rewritten to the proxy route and every other image is dropped. Runs BEFORE rehype-sanitize, which
+ * then also refuses any `src` that has a protocol (a second layer if this plugin were bypassed).
+ */
+function rehypeAttachmentImages() {
+  const walk = (node: HastNode) => {
+    if (!node.children) return;
+    node.children = node.children.filter((child) => {
+      if (child.type === "element" && child.tagName === "img") {
+        const id = attachmentIdFromUrl(String(child.properties?.src ?? ""));
+        if (!id) return false;
+        child.properties = { ...child.properties, src: fileUrl(id), loading: "lazy" };
+        return true;
+      }
+      walk(child);
+      return true;
+    });
+  };
+  return (tree: HastNode) => walk(tree);
+}
+
+const schema = {
+  ...defaultSchema,
+  attributes: { ...defaultSchema.attributes, img: ["src", "alt", "title", "loading"] },
+  protocols: { ...defaultSchema.protocols, src: [] },
+};
 
 /**
  * Renders issue and comment markdown. Raw HTML is never rendered (react-markdown ignores it
@@ -15,7 +44,7 @@ const schema = { ...defaultSchema, tagNames: (defaultSchema.tagNames ?? []).filt
 export function Markdown({ children }: { children: string }) {
   return (
     <div className="md">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeSanitize, schema]]} components={{ a: ExternalLink }}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeAttachmentImages, [rehypeSanitize, schema]]} components={{ a: ExternalLink }}>
         {children}
       </ReactMarkdown>
     </div>

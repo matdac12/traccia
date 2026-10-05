@@ -34,6 +34,20 @@ describe("Markdown sanitization", () => {
   it("does not render remote images", () => {
     expect(html("![t](https://tracker.example/p.png)")).not.toMatch(/<img|tracker\.example/);
   });
+  it("rewrites <BASE_URL>/files/<id> images to the proxy route", () => {
+    const id = "01J9ZZZZZZZZZZZZZZZZZZZZZZ";
+    for (const url of [`https://tracker.example/files/${id}`, `http://100.64.0.1:8787/files/${id}`, `/files/${id}`]) {
+      const out = html(`![shot](${url})`);
+      expect(out).toContain(`src="/api/files/${id}"`);
+      expect(out).toContain('alt="shot"');
+      expect(out).not.toMatch(/tracker\.example|100\.64/);
+    }
+  });
+  it("still drops images that are not attachments, even with a /files/ look-alike", () => {
+    for (const url of ["https://evil.example/x.png", "//evil.example/files/short", "/api/files/../../x", "https://evil.example/files/abc"]) {
+      expect(html(`![t](${url})`)).not.toMatch(/<img|evil/);
+    }
+  });
   it("keeps https links and opens them safely", () => {
     const out = html("[docs](https://example.com/a)");
     expect(out).toContain('href="https://example.com/a"');
