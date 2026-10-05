@@ -56,7 +56,7 @@ type SidebarProps = {
 function SidebarContent({ projects, projectsUnavailable, login, collapsed = false, onToggle }: SidebarProps) {
   const path = usePathname();
   const createIssue = useCreateIssue();
-  const current = projects.find((p) => path === `/projects/${p.id}`);
+  const current = projects.find((p) => path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`));
   const switcherLabel = current?.name ?? "Traccia";
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
@@ -135,7 +135,7 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
           <NavItem
             key={p.id}
             href={`/projects/${p.id}`}
-            active={path === `/projects/${p.id}`}
+            active={path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`)}
             label={p.name}
             collapsed={collapsed}
             icon={collapsed

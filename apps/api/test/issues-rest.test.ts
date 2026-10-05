@@ -540,6 +540,18 @@ describe("search, activity and trash", () => {
     expect(p2.json.nextCursor).toBeNull();
   });
 
+  it("filters the activity feed by project and 404s on an unknown one", async () => {
+    const t = setup();
+    const a = await t.mk("A");
+    const q = t.services.projects.create("you", { name: "Q" });
+    t.services.issues.create("agent", { project: q.id, title: "Elsewhere" });
+    const feed = await t.call("GET", `/activity?project=${t.project.id}`);
+    expect(feed.status).toBe(200);
+    expect(feed.json.items.map((i: { identifier: string }) => i.identifier)).toEqual([a.identifier]);
+    expect((await t.call("GET", "/activity?project=nope")).status).toBe(404);
+    expect((await t.call("GET", "/activity?project=")).status).toBe(400);
+  });
+
   it("purge: agent forbidden by default, needs a prior delete; you may purge", async () => {
     const t = setup();
     const a = await t.mk("A");

@@ -170,6 +170,10 @@ export const activitySchema = z.object({
 });
 export type ActivityRow = z.infer<typeof activitySchema>;
 
+/** A row of `GET /activity`: an activity row plus the issue it belongs to. */
+export const activityFeedItemSchema = activitySchema.extend({ identifier: z.string(), title: z.string() });
+export type ActivityFeedItem = z.infer<typeof activityFeedItemSchema>;
+
 /** A file on an issue (MAT-1725). `actor` and `createdAt` come with every attachment the API returns. */
 export const attachmentSchema = z.object({
   id: z.string(),

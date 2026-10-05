@@ -23,7 +23,7 @@ describe("label flows", () => {
   it("creates a project-scoped label", async () => {
     expect(await actions.createLabelAction("P1", { name: "bug", color: "#ff0000", scoped: true })).toEqual({ ok: true, data: undefined });
     expect(m.createLabel).toHaveBeenCalledWith({ name: "bug", color: "#ff0000", project: "P1" });
-    expect(revalidatePath).toHaveBeenCalledWith("/projects/P1");
+    expect(revalidatePath).toHaveBeenCalledWith("/projects/P1", "layout");
   });
   it("creates a global label", async () => {
     await actions.createLabelAction("P1", { name: "bug", color: "#ff0000", scoped: false });
@@ -78,7 +78,7 @@ describe("project edits", () => {
     m.updateProject.mockRejectedValue(new ApiError(409, "conflict", "Project was modified since it was read", { currentUpdatedAt: "T9" }));
     const res = await actions.updateProjectDescriptionAction("P1", "mine", "T0");
     expect(res).toMatchObject({ ok: false, conflict: true });
-    expect(revalidatePath).toHaveBeenCalledWith("/projects/P1");
+    expect(revalidatePath).toHaveBeenCalledWith("/projects/P1", "layout");
     m.updateMilestone.mockRejectedValue(new ApiError(409, "conflict", "Milestone was modified since it was read", { currentUpdatedAt: "T9" }));
     expect(await actions.updateMilestoneAction("P1", "m1", { name: "x", targetDate: "" }, "T0")).toMatchObject({ ok: false, conflict: true });
     m.updateProject.mockRejectedValue(new ApiError(404, "not_found", "gone"));

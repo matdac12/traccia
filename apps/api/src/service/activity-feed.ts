@@ -9,8 +9,11 @@ import {
   type Page,
 } from "../rest/pagination.js";
 import { parseInput, type ServiceContext } from "./context.js";
+import { resolveProject } from "./projects.js";
 
 export const activityFeedInputSchema = z.object({
+  /** Project id, name or key: only activity on that project's issues. */
+  project: z.string().min(1).optional(),
   limit: z.number().int().min(1).optional(),
   cursor: z.string().min(1).optional(),
 });
@@ -56,11 +59,13 @@ export function createActivityFeedService(ctx: ServiceContext) {
     /**
      * Recent activity across issues, newest first (keyset-paginated on
      * `created_at`, then id). Activity of soft-deleted issues is hidden with
-     * them and returns on restore.
+     * them and returns on restore. `project` limits it to one project's issues
+     * (404 for an unknown project).
      */
     list(input: ActivityFeedInput = {}): Page<ActivityFeedItem> {
       const q = parseInput(activityFeedInputSchema, input);
       const limit = Math.min(q.limit ?? DEFAULT_LIMIT, MAX_LIMIT);
+      const project = q.project ? resolveProject(ctx.db, q.project) : undefined;
       let after: { d: string; i: string } | undefined;
       if (q.cursor) {
         const c = decodeCursor(q.cursor) as { d?: unknown; i?: unknown };
@@ -74,6 +79,7 @@ export function createActivityFeedService(ctx: ServiceContext) {
         FROM activity a
         JOIN issues i ON i.id = a.issue_id
         WHERE i.deleted_at IS NULL
+          AND ${project ? sql`i.project_id = ${project.id}` : sql`1`}
           AND ${after ? sql`(a.created_at < ${after.d} OR (a.created_at = ${after.d} AND a.id < ${after.i}))` : sql`1`}
         ORDER BY a.created_at DESC, a.id DESC
         LIMIT ${limit + 1}

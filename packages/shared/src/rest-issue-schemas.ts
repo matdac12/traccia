@@ -89,8 +89,9 @@ export const searchQuerySchema = z.object({
   cursor: z.string().min(1).optional(),
 });
 
-/** `GET /v1/activity?limit=&cursor=`. */
+/** `GET /v1/activity?project=&limit=&cursor=`. */
 export const activityQuerySchema = z.object({
+  project: z.string().min(1).optional(),
   limit: limitText.optional(),
   cursor: z.string().min(1).optional(),
 });
