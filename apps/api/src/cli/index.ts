@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { ConfigError, loadConfig, loadConfigFromEnv } from "../config.js";
 import { type Db, openDatabase } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
-import { runTokenCommand, UsageError } from "./token.js";
+import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
 
 type Env = Record<string, string | undefined>;
 
@@ -20,10 +20,20 @@ export async function runCli(
   logError: (message: string) => void = console.error,
   out: (message: string) => void = console.log,
 ): Promise<number> {
-  const [group, command, ...rest] = argv;
+  const [group, command] = argv;
   try {
     if (group === "--help" || group === "help") {
       out(USAGE);
+      return 0;
+    }
+    // Help never needs configuration or a database.
+    if (group === "db" && argv.some((a) => a === "--help" || a === "-h")) {
+      out("Usage: tracker db migrate\n\nApplies pending database migrations.");
+      return 0;
+    }
+    const help = group === "token" ? tokenHelp(argv.slice(1)) : null;
+    if (help) {
+      out(help);
       return 0;
     }
     if (group === "db" && command === "migrate") {
@@ -32,9 +42,7 @@ export async function runCli(
       return 0;
     }
     if (group === "token") {
-      withDb(env, (db) =>
-        runTokenCommand(db, command ? [command, ...rest] : [], out),
-      );
+      withDb(env, (db) => runTokenCommand(db, argv.slice(1), out));
       return 0;
     }
     logError(`Unknown command: ${argv.join(" ") || "(none)"}\n${USAGE}`);

@@ -33,7 +33,7 @@ function parse(args: string[]) {
       args,
       allowPositionals: true,
       options: {
-        help: { type: "boolean" },
+        help: { type: "boolean", short: "h" },
         name: { type: "string" },
         actor: { type: "string" },
       },
@@ -60,13 +60,22 @@ function table(header: string[], rows: string[][]): string {
     .join("\n");
 }
 
+/** Help text for `tracker token ...` args, or null if help wasn't requested. */
+export function tokenHelp(args: string[]): string | null {
+  const [command] = args;
+  if (command === "--help") return TOKEN_USAGE;
+  if (!args.includes("--help") && !args.includes("-h")) return null;
+  return command === "create" || command === "list" || command === "revoke"
+    ? HELP[command]
+    : TOKEN_USAGE;
+}
+
 export function runTokenCommand(
   db: Db,
   args: string[],
   out: (message: string) => void,
 ): void {
   const [command, ...rest] = args;
-  if (command === "--help") return out(TOKEN_USAGE);
   if (command !== "create" && command !== "list" && command !== "revoke") {
     throw new UsageError(
       command
@@ -75,7 +84,6 @@ export function runTokenCommand(
     );
   }
   const { values, positionals } = parse(rest);
-  if (values.help) return out(HELP[command]);
   if (
     command !== "create" &&
     (values.name !== undefined || values.actor !== undefined)

@@ -176,13 +176,14 @@ describe("tracker token", () => {
   });
 
   it("every command answers --help with exit 0", async () => {
-    const e = env();
+    const e = {} as ReturnType<typeof env>; // help needs no config or database
     for (const argv of [
       ["--help"],
       ["token", "--help"],
       ["token", "create", "--help"],
       ["token", "list", "--help"],
       ["token", "revoke", "--help"],
+      ["db", "migrate", "--help"],
     ]) {
       const r = await run(e, ...argv);
       expect(r.code, argv.join(" ")).toBe(0);
