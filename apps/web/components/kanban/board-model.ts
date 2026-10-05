@@ -49,7 +49,7 @@ export function moveCard(columns: BoardColumn[], id: string, status: IssueStatus
  * The request for a card that already sits in its dropped place. Neighbours must be in the same project (a column
  * is `(project, status)`, and the service rejects others), so on a board that mixes projects the nearest card of the
  * card's own project is used. `afterId` (the card ending up directly above) wins; `beforeId` (directly below) is used
- * at the top of a column; neither means the column holds no other card of this project.
+ * at the top of a column; neither means the column holds no other card of this project, or the card is the last loaded one and more pages exist (bottom).
  */
 export function planMove(columns: BoardColumn[], id: string): MoveRequest | null {
   const at = findCard(columns, id);
@@ -60,7 +60,9 @@ export function planMove(columns: BoardColumn[], id: string): MoveRequest | null
   const above = items.slice(0, at.index).reverse().find(sameProject);
   const below = items.slice(at.index + 1).find(sameProject);
   const request: MoveRequest = { identifier: card.identifier, status: at.status };
-  if (above) request.afterId = above.identifier;
+  // Last loaded card of a column with more pages: the real bottom is unknown, so send neither (= bottom).
+  const mayHaveMore = !below && columns.find((c) => c.status === at.status)!.nextCursor !== null;
+  if (above && !mayHaveMore) request.afterId = above.identifier;
   else if (below) request.beforeId = below.identifier;
   return request;
 }

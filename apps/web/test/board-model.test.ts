@@ -76,3 +76,11 @@ describe("rollback and server answer", () => {
     expect(moveErrorMessage("TRK-1", "validation_error", "bad")).toMatch(/Could not move TRK-1/);
   });
 });
+
+describe("planMove with more pages", () => {
+  it("sends neither neighbour for the last loaded card when the column has more pages (bottom)", () => {
+    const cols = board({ todo: [card(1, "todo"), card(2, "todo")] }).map((c) => (c.status === "todo" ? { ...c, nextCursor: "c" } : c));
+    expect(planMove(moveCard(cols, "i1", "todo", 1), "i1")).toEqual({ identifier: "TRK-1", status: "todo" });
+    expect(planMove(moveCard(cols, "i2", "todo", 0), "i2")).toEqual({ identifier: "TRK-2", status: "todo", beforeId: "TRK-1" });
+  });
+});

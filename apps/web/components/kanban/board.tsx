@@ -40,6 +40,8 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   const [, startTransition] = useTransition();
   /** The columns as they were when the drag started: the rollback target. */
   const snapshot = useRef<BoardColumn[] | null>(null);
+  /** Moves in flight; a new drag waits for them so a failed move can be undone on its own. */
+  const inFlight = useRef(0);
   const current = useRef(columns);
   const commit = (next: BoardColumn[]) => { current.current = next; setColumns(next); };
 
@@ -52,6 +54,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     (ISSUE_STATUSES as readonly string[]).includes(String(id)) ? (id as IssueStatus) : findCard(current.current, String(id))?.status ?? null;
 
   const onStart = (e: DragStartEvent) => {
+    if (inFlight.current > 0) return;
     snapshot.current = current.current;
     setError(null);
     const at = findCard(current.current, String(e.active.id));
@@ -60,7 +63,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
 
   // Live cross-column move while hovering, so the card shows where it will land.
   const onOver = ({ active: a, over }: DragOverEvent) => {
-    if (!over) return;
+    if (!over || !snapshot.current) return;
     const id = String(a.id);
     const to = statusOf(over.id);
     const from = findCard(current.current, id);
@@ -71,13 +74,19 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     commit(moveCard(current.current, id, to, index));
   };
 
+  /** Puts one card back where it was in `before`, keeping anything loaded since. */
+  const restore = (before: BoardColumn[], id: string) => {
+    const was = findCard(before, id);
+    if (was) commit(moveCard(current.current, id, was.status, was.index));
+  };
+
   const onEnd = ({ active: a, over }: DragEndEvent) => {
     setActive(null);
     const before = snapshot.current;
     snapshot.current = null;
     if (!before) return;
     const id = String(a.id);
-    if (!over) return commit(before);
+    if (!over) return restore(before, id);
     const at = findCard(current.current, id);
     const overCard = findCard(current.current, String(over.id));
     // Same-column reorder is applied here; cross-column moves already happened in onOver.
@@ -87,16 +96,19 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     const now = findCard(current.current, id);
     if (!request || !was || !now || (was.status === now.status && was.index === now.index)) return;
 
+    const undo = () => restore(before, id);
     setSaving((n) => n + 1);
+    inFlight.current++;
     startTransition(async () => {
       try {
         const result = await move(request);
         if (result.ok) commit(applyServerIssue(current.current, result.issue));
-        else { commit(before); setError(moveErrorMessage(request.identifier, result.code, result.message)); }
+        else { undo(); setError(moveErrorMessage(request.identifier, result.code, result.message)); }
       } catch {
-        commit(before);
+        undo();
         setError(moveErrorMessage(request.identifier, "unreachable", "network error"));
       } finally {
+        inFlight.current--;
         setSaving((n) => n - 1);
       }
     });
@@ -137,7 +149,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         onDragStart={onStart}
         onDragOver={onOver}
         onDragEnd={onEnd}
-        onDragCancel={() => { setActive(null); if (snapshot.current) commit(snapshot.current); snapshot.current = null; }}
+        onDragCancel={() => { if (snapshot.current && active) restore(snapshot.current, active.id); setActive(null); snapshot.current = null; }}
       >
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
           {columns.map((c) => <Column key={c.status} column={c} loading={loading.has(c.status)} onMore={() => more(c)} />)}
