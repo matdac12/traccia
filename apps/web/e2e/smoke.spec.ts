@@ -62,6 +62,41 @@ test("the shell loads with the project list", async ({ page }) => {
   await expect(nav.getByRole("link", { name: "Trash" })).toBeVisible();
 });
 
+test("the desktop sidebar collapses to an icon rail, stays collapsed after a reload, and expands with Ctrl+B", async ({ page }, testInfo) => {
+  await visit(page, "/projects");
+  const sidebar = page.locator("aside");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await sidebar.getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await expect(sidebar).toHaveCSS("width", "48px");
+  await testInfo.attach("sidebar-collapsed.png", { body: await page.screenshot(), contentType: "image/png" });
+  await sidebar.getByRole("link", { name: "Issues" }).hover();
+  await expect(page.getByRole("tooltip", { name: "Issues" })).toBeVisible();
+  // Persisted in a cookie the server reads: already collapsed on the first paint after a reload.
+  await visit(page, "/projects");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await page.keyboard.press("Control+b");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await expect(sidebar).toHaveCSS("width", "232px");
+  await visit(page, "/projects");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+});
+
+test("the mobile drawer is the full menu even when the desktop sidebar is collapsed", async ({ page }) => {
+  await visit(page, "/projects");
+  await page.locator("aside").getByRole("button", { name: "Collapse sidebar" }).click();
+  await expect(page.locator("aside")).toHaveAttribute("data-collapsed", "true");
+  await page.setViewportSize({ width: 600, height: 800 });
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText("New issue")).toBeVisible();
+  await expect(drawer.getByRole("link", { name: PROJECT_NAME })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: /sidebar/i })).toHaveCount(0);
+  // Leave the (cookie-scoped, per-context) state as found.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.locator("aside").getByRole("button", { name: "Expand sidebar" }).click();
+});
+
 test("creating an issue from the dialog shows it in the table", async ({ page }) => {
   const title = unique("Created from the dialog");
   await visit(page, "/issues");

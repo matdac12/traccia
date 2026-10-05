@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { isTyping } from "@/lib/is-typing";
 import { CreateIssueDialog, type CreateIssueDefaults, type CreateIssueProject } from "./create-issue-dialog";
 
 type Ctx = { open: (defaults?: CreateIssueDefaults) => void };
@@ -18,10 +19,6 @@ export function useOptionalCreateIssue(): Ctx | null {
   return useContext(CreateIssueContext);
 }
 
-function isTyping(target: EventTarget | null) {
-  const el = target as HTMLElement | null;
-  return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
-}
 
 export function CreateIssueProvider({ projects, children }: { projects: CreateIssueProject[]; children: ReactNode }) {
   const router = useRouter();
