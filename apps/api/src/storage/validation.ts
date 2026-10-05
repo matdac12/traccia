@@ -50,22 +50,27 @@ const startsWith = (buf: Buffer, bytes: number[], offset = 0) =>
 
 const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0));
 
-/** Signatures of formats that must never pass as text (executables, archives, scripts). */
+/**
+ * Unambiguous signatures of formats that must never pass as text. Short or
+ * text-like prefixes (MZ, gzip) are left out: those files contain control or
+ * non-UTF-8 bytes and are rejected by the full-stream text checks instead.
+ */
 const BINARY_SIGNATURES: number[][] = [
   [0x7f, 0x45, 0x4c, 0x46], // ELF
-  [0x4d, 0x5a], // MZ (PE)
   [0xfe, 0xed, 0xfa, 0xce], // Mach-O
   [0xfe, 0xed, 0xfa, 0xcf],
   [0xce, 0xfa, 0xed, 0xfe],
   [0xcf, 0xfa, 0xed, 0xfe],
   [0xca, 0xfe, 0xba, 0xbe], // Mach-O fat / Java class
   [0x50, 0x4b, 0x03, 0x04], // ZIP
-  [0x1f, 0x8b], // gzip
-  ascii("#!"), // shebang
 ];
 
 const HTML_PREFIX =
-  /^(?:<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>]|<script[\s>]|<iframe[\s>]|<svg[\s>]|<\?xml|<!--)/i;
+  /^(?:<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>]|<script[\s>]|<iframe[\s>]|<svg[\s>]|<\?xml)/i;
+
+const SHEBANG = /^#!\s*\//;
+const LEADING_NOISE = /^(?:\s+|<!--[\s\S]*?-->)+/;
+const UTF8_BOM = Buffer.from([0xef, 0xbb, 0xbf]);
 
 /** Classifies content by its leading bytes, ignoring any declared type. */
 export function sniffType(head: Buffer): SniffedType {
@@ -82,11 +87,11 @@ export function sniffType(head: Buffer): SniffedType {
   if (startsWith(head, ascii("%PDF-"))) return "application/pdf";
   if (BINARY_SIGNATURES.some((sig) => startsWith(head, sig))) return "binary";
 
-  const prefix = head
-    .subarray(0, 64)
-    .toString("latin1")
-    .replace(/^[\s﻿]+/, "");
-  if (HTML_PREFIX.test(prefix)) return "binary";
+  // Look past a UTF-8 BOM, whitespace and leading HTML comments (markdown may
+  // legitimately start with a comment) before testing for HTML/script prefixes.
+  const body = startsWith(head, [...UTF8_BOM]) ? head.subarray(3) : head;
+  const prefix = body.toString("latin1").replace(LEADING_NOISE, "");
+  if (HTML_PREFIX.test(prefix) || SHEBANG.test(prefix)) return "binary";
 
   return "text";
 }
@@ -98,10 +103,17 @@ export function normalizeMimeType(declared: string): string {
 
 const TEXT_TYPES = new Set(["text/plain", "text/markdown", "application/json"]);
 
-/** True if the chunk has a control byte other than tab, LF, CR or form feed. */
+/** True if the chunk has a control byte other than tab, LF, FF, CR or ESC (ANSI colours in logs). */
 function hasControlBytes(chunk: Buffer): boolean {
   for (const b of chunk) {
-    if (b < 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0c && b !== 0x0d) {
+    if (
+      b < 0x20 &&
+      b !== 0x09 &&
+      b !== 0x0a &&
+      b !== 0x0c &&
+      b !== 0x0d &&
+      b !== 0x1b
+    ) {
       return true;
     }
   }

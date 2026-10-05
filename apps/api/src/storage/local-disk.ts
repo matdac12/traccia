@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -9,6 +9,9 @@ import {
   InvalidStorageKeyError,
   StorageNotFoundError,
 } from "./storage.js";
+
+const notFound = (key: string) =>
+  new StorageNotFoundError(`No such attachment: ${key}`);
 
 /** Stores attachments under `root` (normally `${DATA_DIR}/attachments`). */
 export class LocalDiskStorage implements AttachmentStorage {
@@ -57,18 +60,26 @@ export class LocalDiskStorage implements AttachmentStorage {
   async get(key: string): Promise<{ stream: Readable; size: number }> {
     const target = this.resolveKey(key);
     try {
-      const { size } = await stat(target);
-      return { stream: createReadStream(target), size };
+      const info = await stat(target);
+      if (!info.isFile()) throw notFound(key);
+      return { stream: createReadStream(target), size: info.size };
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-        throw new StorageNotFoundError(`No such attachment: ${key}`);
-      }
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") throw notFound(key);
       throw err;
     }
   }
 
-  /** Idempotent: deleting a missing key is not an error. */
+  /** Idempotent for missing keys; keys that are not files (directories) are rejected. */
   async delete(key: string): Promise<void> {
-    await rm(this.resolveKey(key), { force: true });
+    const target = this.resolveKey(key);
+    try {
+      if (!(await lstat(target)).isFile()) {
+        throw new InvalidStorageKeyError(`Key is not a file: ${key}`);
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw err;
+    }
+    await rm(target, { force: true });
   }
 }

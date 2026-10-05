@@ -59,6 +59,20 @@ describe("LocalDiskStorage", () => {
     await expect(storage.delete("2026/10/missing")).resolves.toBeUndefined();
   });
 
+  it("treats a directory key as not found on get and rejects it on delete", async () => {
+    await storage.put("2026/10/abc", Buffer.from("x"), meta);
+    await expect(storage.get("2026/10")).rejects.toBeInstanceOf(
+      StorageNotFoundError,
+    );
+    await expect(storage.delete("2026/10")).rejects.toBeInstanceOf(
+      InvalidStorageKeyError,
+    );
+    // the file inside is untouched
+    expect(
+      (await readAll((await storage.get("2026/10/abc")).stream)).toString(),
+    ).toBe("x");
+  });
+
   it("leaves no temp file after a successful put", async () => {
     await storage.put(generateStorageKey(), Buffer.from("x"), meta);
     expect(await listFiles(dir)).toHaveLength(1);

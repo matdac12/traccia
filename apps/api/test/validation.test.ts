@@ -145,11 +145,50 @@ describe("storeUpload", () => {
 
   it.each([
     ["ELF", Buffer.from([0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0])],
-    ["Windows PE", Buffer.from("MZ\x90\0\x03\0\0\0")],
     ["Mach-O", Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 7, 0, 0, 1])],
     ["ZIP", Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x14, 0, 0, 0])],
   ])("rejects %s executable declared as text/plain", async (_n, payload) => {
     await rejects(upload(payload, "text/plain"), "type_mismatch");
+  });
+
+  it("rejects a Windows PE executable declared as text/plain", async () => {
+    await rejects(
+      upload(Buffer.from("MZ\x90\0\x03\0\0\0"), "text/plain"),
+      "invalid_text",
+    );
+  });
+
+  it("rejects HTML hidden behind a UTF-8 BOM", async () => {
+    const data = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from("<html><script>alert(1)</script></html>"),
+    ]);
+    await rejects(upload(data, "text/plain"), "type_mismatch");
+  });
+
+  it("rejects HTML hidden behind a leading comment", async () => {
+    await rejects(
+      upload(
+        Buffer.from("<!-- x -->\n<script>alert(1)</script>"),
+        "text/plain",
+      ),
+      "type_mismatch",
+    );
+  });
+
+  it.each([
+    ["text/plain", "MZ is a fine way to start a note\n"],
+    ["text/markdown", "<!-- draft -->\n# Title\n"],
+    ["text/markdown", "#!important heading-ish\n"],
+  ])("accepts legitimate %s starting %j", async (mime, text) => {
+    await upload(Buffer.from(text), mime);
+  });
+
+  it("accepts text with ANSI escape sequences", async () => {
+    await upload(
+      Buffer.from("\u001b[31mred\u001b[0m log line\n"),
+      "text/plain",
+    );
   });
 
   it("rejects NUL bytes in text beyond the sniffed head", async () => {

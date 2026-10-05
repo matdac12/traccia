@@ -29,6 +29,11 @@ describe("sanitizeFilename", () => {
     );
   });
 
+  it("strips lone surrogates", () => {
+    expect(sanitizeFilename("a\uD800b\uDC00c.txt")).toBe("abc.txt");
+    expect(sanitizeFilename("\uD800")).toBe("file");
+  });
+
   it("normalizes to NFC", () => {
     expect(sanitizeFilename("cafe\u0301.txt")).toBe("caf\u00e9.txt");
   });
@@ -64,6 +69,12 @@ describe("dispositionFor", () => {
 });
 
 describe("contentDisposition", () => {
+  it("does not throw on lone surrogates", () => {
+    expect(contentDisposition("image/png", "a\uD800b.png")).toBe(
+      `inline; filename="ab.png"; filename*=UTF-8''ab.png`,
+    );
+  });
+
   it("builds an ASCII fallback and an RFC 5987 filename*", () => {
     expect(contentDisposition("image/png", 'sh"ot é.png')).toBe(
       `inline; filename="sh_ot _.png"; filename*=UTF-8''sh%22ot%20%C3%A9.png`,

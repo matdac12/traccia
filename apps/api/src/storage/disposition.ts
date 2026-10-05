@@ -1,3 +1,5 @@
+import { stripLoneSurrogates } from "./filename.js";
+
 const INLINE_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -12,7 +14,11 @@ export function dispositionFor(mimeType: string): "inline" | "attachment" {
 }
 
 /** Full `Content-Disposition` header value for a stored attachment. */
-export function contentDisposition(mimeType: string, filename: string): string {
+export function contentDisposition(
+  mimeType: string,
+  rawFilename: string,
+): string {
+  const filename = stripLoneSurrogates(rawFilename);
   const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, "_");
   const encoded = encodeURIComponent(filename).replace(
     /['()*]/g,

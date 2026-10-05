@@ -1,13 +1,21 @@
 const MAX_FILENAME_LENGTH = 200;
 const FALLBACK_NAME = "file";
 
+/** Removes unpaired UTF-16 surrogates, which break URI encoding. */
+export function stripLoneSurrogates(input: string): string {
+  return input.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    "",
+  );
+}
+
 /**
  * Reduces a user-supplied filename to a safe display name: no path segments,
  * control or invisible characters, no leading dots, bounded length, extension kept.
  */
 export function sanitizeFilename(input: string): string {
   const lastSegment =
-    input
+    stripLoneSurrogates(input)
       .normalize("NFC")
       .split(/[\\/]/)
       .filter((s) => s.trim() !== "")
