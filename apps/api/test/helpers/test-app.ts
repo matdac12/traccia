@@ -10,5 +10,5 @@ export function createTestApp(env: Record<string, string> = {}) {
   const logs: string[] = [];
   const logger = createLogger(config.logLevel, (line) => logs.push(line));
   const app = createApp({ config, db, logger });
-  return { app, logs, sqlite, config };
+  return { app, logs, sqlite, db, config };
 }
