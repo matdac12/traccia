@@ -1,5 +1,6 @@
 import {
   createProjectInputSchema,
+  getProjectQuerySchema,
   listProjectsQuerySchema,
   purgeQuerySchema,
   updateProjectInputSchema,
@@ -40,7 +41,7 @@ export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.get("/projects/:idOrKey", (c) => {
-    const { includeDeleted } = validateQuery(c, listProjectsQuerySchema);
+    const { includeDeleted } = validateQuery(c, getProjectQuerySchema);
     const [project] = withCounts([
       projects.get(c.req.param("idOrKey"), { includeDeleted }),
     ]);

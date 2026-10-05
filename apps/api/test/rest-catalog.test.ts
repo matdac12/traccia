@@ -398,6 +398,19 @@ describe("restore", () => {
     expect((await call("GET", `/v1/milestones/${m.id}`)).status).toBe(200);
   });
 
+  it("restores a deleted comment", async () => {
+    const { call, services } = setup();
+    const p = services.projects.create("you", { name: "P" });
+    const i = services.issues.create("you", { project: p.id, title: "t" });
+    const cm = services.comments.create("you", i.id, { body: "hi" });
+    await services.trash.delete("you", "comment", cm.id);
+    const res = await call("POST", "/v1/restore", {
+      body: { type: "comment", id: cm.id },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ type: "comment", id: cm.id });
+  });
+
   it("validates type and 404s on unknown ids", async () => {
     const { call } = setup();
     const bad = await call("POST", "/v1/restore", {

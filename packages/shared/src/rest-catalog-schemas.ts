@@ -11,6 +11,10 @@ export const listProjectsQuerySchema = z.object({
   includeDeleted: queryBooleanSchema.optional(),
 });
 
+export const getProjectQuerySchema = z.object({
+  includeDeleted: queryBooleanSchema.optional(),
+});
+
 export const listMilestonesQuerySchema = z.object({
   includeDeleted: queryBooleanSchema.optional(),
 });
