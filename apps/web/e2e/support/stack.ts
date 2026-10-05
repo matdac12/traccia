@@ -37,7 +37,7 @@ export async function startStack(): Promise<Stack> {
 
   const cli = (...args: string[]) => {
     const r = spawnSync(bin(apiDir, "tsx"), ["src/cli/index.ts", ...args], { cwd: apiDir, env: apiEnv, encoding: "utf8" });
-    if (r.status !== 0) throw new Error(`tracker ${args.slice(0, 2).join(" ")} failed:\n${r.stderr}`);
+    if (r.status !== 0) throw new Error(`traccia ${args.slice(0, 2).join(" ")} failed:\n${r.stderr}`);
     return r.stdout;
   };
 
@@ -60,15 +60,15 @@ export async function startStack(): Promise<Stack> {
     cli("db", "migrate");
     // The plaintext token is shown once on stdout; it is parsed here and never printed or written to disk.
     const token = /trk_[A-Za-z0-9_-]+/.exec(cli("token", "create", "--name", "e2e", "--actor", "you"))?.[0];
-    if (!token) throw new Error("could not read the token from `tracker token create`");
+    if (!token) throw new Error("could not read the token from `traccia token create`");
 
     children.push(spawn(bin(apiDir, "tsx"), ["src/main.ts"], { cwd: apiDir, env: apiEnv, stdio: "inherit" }));
     await waitFor(`${apiUrl}/healthz`, "api", 30_000);
 
-    // Dev mode is what `next dev` sets itself; drop an inherited NODE_ENV so a shell's `production` cannot leak in.
-    const { NODE_ENV: _inherited, ...inherited } = process.env;
-    const webEnv = {
-      ...inherited,
+    const webEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      // Never inherit a shell's NODE_ENV=production: the dev-only server must run as development.
+      NODE_ENV: "development",
       TRACCIA_API_URL: apiUrl,
       TRACCIA_API_TOKEN: token,
       DASHBOARD_ALLOWED_LOGINS: E2E_LOGIN,
