@@ -29,9 +29,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ identifier
     if (err instanceof ApiError) return error(502, err.code, "Could not reach the API.");
     throw err;
   }
+  const type = upstream.headers.get("content-type") ?? "";
+  if (!type.includes("json") || upstream.status >= 500 || upstream.status === 401) {
+    await upstream.body?.cancel();
+    return error(502, "upstream_error", `The API answered ${upstream.status}`);
+  }
   // JSON passes through as is (created attachment or the standard error shape).
   return new Response(upstream.body, {
     status: upstream.status,
-    headers: { "content-type": upstream.headers.get("content-type") ?? "application/json", "cache-control": "no-store" },
+    headers: { "content-type": type, "cache-control": "no-store" },
   });
 }

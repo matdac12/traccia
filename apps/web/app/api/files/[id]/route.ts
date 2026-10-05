@@ -5,7 +5,7 @@ import { ATTACHMENT_ID } from "@/lib/attachments";
 // proxy.ts access check covers this route like every other. The body is piped, never buffered.
 // The API does not serve Range requests, so neither does this route.
 
-const PASS = ["content-type", "content-disposition", "content-length", "x-content-type-options", "etag", "last-modified"];
+const FORWARDED_HEADERS = ["content-type", "content-disposition"];
 
 const error = (status: number, code: string, message: string) =>
   Response.json({ error: { code, message } }, { status, headers: { "cache-control": "no-store" } });
@@ -26,9 +26,17 @@ async function serve(method: "GET" | "HEAD", id: string, signal: AbortSignal): P
     return error(502, "upstream_error", `The API answered ${upstream.status}`);
   }
   const headers = new Headers();
-  for (const name of PASS) {
+  for (const name of FORWARDED_HEADERS) {
     const value = upstream.headers.get(name);
     if (value) headers.set(name, value);
+  }
+  // fetch() decodes a compressed body, so the API's length is only right for an identity encoding.
+  const length = upstream.headers.get("content-length");
+  if (length && !upstream.headers.get("content-encoding")) headers.set("content-length", length);
+  // Files are untrusted uploads served from the dashboard's origin: no scripts, no embedding contexts.
+  // Skipped for PDF: Chrome's built-in viewer does not run inside a CSP sandbox.
+  if (!/^application\/pdf/i.test(headers.get("content-type") ?? "")) {
+    headers.set("content-security-policy", "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
   }
   // Always forced, whatever the API said: a served file must never be sniffed into something executable.
   headers.set("x-content-type-options", "nosniff");
