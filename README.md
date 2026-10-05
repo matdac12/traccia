@@ -1,4 +1,9 @@
-# Traccia
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockups/traccia-lockup-dark.png">
+    <img alt="Traccia" src="assets/brand/lockups/traccia-lockup-light.png" width="420">
+  </picture>
+</p>
 
 A minimal self-hosted issue tracker for one human and their AI agents, replacing a mostly unused Linear plan. Agents reach it over MCP; the human uses a dashboard. Everything stays on a private Tailscale network. The source of truth is [`traccia-spec.md`](traccia-spec.md); vocabulary is in [`GLOSSARY.md`](GLOSSARY.md) and design decisions are in [`docs/adr/`](docs/adr/).
 

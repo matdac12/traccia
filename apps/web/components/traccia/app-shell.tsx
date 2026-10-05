@@ -13,6 +13,7 @@ import { sidebarCookie } from "@/lib/sidebar-state";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
+import { TracciaMark } from "./traccia-mark";
 
 /** What the client shell needs from a project: plain data, resolved on the server. */
 export type ShellProject = { id: string; name: string };
@@ -66,7 +67,7 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
         <DropdownMenu>
           <RailTip label={switcherLabel} show={collapsed}>
             <DropdownMenuTrigger className={cn("flex h-8 items-center gap-2 rounded-md text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring", collapsed ? "w-8 justify-center" : "min-w-0 flex-1 px-1")}>
-              <div className="grid size-6 shrink-0 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">T</div>
+              <TracciaMark className="size-6 shrink-0" />
               <span className={collapsed ? "sr-only" : "flex-1 truncate text-[13px] font-medium"}>{switcherLabel}</span>
               {collapsed ? null : <ChevronsUpDown className="size-3.5 text-muted-foreground" />}
             </DropdownMenuTrigger>
@@ -213,7 +214,7 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
       </aside>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-2 md:hidden">
         <button type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="grid size-9 place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"><Menu className="size-5" /></button>
-        <div className="grid size-6 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">T</div>
+        <TracciaMark className="size-6 shrink-0" />
         <span className="text-[13px] font-medium">Traccia</span>
       </div>
       <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
