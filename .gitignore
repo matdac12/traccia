@@ -18,3 +18,7 @@ next-env.d.ts
 
 # Playwright
 apps/web/e2e/.results
+
+# Local agent configuration (never committed)
+.claude/
+.codex/
