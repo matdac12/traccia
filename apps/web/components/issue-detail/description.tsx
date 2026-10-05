@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -56,8 +56,10 @@ export function MarkdownEditor({
   );
 }
 
-export function Description({ value, onSave }: { value: string; onSave: (next: string) => Promise<boolean> }) {
+export function Description({ value, onSave, onDirty }: { value: string; onSave: (next: string) => Promise<boolean>; onDirty?: (key: string, on: boolean) => void }) {
   const [editing, setEditing] = useState(false);
+  // An open editor is an edit in progress, whether or not anything was typed yet.
+  useEffect(() => { onDirty?.("description", editing); return () => onDirty?.("description", false); }, [editing, onDirty]);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
 

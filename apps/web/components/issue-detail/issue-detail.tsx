@@ -2,10 +2,13 @@
 
 import { AlertTriangle, ChevronRight, GitBranch, Link2, Paperclip, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteIssueAction, restoreIssueAction, updateIssueAction } from "@/app/(app)/issues/[identifier]/actions";
 import { AgentMark } from "@/components/traccia/atoms";
+import { LiveStatus } from "@/components/traccia/live-status";
 import { Button } from "@/components/ui/button";
+import { getJson } from "@/lib/polling/fetch-json";
+import { usePoll } from "@/lib/polling/use-poll";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { TimeAgo } from "./atoms";
 import { ActivityTimeline } from "./activity";
@@ -47,6 +50,35 @@ export function IssueDetail(props: IssueDetailProps) {
   const inFlight = useRef(false);
   const issueRef = useRef(issue);
   issueRef.current = issue;
+
+  // Live refresh (MAT-1726). Fields the user may be editing (title, description, a save in flight) are never
+  // overwritten: a newer server copy waits in `stale` behind an "updated, reload" banner. Comments, activity
+  // and attachments cannot clash with a draft, so they always update.
+  const dirty = useRef(new Set<string>());
+  const setDirty = useCallback((key: string, on: boolean) => { if (on) dirty.current.add(key); else dirty.current.delete(key); }, []);
+  const [stale, setStale] = useState<IssueDetailData | null>(null);
+  const [resetKey, setResetKey] = useState(0);
+  const sync = usePoll(async () => {
+    const remote = await getJson<IssueDetailData>(`/api/issues/${encodeURIComponent(issueRef.current.identifier)}`);
+    const cur = issueRef.current;
+    if (JSON.stringify(remote) === JSON.stringify(cur)) return setStale(null);
+    if (dirty.current.size === 0 && !inFlight.current) {
+      setIssue(remote);
+      return setStale(null);
+    }
+    const timeline = { comments: remote.comments, activity: remote.activity, attachments: remote.attachments };
+    if (JSON.stringify(timeline) !== JSON.stringify({ comments: cur.comments, activity: cur.activity, attachments: cur.attachments })) setIssue((c) => ({ ...c, ...timeline }));
+    setStale(remote.updatedAt !== cur.updatedAt ? remote : null);
+  }, { enabled: !deleted });
+  const reload = () => {
+    if (!stale) return;
+    dirty.current.clear();
+    setIssue(stale);
+    setStale(null);
+    setResetKey((k) => k + 1);
+  };
+  const staleBy = stale && [...stale.activity].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]?.actor;
+  useEffect(() => { if (stale && stale.updatedAt === issue.updatedAt) setStale(null); }, [stale, issue.updatedAt]);
 
   const view = { ...issue, ...optimistic };
   const project = projects.find((p) => p.id === issue.projectId);
@@ -132,6 +164,7 @@ export function IssueDetail(props: IssueDetailProps) {
         <ChevronRight className="size-3.5 text-muted-foreground" />
         <span className="font-mono text-xs">{issue.identifier}</span>
         <div className="ml-auto flex items-center gap-1">
+          <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
           <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground" onClick={() => navigator.clipboard?.writeText(issue.identifier)}><Link2 className="size-3.5" />Copy ID</Button>
           {confirmDelete ? (
             <span className="flex items-center gap-1 text-muted-foreground">
@@ -151,6 +184,16 @@ export function IssueDetail(props: IssueDetailProps) {
           )}
         </div>
       </header>
+
+      {stale && (
+        <div role="alert" data-testid="stale-banner" className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[13px]">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="flex-1">
+            <span className="font-medium">{issue.identifier} was updated{staleBy === "agent" ? " by an agent" : " elsewhere"}</span> while you were editing. Your edit is untouched; reload to see the latest version (this discards it).
+          </p>
+          <Button size="sm" className="h-7" onClick={reload}>Reload</Button>
+        </div>
+      )}
 
       {(conflict || error) && (
         <div role="alert" className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[13px]">
@@ -180,13 +223,13 @@ export function IssueDetail(props: IssueDetailProps) {
                 <GitBranch className="size-3" />{parent.identifier} {parent.title}
               </Link>
             )}
-            <Title key={issue.updatedAt + issue.title} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
+            <Title key={`${resetKey}:${issue.updatedAt}:${issue.title}`} onDirty={setDirty} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
             {issue.createdBy === "agent" && (
               <div className="mt-2"><AgentMark /> <span className="text-xs text-muted-foreground">created by an agent <TimeAgo iso={issue.createdAt} suffix=" ago" /></span></div>
             )}
 
             <div className="mt-5">
-              <Description value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
+              <Description key={resetKey} onDirty={setDirty} value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
             </div>
 
             <AttachmentsSlot count={issue.attachments.length} />
@@ -229,8 +272,10 @@ export function IssueDetail(props: IssueDetailProps) {
   );
 }
 
-function Title({ value, onSave, disabled }: { value: string; onSave: (title: string) => Promise<boolean>; disabled?: boolean }) {
+function Title({ value, onSave, onDirty, disabled }: { value: string; onDirty: (key: string, on: boolean) => void; onSave: (title: string) => Promise<boolean>; disabled?: boolean }) {
   const [draft, setDraft] = useState(value);
+  const edited = draft !== value;
+  useEffect(() => { onDirty("title", edited); return () => onDirty("title", false); }, [edited, onDirty]);
   const save = async () => {
     const next = draft.trim();
     if (!next || next === value) {

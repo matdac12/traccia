@@ -9,10 +9,16 @@ import { Button } from "@/components/ui/button";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
 import { activeFilterCount, clearFilters, filtersToSearchParams, type IssueFilters } from "@/lib/issue-filters";
 import { Board } from "@/components/kanban/board";
+import { LiveStatus } from "@/components/traccia/live-status";
+import { useListSync } from "./use-list-sync";
 import { ActiveChips, FilterMenu, SearchBox } from "./filter-bar";
 import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-table";
 
-export type IssuesData = { groups: IssueGroup[]; projects: Project[]; labels: Label[]; milestones: Milestone[] };
+export type IssuesData = {
+  groups: IssueGroup[]; projects: Project[]; labels: Label[]; milestones: Milestone[];
+  /** Newest `updatedAt` seen before `groups` were read (MAT-1726): where the live refresh starts from. */
+  syncToken?: string | null;
+};
 
 /** `lockProject`: embedded in a project page, where `filters.project` is fixed and the project filter is hidden. */
 export function IssuesView({ filters, data, error, lockProject = false, title = "Issues" }: { filters: IssueFilters; data?: IssuesData; error?: string; lockProject?: boolean; title?: string }) {
@@ -26,6 +32,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
     const qs = filtersToSearchParams(next).toString();
     startTransition(() => router.replace(qs ? `${path}?${qs}` : path, { scroll: false }));
   };
+  const sync = useListSync({ query, syncToken: data?.syncToken, enabled: !!data && !error });
   const lookups = data ?? { projects: [], labels: [], milestones: [] };
   const shown = data?.groups.reduce((n, g) => n + g.items.length, 0) ?? 0;
   const more = data?.groups.some((g) => g.nextCursor);
@@ -46,7 +53,8 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         <div className="mx-2 h-4 w-px bg-border" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
-        <div className="ml-auto flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="View">
+        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="ml-auto" />
+        <div className="flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="View">
           {viewButton("table", "Table", <Rows3 className="size-3.5" />)}
           {viewButton("kanban", "Board", <Columns3 className="size-3.5" />)}
         </div>
@@ -56,7 +64,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {error ? (
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
         ) : !data ? null : filters.view === "kanban" ? (
-          <Board key={query} columns={data.groups} query={query} />
+          <Board key={query} columns={data.groups} query={query} register={sync.register} />
         ) : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
@@ -67,7 +75,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
           )
         ) : (
-          <IssuesTable key={query} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
     </div>

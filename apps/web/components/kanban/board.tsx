@@ -8,8 +8,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { ISSUE_STATUSES, type IssueStatus, type Priority } from "@linear-matti/shared";
 import { Loader2, X } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreBoardIssues, moveBoardIssue } from "@/app/(app)/issues/board-actions";
+import { countsOf, sameGroups, type GroupsApplier } from "@/components/issues-table/use-list-sync";
 import { LabelChip } from "@/components/issues-table/label-chip";
 import { PriorityIcon } from "@/components/issues-table/priority";
 import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
@@ -28,10 +29,12 @@ export type BoardProps = {
   query: string;
   /** Injectable for tests; defaults to the server actions. */
   move?: (request: MoveRequest) => Promise<MoveResult>;
+  /** Live refresh (MAT-1726): the poll registers here. */
+  register?: (a: GroupsApplier | null) => void;
   loadMore?: (input: { query: string; status: IssueStatus; cursor: string }) => Promise<{ items: IssueRow[]; nextCursor: string | null }>;
 };
 
-export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues }: BoardProps) {
+export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register }: BoardProps) {
   const [columns, setColumns] = useState<BoardColumn[]>(initial);
   const [active, setActive] = useState<IssueRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,20 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   const inFlight = useRef(0);
   const current = useRef(columns);
   const commit = (next: BoardColumn[]) => { current.current = next; setColumns(next); };
+
+  // A poll never touches the board while a drag or a move is in progress: it is refused and retried next tick.
+  useEffect(() => {
+    register?.({
+      counts: () => countsOf(current.current),
+      apply: (fresh) => {
+        if (snapshot.current || inFlight.current > 0) return false;
+        if (!sameGroups(current.current, fresh)) commit(fresh);
+        return true;
+      },
+    });
+    return () => register?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [register]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
