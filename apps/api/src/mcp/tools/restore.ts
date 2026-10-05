@@ -1,10 +1,12 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { restoreToolShape } from "@linear-matti/shared";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpContext } from "../server.js";
-import { defineTool, servicesFor } from "./helpers.js";
+import { defineTool } from "./helpers.js";
+import { compactObject } from "./present.js";
+import { mcpServices } from "./services.js";
 
 export function registerRestoreTool(server: McpServer, ctx: McpContext) {
-  const { trash } = servicesFor(ctx);
+  const { trash } = mcpServices(ctx);
   defineTool(
     server,
     ctx,

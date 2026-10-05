@@ -13,8 +13,8 @@ import { comments, issues } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
-import { indexComment } from "./search-index.js";
 import { recordActivity, resolveIssue } from "./issues.js";
+import { indexComment } from "./search-index.js";
 
 export type Comment = typeof comments.$inferSelect;
 /** A top-level comment with its replies (oldest first). Replies never have replies. */
@@ -115,9 +115,12 @@ export function createCommentsService(ctx: ServiceContext) {
       });
     },
 
-    /** Replaces the body and bumps `updated_at`. Deleted comments are `not_found`. */
+    /**
+     * Replaces the body and bumps `updated_at`. Deleted comments are
+     * `not_found`; editing another actor's comment is `forbidden`.
+     */
     update(
-      _actor: Actor,
+      actor: Actor,
       commentId: string,
       input: UpdateCommentInput,
     ): Comment {
@@ -132,6 +135,12 @@ export function createCommentsService(ctx: ServiceContext) {
           throw new ServiceError(
             "not_found",
             `Comment "${commentId}" not found`,
+          );
+        }
+        if (existing.actor !== actor) {
+          throw new ServiceError(
+            "forbidden",
+            "Only the actor who wrote a comment may edit it",
           );
         }
         const updated = tx

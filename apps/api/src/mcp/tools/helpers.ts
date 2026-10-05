@@ -1,23 +1,18 @@
-import path from "node:path";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ServiceError } from "@linear-matti/shared";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../rest/pagination.js";
-import { createServices } from "../../service/index.js";
-import { LocalDiskStorage } from "../../storage/index.js";
-import { runTool, toolResult } from "../errors.js";
 import type { Project, ProjectsService } from "../../service/projects.js";
+import { toolResult } from "../errors.js";
 import type { McpContext } from "../server.js";
+import { compactObject } from "./present.js";
+import { runLogged } from "./run.js";
 
-/** Services for one MCP request, wired like the REST adapters. */
-export function servicesFor(ctx: McpContext) {
-  const { config, db } = ctx.container;
-  return createServices({
-    db,
-    defaultIssueKey: config.defaultIssueKey,
-    allowAgentPurge: config.allowAgentPurge,
-    storage: new LocalDiskStorage(path.join(config.dataDir, "attachments")),
-  });
+/** `compactObject`, but a list result keeps `items` even when empty. */
+function withItems(data: Record<string, unknown>) {
+  const out = compactObject(data);
+  if ("items" in data) out.items = data.items;
+  return out;
 }
 
 /**
@@ -36,21 +31,10 @@ export function defineTool<S extends z.ZodRawShape>(
   ) => Record<string, unknown> | Promise<Record<string, unknown>>,
 ) {
   const run = (args: unknown) =>
-    runTool(
-      async () => toolResult(compact(await handler(args as never))),
-      (err) =>
-        ctx.container.logger.error("mcp tool failed", { tool: name, err }),
+    runLogged(ctx, name, async () =>
+      toolResult(withItems(await handler(args as never))),
     );
   server.registerTool(name, { description, inputSchema }, run as never);
-}
-
-/** Drops `undefined`, `null` and empty-string fields ("omit empty fields"). */
-export function compact<T extends Record<string, unknown>>(obj: T): T {
-  return Object.fromEntries(
-    Object.entries(obj).filter(
-      ([, v]) => v !== undefined && v !== null && v !== "",
-    ),
-  ) as T;
 }
 
 /** `{ items, nextCursor }` over an already ordered list, using an offset cursor. */
@@ -67,7 +51,7 @@ export function paginate<T extends Record<string, unknown>>(
     }
     offset = c.o;
   }
-  const items = all.slice(offset, offset + limit).map(compact);
+  const items = all.slice(offset, offset + limit).map(compactObject) as T[];
   const next = offset + limit;
   return {
     items,

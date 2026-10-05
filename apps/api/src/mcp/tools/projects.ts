@@ -1,30 +1,28 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   deleteProjectToolShape,
   getProjectToolShape,
   listProjectsToolShape,
-  saveProjectToolShape,
   ServiceError,
+  saveProjectToolShape,
 } from "@linear-matti/shared";
-import type { DbHandle } from "../../service/context.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Project } from "../../service/projects.js";
-import { issueCountsByProject } from "../../service/stats.js";
 import type { McpContext } from "../server.js";
 import {
-  compact,
   defineTool,
   explainPurgeDenied,
   paginate,
   resolveProjectRef,
-  servicesFor,
 } from "./helpers.js";
 import { milestoneView } from "./milestones.js";
+import { compactObject } from "./present.js";
+import { mcpServices } from "./services.js";
 
 const projectView = (
   p: Project,
   issueCounts: Record<string, number> | undefined,
 ) =>
-  compact({
+  compactObject({
     id: p.id,
     key: p.key,
     name: p.name,
@@ -34,8 +32,7 @@ const projectView = (
   });
 
 export function registerProjectTools(server: McpServer, ctx: McpContext) {
-  const { projects, milestones, trash } = servicesFor(ctx);
-  const db: DbHandle = ctx.container.db;
+  const { projects, milestones, trash, stats } = mcpServices(ctx);
 
   defineTool(
     server,
@@ -58,10 +55,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
         args,
       );
       const byId = new Map(all.map((p) => [p.id, p]));
-      const counts = issueCountsByProject(
-        db,
-        page.items.map((i) => i.id),
-      );
+      const counts = stats.issueCountsByProject(page.items.map((i) => i.id));
       return {
         ...page,
         items: page.items.map((i) =>
@@ -79,8 +73,8 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
     getProjectToolShape,
     (args) => {
       const p = resolveProjectRef(projects, args.project);
-      const view = projectView(p, issueCountsByProject(db, [p.id]).get(p.id));
-      return compact({
+      const view = projectView(p, stats.issueCountsByProject([p.id]).get(p.id));
+      return compactObject({
         ...view,
         description: p.description,
         createdAt: p.createdAt,
@@ -88,7 +82,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
         milestones:
           args.includeMilestones === false
             ? undefined
-            : milestoneView(db, milestones.list(p.id), { [p.id]: p }),
+            : milestoneView(stats, milestones.list(p.id), { [p.id]: p }),
       });
     },
   );

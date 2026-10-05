@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PROJECT_STATUSES } from "./enums.js";
+import { RESTORE_TYPES } from "./rest-catalog-schemas.js";
 import { colorSchema, dateOnlySchema, issueKeySchema } from "./schemas.js";
 
 // Argument shapes for the MCP tools (spec Appendix A). Raw shapes, because the
@@ -95,14 +96,6 @@ export const saveIssueLabelToolShape = {
     .optional()
     .describe("Omit/null = global label. Cannot change on update."),
 };
-
-export const RESTORE_TYPES = [
-  "issue",
-  "comment",
-  "project",
-  "milestone",
-  "attachment",
-] as const;
 
 export const restoreToolShape = {
   type: z.enum(RESTORE_TYPES),

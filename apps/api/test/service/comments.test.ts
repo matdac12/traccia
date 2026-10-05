@@ -133,7 +133,7 @@ describe("update comment", () => {
     const { c, issue, tick } = setup();
     const a = c.create("agent", issue.id, { body: "v1" });
     tick();
-    const b = c.update("you", a.id, { body: "v2" });
+    const b = c.update("agent", a.id, { body: "v2" });
     expect(b).toMatchObject({
       body: "v2",
       actor: "agent",
@@ -204,5 +204,17 @@ describe("get issue include=comments", () => {
     expect(got.comments).toHaveLength(1);
     expect(got.comments[0]).toMatchObject({ id: a.id });
     expect(got.comments[0]?.replies).toHaveLength(1);
+  });
+});
+
+describe("update comment ownership", () => {
+  it("lets the author edit and forbids the other actor, leaving the body alone", () => {
+    const { c, issue } = setup();
+    const mine = c.create("agent", issue.identifier, { body: "mine" });
+    expect(c.update("agent", mine.id, { body: "edited" }).body).toBe("edited");
+    expect(code(() => c.update("you", mine.id, { body: "hijack" }))).toBe(
+      "forbidden",
+    );
+    expect(c.list(issue.identifier)[0]?.body).toBe("edited");
   });
 });

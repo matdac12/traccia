@@ -1,37 +1,33 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   deleteMilestoneToolShape,
   listMilestonesToolShape,
-  saveMilestoneToolShape,
   ServiceError,
+  saveMilestoneToolShape,
 } from "@linear-matti/shared";
-import type { DbHandle } from "../../service/context.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { Services } from "../../service/index.js";
 import type { Milestone } from "../../service/milestones.js";
 import type { Project } from "../../service/projects.js";
-import { milestoneProgress } from "../../service/stats.js";
 import type { McpContext } from "../server.js";
 import {
-  compact,
   defineTool,
   explainPurgeDenied,
   paginate,
   resolveProjectRef,
-  servicesFor,
 } from "./helpers.js";
+import { compactObject } from "./present.js";
+import { mcpServices } from "./services.js";
 
 /** Milestone rows as tool output: project name, progress, `deleted` flag. */
 export function milestoneView(
-  db: DbHandle,
+  stats: Services["stats"],
   rows: Milestone[],
   projects: Record<string, Project>,
   options: { withDescription?: boolean } = {},
 ) {
-  const progress = milestoneProgress(
-    db,
-    rows.map((m) => m.id),
-  );
+  const progress = stats.progressByMilestone(rows.map((m) => m.id));
   return rows.map((m) =>
-    compact({
+    compactObject({
       id: m.id,
       project: projects[m.projectId]?.name,
       name: m.name,
@@ -44,8 +40,7 @@ export function milestoneView(
 }
 
 export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
-  const { projects, milestones, trash } = servicesFor(ctx);
-  const db: DbHandle = ctx.container.db;
+  const { projects, milestones, trash, stats } = mcpServices(ctx);
   const projectsById = (includeDeleted?: boolean) =>
     Object.fromEntries(projects.list({ includeDeleted }).map((p) => [p.id, p]));
 
@@ -75,7 +70,7 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
       return {
         ...page,
         items: milestoneView(
-          db,
+          stats,
           rows.filter((m) => wanted.has(m.id)),
           byId,
         ),
@@ -116,7 +111,7 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
         }
         saved = milestones.update(id, fields);
       }
-      return milestoneView(db, [saved], projectsById(true), {
+      return milestoneView(stats, [saved], projectsById(true), {
         withDescription: true,
       })[0] as Record<string, unknown>;
     },

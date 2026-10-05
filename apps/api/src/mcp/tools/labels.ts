@@ -1,23 +1,19 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   listIssueLabelsToolShape,
-  saveIssueLabelToolShape,
   ServiceError,
+  saveIssueLabelToolShape,
 } from "@linear-matti/shared";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Label } from "../../service/labels.js";
 import type { McpContext } from "../server.js";
-import {
-  compact,
-  defineTool,
-  paginate,
-  resolveProjectRef,
-  servicesFor,
-} from "./helpers.js";
+import { defineTool, paginate, resolveProjectRef } from "./helpers.js";
+import { compactObject } from "./present.js";
+import { mcpServices } from "./services.js";
 
 export function registerLabelTools(server: McpServer, ctx: McpContext) {
-  const { projects, labels } = servicesFor(ctx);
+  const { projects, labels } = mcpServices(ctx);
   const view = (l: Label) =>
-    compact({
+    compactObject({
       id: l.id,
       name: l.name,
       color: l.color,
