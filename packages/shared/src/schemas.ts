@@ -105,7 +105,7 @@ export const prioritySchema = z.preprocess(
   (v) => {
     if (typeof v !== "string") return v;
     const s = v.trim().toLowerCase();
-    if (s in PRIORITY_NAMES) return PRIORITY_NAMES[s];
+    if (Object.hasOwn(PRIORITY_NAMES, s)) return PRIORITY_NAMES[s];
     return /^\d$/.test(s) ? Number(s) : v;
   },
   z

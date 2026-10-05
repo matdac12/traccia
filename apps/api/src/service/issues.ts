@@ -123,8 +123,8 @@ export function createIssuesService(ctx: ServiceContext) {
         if (data.milestoneId) {
           assertMilestoneInProject(tx, data.milestoneId, project.id);
         }
-        if (data.parentId) {
-          const parent = resolveIssue(tx, data.parentId);
+        const parent = data.parentId ? resolveIssue(tx, data.parentId) : null;
+        if (parent) {
           if (parent.projectId !== project.id) {
             throw new ServiceError(
               "validation_error",
