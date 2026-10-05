@@ -125,6 +125,27 @@ describe("sub-issues and blocker search", () => {
     await createSubIssueAction("PIL-1", " Child ");
     expect(JSON.parse(calls()[1]!.init.body as string)).toEqual({ project: "PIL", title: "Child", parentId: "i1" });
   });
+  it("links an existing issue under the parent by patching its parentId", async () => {
+    fetchMock.mockResolvedValueOnce(json(issue)).mockResolvedValueOnce(json({ ...issue, id: "i2", identifier: "PIL-2", parentId: "i1" }));
+    const { linkSubIssueAction } = await actions();
+    const res = await linkSubIssueAction("PIL-1", "PIL-2");
+    expect(res).toMatchObject({ ok: true, issue: { identifier: "PIL-2" } });
+    expect(calls()[0]!.url).toBe("http://api/v1/issues/PIL-1");
+    expect(calls()[1]!.url).toBe("http://api/v1/issues/PIL-2");
+    expect(calls()[1]!.init.method).toBe("PATCH");
+    expect(JSON.parse(calls()[1]!.init.body as string)).toEqual({ parentId: "i1" });
+    expect(revalidatePath).toHaveBeenCalledWith("/issues/PIL-1");
+  });
+  it("reports the API's refusal when linking across projects", async () => {
+    fetchMock.mockResolvedValueOnce(json(issue)).mockResolvedValueOnce(json({ error: { code: "validation_error", message: "parent must be in the same project" } }, 400));
+    const { linkSubIssueAction } = await actions();
+    expect(await linkSubIssueAction("PIL-1", "OTH-2")).toMatchObject({ ok: false, message: expect.stringContaining("same project") });
+  });
+  it("rejects a malformed reference without calling the API", async () => {
+    const { linkSubIssueAction } = await actions();
+    expect(await linkSubIssueAction("PIL-1", "../x")).toMatchObject({ ok: false, code: "validation_error" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("looks an identifier up directly and returns nothing for an unknown one", async () => {
     fetchMock.mockResolvedValueOnce(json(issue)).mockResolvedValueOnce(json({ error: { code: "not_found", message: "nope" } }, 404));
     const { searchIssuesAction } = await actions();

@@ -1,8 +1,10 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
+import { ESTIMATES } from "@/components/create-issue/constants";
+import { NewLabelForm } from "@/components/labels/new-label-form";
 import { ActorAvatar, StatusIcon, STATUS_LABEL } from "@/components/traccia/atoms";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { IssueDetail, IssueRef, Label, Milestone } from "@/lib/api/schemas";
@@ -13,7 +15,6 @@ import { IssuePicker } from "./issue-picker";
 
 export type Change = (label: string, build: (current: IssueDetail) => Record<string, unknown>, optimistic?: Partial<IssueDetail>) => void;
 
-const ESTIMATES = [1, 2, 3, 5, 8, 13];
 const trigger = "flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] hover:bg-accent disabled:opacity-60";
 
 function Prop({ label, children }: { label: string; children: ReactNode }) {
@@ -48,6 +49,10 @@ export function Properties({ issue, projects, labels, milestones, parent, onChan
   disabled?: boolean;
 }) {
   const [pickingParent, setPickingParent] = useState(false);
+  const [creatingLabel, setCreatingLabel] = useState(false);
+  // Labels created here show up at once; the page refresh then returns them in `labels` too.
+  const [createdLabels, setCreatedLabels] = useState<Label[]>([]);
+  const allLabels = [...labels, ...createdLabels.filter((c) => !labels.some((l) => l.id === c.id))];
   const project = projects.find((p) => p.id === issue.projectId);
   const milestone = milestones.find((m) => m.id === issue.milestoneId);
   const estimates = issue.estimate !== null && !ESTIMATES.includes(issue.estimate) ? [...ESTIMATES, issue.estimate].sort((a, b) => a - b) : ESTIMATES;
@@ -97,21 +102,36 @@ export function Properties({ issue, projects, labels, milestones, parent, onChan
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-            {labels.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels yet.</div>}
-            {labels.map((l) => {
+            {allLabels.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels yet.</div>}
+            {allLabels.map((l) => {
               const names = issue.labels.map((x) => x.name);
               const on = names.includes(l.name);
               // Toggle against the latest labels, so a re-apply after a conflict keeps others' changes.
               const toggle = (cur: string[]) => (cur.includes(l.name) ? cur.filter((x) => x !== l.name) : [...cur, l.name]);
               return (
-                <DropdownMenuItem key={l.id} onSelect={(e) => { e.preventDefault(); onChange(`label ${l.name}`, (cur) => ({ labels: toggle(cur.labels.map((x) => x.name)) }), { labels: toggle(names).map((n) => labels.find((x) => x.name === n)).filter((x) => x !== undefined) }); }}>
+                <DropdownMenuItem key={l.id} onSelect={(e) => { e.preventDefault(); onChange(`label ${l.name}`, (cur) => ({ labels: toggle(cur.labels.map((x) => x.name)) }), { labels: toggle(names).map((n) => allLabels.find((x) => x.name === n)).filter((x) => x !== undefined) }); }}>
                   <span className="size-2 rounded-full" style={{ background: l.color }} />{l.name}<Tick on={on} />
                 </DropdownMenuItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setCreatingLabel(true)}><Plus className="size-3.5" />Create label…</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </Prop>
+      {creatingLabel && (
+        <div className="rounded-lg border bg-popover">
+          <NewLabelForm
+            projectId={issue.projectId}
+            onCancel={() => setCreatingLabel(false)}
+            onCreated={(l) => {
+              setCreatedLabels((c) => [...c, l]);
+              setCreatingLabel(false);
+              onChange(`label ${l.name}`, (cur) => ({ labels: [...cur.labels.map((x) => x.name).filter((n) => n !== l.name), l.name] }), { labels: [...issue.labels, l] });
+            }}
+          />
+        </div>
+      )}
 
       <div className="my-3 border-t" />
 

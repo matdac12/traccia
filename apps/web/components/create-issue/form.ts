@@ -11,6 +11,10 @@ export type CreateIssueValues = {
   priority: Priority;
   assignee: Actor | null;
   milestoneId: string | null;
+  /** Story points, or none. */
+  estimate: number | null;
+  /** Parent issue id (must be in the same project), or none. */
+  parentId: string | null;
   /** Label names; they must already exist. */
   labels: string[];
 };
@@ -28,7 +32,9 @@ export function parseCreateIssue(values: CreateIssueValues): ParsedCreateIssue {
     status: values.status,
     priority: values.priority,
     assignee: values.assignee,
+    estimate: values.estimate,
     milestoneId: values.milestoneId,
+    parentId: values.parentId,
   });
   if (!parsed.success) return { ok: false, fieldErrors: zodFieldErrors(parsed.error.issues) };
   return { ok: true, input: parsed.data, labels: values.labels };

@@ -1,17 +1,20 @@
 "use client";
 import { ISSUE_STATUSES, PRIORITIES, type Actor, type IssueStatus, type Priority } from "@traccia/shared";
+import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { ActorAvatar, Kbd, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { IssuePicker } from "@/components/issue-detail/issue-picker";
+import { NewLabelForm } from "@/components/labels/new-label-form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Label, Milestone } from "@/lib/api/schemas";
+import type { IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
 import { createIssueAction, loadCreateIssueOptions } from "./actions";
-import { PRIORITY_LABEL } from "./constants";
+import { ESTIMATES, PRIORITY_LABEL } from "./constants";
 import type { CreateIssueValues } from "./form";
 
 export type CreateIssueProject = { id: string; name: string };
@@ -44,6 +47,10 @@ export function CreateIssueDialog({
   const [priority, setPriority] = useState<Priority>(0);
   const [assignee, setAssignee] = useState<Actor | null>(null);
   const [milestoneId, setMilestoneId] = useState<string | null>(null);
+  const [estimate, setEstimate] = useState<number | null>(null);
+  const [parent, setParent] = useState<IssueRef | null>(null);
+  const [pickingParent, setPickingParent] = useState(false);
+  const [newLabel, setNewLabel] = useState(false);
   const [labels, setLabels] = useState<string[]>([]);
   const [options, setOptions] = useState<{ labels: Label[]; milestones: Milestone[] }>({ labels: [], milestones: [] });
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -62,6 +69,10 @@ export function CreateIssueDialog({
     setPriority(0);
     setAssignee(null);
     setMilestoneId(null);
+    setEstimate(null);
+    setParent(null);
+    setPickingParent(false);
+    setNewLabel(false);
     setLabels([]);
     setError(null);
     setFieldErrors({});
@@ -72,6 +83,9 @@ export function CreateIssueDialog({
     if (!open || !project) return;
     let stale = false;
     setMilestoneId(null);
+    setParent(null); // a parent must live in the same project
+    setPickingParent(false);
+    setNewLabel(false);
     setLabels([]);
     setOptions({ labels: [], milestones: [] });
     setOptionsError(null);
@@ -89,7 +103,7 @@ export function CreateIssueDialog({
     };
   }, [open, project]);
 
-  const values = (): CreateIssueValues => ({ title, description, project, status, priority, assignee, milestoneId, labels });
+  const values = (): CreateIssueValues => ({ title, description, project, status, priority, assignee, milestoneId, estimate, parentId: parent?.id ?? null, labels });
 
   function submit() {
     if (pending || created) return;
@@ -131,7 +145,7 @@ export function CreateIssueDialog({
             {created.labelError ? <p className="text-destructive">The issue exists, but its labels were not applied: {created.labelError}</p> : null}
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
-              <Button size="sm" variant="outline" onClick={() => { setCreated(null); setTitle(""); setDescription(""); setLabels([]); }}>Create another</Button>
+              <Button size="sm" variant="outline" onClick={() => { setCreated(null); setTitle(""); setDescription(""); setParent(null); setEstimate(null); setLabels([]); }}>Create another</Button>
             </div>
           </div>
         ) : (
@@ -183,15 +197,36 @@ export function CreateIssueDialog({
                   {options.milestones.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <Select value={estimate === null ? NONE : String(estimate)} onValueChange={(v) => setEstimate(v === NONE ? null : Number(v))}>
+                <SelectTrigger size="sm" aria-label="Estimate" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No estimate</SelectItem>
+                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{n} points</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {parent ? (
+                <span className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border px-2 text-xs">
+                  <span className="font-mono text-muted-foreground">{parent.identifier}</span>
+                  <span className="truncate">{parent.title}</span>
+                  <button type="button" aria-label="Remove parent" onClick={() => setParent(null)} className="rounded p-0.5 text-muted-foreground hover:bg-accent"><X className="size-3" /></button>
+                </span>
+              ) : (
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs font-normal" aria-label="Parent" onClick={() => setPickingParent((v) => !v)}>No parent</Button>
+              )}
             </div>
-            {err("project") || err("milestoneId") || err("status") || err("priority") || err("assignee") ? (
+            {pickingParent && !parent ? (
+              <div className="px-4 pb-2">
+                <IssuePicker autoFocus placeholder="Parent identifier or title…" onPick={(p) => { setParent(p); setPickingParent(false); }} />
+              </div>
+            ) : null}
+            {err("project") || err("milestoneId") || err("status") || err("priority") || err("assignee") || err("estimate") || err("parentId") ? (
               <p className="px-4 pb-2 text-xs text-destructive">
-                {[err("project") && `Project ${err("project")}`, err("milestoneId") && `Milestone ${err("milestoneId")}`, err("status") && `Status ${err("status")}`, err("priority") && `Priority ${err("priority")}`, err("assignee") && `Assignee ${err("assignee")}`].filter(Boolean).join(". ")}
+                {[err("project") && `Project ${err("project")}`, err("milestoneId") && `Milestone ${err("milestoneId")}`, err("status") && `Status ${err("status")}`, err("priority") && `Priority ${err("priority")}`, err("assignee") && `Assignee ${err("assignee")}`, err("estimate") && `Estimate ${err("estimate")}`, err("parentId") && `Parent ${err("parentId")}`].filter(Boolean).join(". ")}
               </p>
             ) : null}
             <div className="flex flex-wrap gap-1.5 border-t px-4 py-2.5" aria-label="Labels">
               {optionsError ? <span className="text-xs text-destructive">Could not load labels: {optionsError}</span> : null}
-              {!optionsError && options.labels.length === 0 ? <span className="text-xs text-muted-foreground">No labels yet. Create them on a project page.</span> : null}
+              {!optionsError && options.labels.length === 0 ? <span className="text-xs text-muted-foreground">No labels yet.</span> : null}
               {options.labels.map((l) => {
                 const on = labels.includes(l.name);
                 return (
@@ -207,7 +242,24 @@ export function CreateIssueDialog({
                   </button>
                 );
               })}
+              {project && !newLabel ? (
+                <button type="button" onClick={() => setNewLabel(true)} className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] text-muted-foreground hover:bg-accent"><Plus className="size-3" />Create label</button>
+              ) : null}
             </div>
+            {newLabel ? (
+              <div className="border-t">
+                <NewLabelForm
+                  projectId={project}
+                  onCancel={() => setNewLabel(false)}
+                  onCreated={(l) => {
+                    if (l.projectId !== null && l.projectId !== project) return; // the project changed while it was saving
+                    setOptions((o) => ({ ...o, labels: [...o.labels, l] }));
+                    setLabels((s) => [...s, l.name]);
+                    setNewLabel(false);
+                  }}
+                />
+              </div>
+            ) : null}
             {error ? <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">{error}{err("labels") ? ` (labels: ${err("labels")})` : ""}</p> : null}
             <div className="flex items-center justify-between border-t px-4 py-3">
               <span className="text-xs text-muted-foreground"><Kbd>⌘</Kbd> + <Kbd>Enter</Kbd> to create</span>
