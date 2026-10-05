@@ -85,6 +85,27 @@ test("changing the status in the issue detail persists", async ({ page }) => {
     .toBe("done");
 });
 
+test("the issue detail Back button returns to the filtered list without a reload", async ({ page }) => {
+  const issue = await createIssue(api, projectId, unique("Back to list"), "todo");
+  const listUrl = "/issues?view=kanban&status=todo";
+  await visit(page, listUrl);
+  await page.evaluate(() => { (window as unknown as { __noReload: boolean }).__noReload = true; });
+  await page.getByRole("link", { name: issue.title }).click();
+  await expect(page.getByLabel("Title")).toHaveValue(issue.title);
+  await page.getByRole("link", { name: "Back" }).click();
+  await expect(page).toHaveURL(new RegExp(`${listUrl.replace("?", "\\?")}$`));
+  await expect(page.getByRole("region", { name: "Todo" })).toBeVisible();
+  // The same document survived: this was client-side history navigation, not a reload.
+  expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true);
+});
+
+test("the issue detail Back button goes to the project page when opened directly", async ({ page }) => {
+  const issue = await createIssue(api, projectId, unique("Back from a deep link"));
+  await visit(page, `/issues/${issue.identifier}`);
+  await page.getByRole("link", { name: "Back" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}$`));
+});
+
 test("dragging a card across Kanban columns persists after reload", async ({ page }) => {
   const issue = await createIssue(api, projectId, unique("Drag me"), "todo");
   await visit(page, "/issues?view=kanban");
