@@ -41,6 +41,10 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  *   comment    -> its replies and the attachments tied to them
  *   attachment -> itself
  *
+ * Restoring a milestone does not re-link the issues it was cleared from (the
+ * `milestone_changed` activity rows keep the old id). Purge also drops the
+ * activity of purged issues and project-scoped labels, as foreign keys require.
+ *
  * Other services never stamp `deleted_at` themselves. To delete an
  * attachment (MAT-1703) call `trash.delete(actor, "attachment", id)` from
  * the transport, or `softDeleteAttachment(tx, actor, id)` to join a larger
@@ -626,6 +630,45 @@ function purgeRows(
 }
 
 export function createTrashService(ctx: ServiceContext) {
+  async function purge(
+    actor: Actor,
+    type: TrashType,
+    ref: string,
+  ): Promise<PurgeResult> {
+    if (!canPurge(actor, { allowAgentPurge: ctx.allowAgentPurge })) {
+      throw new ServiceError("forbidden", "This actor is not allowed to purge");
+    }
+    const { id, sets, keys } = ctx.write((tx) => {
+      const row = load(tx, type, ref);
+      if (!row) throw notFound(type, ref);
+      if (!row.deletedAt) {
+        throw new ServiceError(
+          "conflict",
+          `${type} "${ref}" must be deleted before it can be purged`,
+        );
+      }
+      if (!ctx.storage && type !== "milestone") {
+        const pending = collect(tx, type, row.id, false).attachmentIds;
+        if (pending.length) {
+          throw new ServiceError(
+            "conflict",
+            "Attachment storage is not configured",
+          );
+        }
+      }
+      return { id: row.id, ...purgeRows(tx, type, row.id) };
+    });
+    const failedFiles: string[] = [];
+    for (const key of keys) {
+      try {
+        await ctx.storage?.delete(key);
+      } catch (e) {
+        if (!(e instanceof StorageNotFoundError)) failedFiles.push(key);
+      }
+    }
+    return { type, id, counts: countsOf(sets), failedFiles };
+  }
+
   return {
     /**
      * Soft-deletes `type`/`ref` and its dependents under one new batch. With
@@ -639,7 +682,7 @@ export function createTrashService(ctx: ServiceContext) {
       ref: string,
       options: { purge?: boolean } = {},
     ): Promise<DeleteResult | PurgeResult> {
-      if (options.purge) return this.purge(actor, type, ref);
+      if (options.purge) return purge(actor, type, ref);
       return ctx.write((tx) => softDelete(tx, actor, type, ref));
     },
 
@@ -648,47 +691,7 @@ export function createTrashService(ctx: ServiceContext) {
       return ctx.write((tx) => restoreBatch(tx, actor, type, ref));
     },
 
-    async purge(
-      actor: Actor,
-      type: TrashType,
-      ref: string,
-    ): Promise<PurgeResult> {
-      if (!canPurge(actor, { allowAgentPurge: ctx.allowAgentPurge })) {
-        throw new ServiceError(
-          "forbidden",
-          "This actor is not allowed to purge",
-        );
-      }
-      const { id, sets, keys } = ctx.write((tx) => {
-        const row = load(tx, type, ref);
-        if (!row) throw notFound(type, ref);
-        if (!row.deletedAt) {
-          throw new ServiceError(
-            "conflict",
-            `${type} "${ref}" must be deleted before it can be purged`,
-          );
-        }
-        if (!ctx.storage && type !== "milestone") {
-          const pending = collect(tx, type, row.id, false).attachmentIds;
-          if (pending.length) {
-            throw new ServiceError(
-              "conflict",
-              "Attachment storage is not configured",
-            );
-          }
-        }
-        return { id: row.id, ...purgeRows(tx, type, row.id) };
-      });
-      const failedFiles: string[] = [];
-      for (const key of keys) {
-        try {
-          await ctx.storage?.delete(key);
-        } catch (e) {
-          if (!(e instanceof StorageNotFoundError)) failedFiles.push(key);
-        }
-      }
-      return { type, id, counts: countsOf(sets), failedFiles };
-    },
+    purge,
 
     /** Deleted items of all types, newest deletion first (keyset-paginated). */
     list(input: ListTrashInput = {}): {
