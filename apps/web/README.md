@@ -106,6 +106,19 @@ scripts/               check-client-bundle.mjs
 test/                  vitest
 ```
 
+## Project page and create-issue dialog
+
+- `app/(app)/projects/[id]/page.tsx` loads the project, milestones (with `progress` done/total), labels and issues on
+  the server; the panels in `components/project/*` are client components that call the server actions in
+  `app/(app)/projects/[id]/actions.ts` (validate with the shared Zod schema, call `lib/api`, `revalidatePath`).
+  Actions return `ActionResult` (`lib/action-result.ts`): `{ ok, data }` or `{ error, fieldErrors }` for inline errors.
+- The issue list there is a minimal placeholder (`project-issue-list.tsx`); swap it for the shared issues table (MAT-1720).
+- `components/create-issue/` is reusable: `CreateIssueProvider` (mounted in the `(app)` layout) exposes
+  `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project
+  through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only
+  that step fails the issue still exists and the dialog says so instead of failing the whole create.
+- Labels are managed on the project page (project-scoped or global). Deleting a label is permanent and dashboard-only.
+
 ## Docker
 
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t tracker-web:latest .` from the repo

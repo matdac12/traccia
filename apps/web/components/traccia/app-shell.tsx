@@ -1,8 +1,9 @@
 "use client";
-import { Check, ChevronsUpDown, ListTodo, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, ListTodo, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useCreateIssue } from "@/components/create-issue/provider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
@@ -25,6 +26,7 @@ function NavItem({ href, icon, children, active }: { href: string; icon: ReactNo
 
 export function AppShell({ projects, projectsUnavailable = false, login, children }: { projects: ShellProject[]; projectsUnavailable?: boolean; login: string; children: ReactNode }) {
   const path = usePathname();
+  const createIssue = useCreateIssue();
   const current = projects.find((p) => path === `/projects/${p.id}`);
   return (
     <div className="flex h-dvh overflow-hidden">
@@ -52,6 +54,15 @@ export function AppShell({ projects, projectsUnavailable = false, login, childre
           </DropdownMenuContent>
         </DropdownMenu>
         <nav aria-label="Main" className="flex-1 space-y-0.5 overflow-y-auto px-2">
+          <button
+            type="button"
+            onClick={() => createIssue.open({ projectId: current?.id })}
+            className="mb-1 flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <span className="grid size-4 place-items-center text-muted-foreground"><Plus className="size-3.5" /></span>
+            <span className="flex-1 text-left">New issue</span>
+            <kbd className="rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground">C</kbd>
+          </button>
           <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")}>Issues</NavItem>
           <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"}>Trash</NavItem>
           <Link href="/projects" className="block px-2 pb-1 pt-4 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>
