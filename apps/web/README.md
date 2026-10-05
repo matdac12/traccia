@@ -94,6 +94,7 @@ names and the token value; run it before changing anything around the client.
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
   them. A selectable accent (MAT-1731) only has to override those three on `<html>`. Status colors (`--st-*`)
   and the agent color (`--agent`, cyan) are fixed and must not follow the accent.
+- **Collapsible sidebar (TRC-98).** On desktop (>= 768 px) the sidebar in `components/traccia/app-shell.tsx` collapses to a 48 px icon rail (button in its header, or Cmd/Ctrl+B outside text fields and open dialogs/menus) and expands again. The choice is the `traccia_sidebar` cookie (`lib/sidebar-state.ts`); the `(app)` layout reads it and passes `defaultCollapsed`, so the first paint already has the right width. The rail keeps every control and its accessible name (labels become `sr-only`) and shows a tooltip per icon. The mobile drawer always renders the full list and ignores the choice. It is a small extension of the existing shell, not a port of the prototype's shadcn `Sidebar`.
 - Theme: `next-themes`, system by default, toggle in the sidebar footer (System / Light / Dark).
 - Every route group has `loading.tsx`, `error.tsx` and `not-found.tsx`; add them for new groups. Show an empty
   state (`EmptyState`) for empty lists, never a blank page.
