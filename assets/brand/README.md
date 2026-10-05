@@ -25,6 +25,7 @@ Revision: the gap at the closest approach was widened from ~2 units to 36 units 
 ## Social preview
 
 - `social-preview.png` — 1280x640 card for GitHub. Upload it in the repository settings (Settings, General, Social preview); the API cannot set it.
+- The card is two full-width traces (amber above, cyan below, 22 stroke, round caps) framing a centred `Traccia` wordmark and the tagline, set in Geist Mono on `#0B0F14`. The traces converge at the right edge and never touch. Source: `social-preview-src/social-preview.html`; rerun `PW_CORE=<path to playwright-core/package.json> node social-preview-src/render.mjs` (needs Chrome) to regenerate the PNG.
 
 ## Where it is used
 

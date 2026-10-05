@@ -1,0 +1,9 @@
+@font-face{font-family:"Geist Mono";font-weight:400;src:url(GeistMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"Geist Mono";font-weight:500;src:url(GeistMono-Medium.woff2) format("woff2")}
+*{margin:0;box-sizing:border-box}
+html,body{width:1280px;height:640px;background:#0B0F14;overflow:hidden}
+.card{position:relative;width:1280px;height:640px;background:#0B0F14;font-family:"Geist Mono",monospace}
+svg.art{position:absolute;inset:0}
+.text{position:absolute;left:0;right:0;text-align:center}
+.word{font-weight:500;color:#F4F6F8;letter-spacing:.06em}
+.tag{font-weight:400;color:#8B96A3;letter-spacing:.01em}
