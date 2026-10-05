@@ -69,7 +69,7 @@ The dashboard is a placeholder for now, so there is nothing to run for `apps/web
 
 ## Configuration
 
-One `.env` file, read by both services in production (never committed). The template is [`deploy/.env.example`](deploy/.env.example). The api validates its variables with Zod at startup and exits with a clear message on a bad value; [`apps/api/src/config.ts`](apps/api/src/config.ts) is the only place that reads `process.env`. A test (`apps/api/test/readme.test.ts`) fails if this table misses a variable from `config.ts`.
+One `.env` file in `/opt/tracker` (never committed): the api reads it directly, and the compose file passes the web variables through to the dashboard. The template is [`deploy/.env.example`](deploy/.env.example). The api validates its variables with Zod at startup and exits with a clear message on a bad value; [`apps/api/src/config.ts`](apps/api/src/config.ts) is the only place that reads `process.env`. A test (`apps/api/test/readme.test.ts`) fails if this table misses a variable from `config.ts`.
 
 | Variable | Service | Default | Purpose |
 |----------|---------|---------|---------|
@@ -83,6 +83,7 @@ One `.env` file, read by both services in production (never committed). The temp
 | `RATE_LIMIT_PER_MIN` | api | `120` | Requests per minute, per token |
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | api | `true` | Read the client IP from `X-Forwarded-For` |
+| `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
 | `TRACKER_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
 | `TRACKER_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
 | `DASHBOARD_ALLOWED_LOGINS` | web | empty | Comma-separated Tailscale logins allowed to open the dashboard |
@@ -123,7 +124,7 @@ A daily SQLite snapshot on the VPS (`tracker db snapshot`, last 3 kept), a manua
 - **Tokens.** Create one per machine or agent. A token is bound to one actor, stored hashed (SHA-256), and shown once at creation. Revocation is immediate. There is no public token endpoint; tokens are managed with the CLI on the VPS.
 - **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk:** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
 - **Agent purge** is disabled by default (`ALLOW_AGENT_PURGE=false`); deletes by agents are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
-- Attachment uploads are validated by magic bytes and size, and `sourceUrl` fetches go through an SSRF blocklist.
+- Attachment uploads are validated by magic bytes and size, and the MCP `sourceUrl` fetch goes through an SSRF blocklist.
 
 ## Known limitations in v1
 
