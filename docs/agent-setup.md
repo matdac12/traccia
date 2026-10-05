@@ -13,7 +13,7 @@ Create one token per machine and agent, so writes are attributed correctly and o
 cd /opt/tracker && docker compose exec -T api node dist/tracker.js token create --name mac-claude --actor agent
 ```
 
-The plaintext is printed once and cannot be shown again. Use `--actor agent` for agents. Only the dashboard's own token is `you`. `token list` shows tokens without secrets, and `token revoke <id>` cuts one off immediately.
+The plaintext is printed once and cannot be shown again. Use `--actor agent` for agents. Only the dashboard's own token is `you`. Run `token list` (no secrets shown) and `token revoke <id>` the same way, replacing `token create ...`; revoking cuts a token off immediately.
 
 Name the variable `TRACCIA_TOKEN`. Claude Code reads some credential names (such as `ANTHROPIC_AUTH_TOKEN` or `NPM_TOKEN`) as empty inside MCP headers, so avoid those names.
 
@@ -100,8 +100,8 @@ The `actor` and `tokenName` must match the token you created. Then ask for `list
 | --- | --- |
 | Connection times out or the host does not resolve | The machine is not on the tailnet. Traccia is reachable only from tailnet devices, so connect Tailscale and retry. |
 | `401 Unauthorized` | The token is wrong, revoked, or empty. Check `echo $TRACCIA_TOKEN` (`$env:TRACCIA_TOKEN` on Windows) in the shell that launches the agent, and that the variable name matches the config. Remember a restarted agent is needed after setting it. If the header was added with double quotes, your shell may have expanded it at add time; re-add it with single quotes. Confirm the token with `tracker token list`, or mint a new one. |
-| `429 Too Many Requests` | The token exceeded its per-minute request limit (default 120 per minute). Wait a minute, and avoid tight loops; use `list_issues` filters and `limit` instead of fetching everything. |
-| Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge, and deletes are soft and restorable. Ask the owner to purge from the dashboard. |
+| `429 Too Many Requests` | The token exceeded its per-minute request limit (default 120 per minute). The response carries a `Retry-After` header; wait that long, and avoid tight loops; use `list_issues` filters and `limit` instead of fetching everything. |
+| Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge unless the server has agent purge switched on, and deletes are soft and restorable. Ask the owner to purge from the dashboard. |
 
 ## Not supported in v1
 
