@@ -13,6 +13,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { TimeAgo } from "./atoms";
 import { Attachments } from "./attachments";
+import { BackButton } from "./back-button";
 import { ActivityTimeline } from "./activity";
 import { Comments } from "./comments";
 import { Description } from "./description";
@@ -166,6 +167,7 @@ export function IssueDetail(props: IssueDetailProps) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
+        <BackButton fallbackHref={`/projects/${issue.projectId}`} />
         <Link href="/issues" className="text-muted-foreground hover:text-foreground">Issues</Link>
         <ChevronRight className="size-3.5 text-muted-foreground" />
         <Link href={`/projects/${issue.projectId}`} className="text-muted-foreground hover:text-foreground">{project?.name ?? issue.key}</Link>

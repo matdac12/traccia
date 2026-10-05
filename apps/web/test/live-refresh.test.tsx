@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Board } from "../components/kanban/board";
 import { emptyColumns, type BoardColumn } from "../components/kanban/board-model";
 import { IssueDetail } from "../components/issue-detail/issue-detail";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { useListSync, type GroupsApplier } from "../components/issues-table/use-list-sync";
 import { POLL_INTERVAL_MS } from "../lib/polling/use-poll";
 
@@ -162,7 +163,7 @@ describe("IssueDetail live refresh", () => {
     comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [] }, parentId: null, ...over,
   });
   const mount = (d = detail()) =>
-    render(<IssueDetail issue={d as never} projects={[{ id: "p1", key: "TRK", name: "Traccia" }]} labels={[]} milestones={[]} parent={null} />);
+    render(<TooltipProvider><IssueDetail issue={d as never} projects={[{ id: "p1", key: "TRK", name: "Traccia" }]} labels={[]} milestones={[]} parent={null} /></TooltipProvider>);
 
   it("applies a newer copy when nothing is being edited", async () => {
     mount();
