@@ -54,14 +54,22 @@ TRC-73 logo and identity. From the two traces kernel. Amber for you, cyan for th
 
 TRC-74 hero shots and film. From the trail motion language. Slow, smooth camera moves, an agent creating issues while the board updates, seeded demo data.
 
-TRC-75 landing page. From the positioning line, the tagline and the voice rules. Hero, the "you and your agents" MCP story, a quickstart, and a link to the open source repo.
+TRC-75 landing page. On hold. No domain is bought and no site is built for now. The README and the GitHub page carry the public face. Revisit only if the project gains traction.
 
-TRC-76 GitHub presence. Open source is decided. README as a landing page, a one-line pitch, a social preview, a secret scan before the repo goes public.
+TRC-76 GitHub presence. The priority, and the public face. The repo goes public with a modern README, a one-line pitch, a social preview and a quickstart. Genericize the tailnet hostname, node name and tailnet IP in the public docs. Run a secret scan before flipping visibility, and allowlist or regenerate the committed test key fixture.
 
-TRC-81 launch plan. A public open source launch on GitHub and X. An assets checklist, a self-hosting guide for strangers, and a go or no-go on timing.
+TRC-81 launch plan. GitHub-led. The repo is public now, with no announcement. X comes later, when Mattia is ready. Show HN, Product Hunt and MCP directories wait for traction. The self-hosting guide for strangers is separate work.
 
-## Open questions
+## Decisions
 
-- Domain choice and hosting for the landing page. TRC-75.
-- Channel mix and timing for the launch. TRC-81.
-- Whether the repo goes public now or after the pilot. TRC-76 and TRC-81.
+Resolved after the brief.
+
+- The repo is public now and always open source. The GitHub repository is the public face. No X post or marketing yet. TRC-76.
+- The landing page and website are on hold. No domain is bought. TRC-75 stays in the backlog and is revisited only if the project gains traction.
+- The launch is GitHub-led. X comes later, when Mattia is ready. Show HN, Product Hunt and MCP directories wait for traction. TRC-81.
+- The real tailnet hostname, node name and tailnet IP are genericized in public docs. The private deploy config keeps the real values.
+
+Still open:
+
+- When to post on X, and whether to use Show HN, Product Hunt or MCP directories later. TRC-81.
+- Whether the landing page ever gets built. TRC-75, revisit on traction.
