@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import type { AppContainer, AppEnv } from "./rest/env.js";
@@ -30,6 +31,7 @@ export function createApp(container: AppContainer) {
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
   app.route("/v1", v1);
+  app.route("/mcp", createMcpRoute(container));
 
   return app;
 }

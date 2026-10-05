@@ -1,6 +1,7 @@
 import type { Db } from "../db/connection.js";
 import { createServiceContext } from "./context.js";
 import { createLabelsService } from "./labels.js";
+import { createIssuesService } from "./issues.js";
 import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
 
@@ -14,6 +15,8 @@ export {
   listIssueLabels,
   setIssueLabels,
 } from "./labels.js";
+export type { Issue, IssueDetail, IssueUpdateHook } from "./issues.js";
+export { recordActivity, resolveIssue } from "./issues.js";
 export type { Milestone } from "./milestones.js";
 export type { Project } from "./projects.js";
 
@@ -25,6 +28,7 @@ export function createServices(options: { db: Db; defaultIssueKey: string }) {
   const ctx = createServiceContext(options);
   return {
     projects: createProjectsService(ctx),
+    issues: createIssuesService(ctx),
     milestones: createMilestonesService(ctx),
     labels: createLabelsService(ctx),
   };

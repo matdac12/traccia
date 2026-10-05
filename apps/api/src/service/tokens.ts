@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Actor } from "@linear-matti/shared";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "../db/connection.js";
 import { tokens } from "../db/schema.js";
 import { newId } from "../ids.js";
@@ -82,6 +82,9 @@ export function revokeToken(db: Db, id: string): TokenSummary {
   if (!existing) throw new NotFoundError(`Token ${id} not found`);
   if (existing.revokedAt) return existing;
   const revokedAt = nowIso();
-  db.update(tokens).set({ revokedAt }).where(eq(tokens.id, id)).run();
+  db.update(tokens)
+    .set({ revokedAt })
+    .where(and(eq(tokens.id, id), isNull(tokens.revokedAt)))
+    .run();
   return { ...existing, revokedAt };
 }

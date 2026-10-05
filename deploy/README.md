@@ -59,6 +59,24 @@ curl localhost:8787/healthz   # {"ok":true}
 
 Run the CLI inside the api container: `docker compose exec api node dist/tracker.js db migrate`.
 
+### Managing tokens
+
+There is no public token endpoint; tokens are managed with the CLI inside the api container, against the same `DATA_DIR`:
+
+```sh
+docker compose exec api node dist/tracker.js token create --name "claude-code" --actor agent   # actor: agent | you
+docker compose exec api node dist/tracker.js token list
+docker compose exec api node dist/tracker.js token revoke <id>
+```
+
+`create` prints the plaintext token once, never again; copy it immediately. `list` shows id, name, actor, created, last used and revoked, never secrets. `revoke` takes effect immediately and is safe to repeat. Every command accepts `--help` and exits non-zero with a message on failure.
+
+When running these over SSH, bypass any `RemoteCommand` in your SSH config and skip the TTY so the output is captured cleanly:
+
+```sh
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd <deploy dir> && docker compose exec -T api node dist/tracker.js token list'
+```
+
 ## The `.env` file
 
 One file, read by both services (never committed; `.env` is gitignored). See spec 13 for the full reference.
