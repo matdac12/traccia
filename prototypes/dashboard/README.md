@@ -12,7 +12,7 @@ pnpm install --ignore-workspace
 pnpm dev          # http://localhost:3100
 ```
 
-`next.config.mjs` allows the author's tailnet origins in dev (`allowedDevOrigins`); edit for your own.
+To open the dev server from another machine (for example over a tailnet), set `DEV_ORIGINS` to a comma-separated list of hosts.
 
 ## What it covers (spec 12.1)
 

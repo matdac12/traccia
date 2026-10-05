@@ -1,14 +1,14 @@
 # Backup and restore
 
-Decision: [ADR 0010](adr/0010-backups-online-snapshot-manual-pull.md) and spec 14.2. A daily online snapshot of the SQLite database on the VPS (`omni`), and a manual pull of the newest snapshot plus attachments to the Windows machine over the tailnet. Three copies are kept in each place. No Litestream, no cloud.
+Decision: [ADR 0010](adr/0010-backups-online-snapshot-manual-pull.md) and spec 14.2. A daily online snapshot of the SQLite database on the VPS (`<your-server>`), and a manual pull of the newest snapshot plus attachments to the Windows machine over the tailnet. Three copies are kept in each place. No Litestream, no cloud.
 
-The off-box copy can be stale: anything written since the last pull is lost if `omni` dies. That is accepted for v1.
+The off-box copy can be stale: anything written since the last pull is lost if `<your-server>` dies. That is accepted for v1.
 
 ## What gets backed up
 
 | Data | Where it lives | How it is backed up |
 |------|----------------|---------------------|
-| Database | `/data/traccia.db` (or the pre-rename `/data/tracker.db`) in the `traccia-data` volume (omni: `tracker_tracker-data`) | Daily snapshot to `/data/backups/traccia-<UTC timestamp>.db`, last 3 kept |
+| Database | `/data/traccia.db` (or the pre-rename `/data/tracker.db`) in the `traccia-data` volume (<your-server>: `tracker_tracker-data`) | Daily snapshot to `/data/backups/traccia-<UTC timestamp>.db`, last 3 kept |
 | Attachments | `/data/attachments` in the same volume | Copied by the Windows pull; no snapshot on the VPS |
 
 ## How the snapshot works
@@ -26,20 +26,20 @@ docker compose exec -T api node dist/traccia.js db snapshot [--out <dir>] [--kee
 Run it by hand any time, for example before a risky migration:
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api node dist/traccia.js db snapshot'
+ssh -o RemoteCommand=none -o RequestTTY=no <your-server> 'cd /opt/tracker && docker compose exec -T api node dist/traccia.js db snapshot'
 ```
 
-The `-o RemoteCommand=none -o RequestTTY=no` flags are needed because the `omni` alias in the ssh config sets `RemoteCommand` and `RequestTTY`, which break scripted output. The same applies to every `ssh omni` command below.
+The `-o RemoteCommand=none -o RequestTTY=no` flags are needed because the `<your-server>` alias in the ssh config sets `RemoteCommand` and `RequestTTY`, which break scripted output. The same applies to every `ssh <your-server>` command below.
 
-## Scheduling the daily snapshot (on omni)
+## Scheduling the daily snapshot (on <your-server>)
 
 Files in `deploy/backup/`: `traccia-snapshot.service` (one-shot, runs the command above from `/opt/tracker`) and `traccia-snapshot.timer` (03:30 daily, `Persistent=true` so a missed run catches up).
 
 Installing it is a separate human step (P5); nothing in this repo does it. Install:
 
 ```sh
-scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'sudo install -m 644 /tmp/traccia-snapshot.service /tmp/traccia-snapshot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now traccia-snapshot.timer'
+scp deploy/backup/traccia-snapshot.{service,timer} <your-server>:/tmp/
+ssh -o RemoteCommand=none -o RequestTTY=no <your-server> 'sudo install -m 644 /tmp/traccia-snapshot.service /tmp/traccia-snapshot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now traccia-snapshot.timer'
 ```
 
 If the old `tracker-snapshot.timer` is installed, disable it in the same step (`systemctl disable --now tracker-snapshot.timer`) and never leave both enabled; see the rename notes in [`deploy/README.md`](../deploy/README.md).
@@ -47,7 +47,7 @@ If the old `tracker-snapshot.timer` is installed, disable it in the same step (`
 Check it:
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'systemctl list-timers traccia-snapshot.timer; sudo systemctl start traccia-snapshot.service; journalctl -u traccia-snapshot.service -n 20 --no-pager'
+ssh -o RemoteCommand=none -o RequestTTY=no <your-server> 'systemctl list-timers traccia-snapshot.timer; sudo systemctl start traccia-snapshot.service; journalctl -u traccia-snapshot.service -n 20 --no-pager'
 ```
 
 Cron alternative, if you prefer it: `30 3 * * * cd /opt/tracker && docker compose exec -T api node dist/traccia.js db snapshot >> /var/log/traccia-snapshot.log 2>&1`.
@@ -69,7 +69,7 @@ Tooling choice: the Windows OpenSSH client (`ssh.exe`) plus the built-in `tar.ex
 It:
 
 1. Lists `/data/backups` and picks the newest `traccia-*.db` (or pre-rename `tracker-*.db`).
-2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\traccia-….db` and `attachments\`). If omni has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on omni)`; that is not an error.
+2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\traccia-….db` and `attachments\`). If <your-server> has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on <your-server>)`; that is not an error.
 3. Only after a successful pull, deletes older `omni-*` folders beyond `-Keep` (default 3).
 
 It never writes to or deletes anything on the VPS. Retention touches only folders matching `omni-<digits>-<digits>` in the destination. Pull after the daily timer has run at least once, otherwise it stops with "No snapshot found".
@@ -92,10 +92,10 @@ docker load -i traccia-api.tar                       # on the restore machine
 
 The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
 
-The snapshot lives inside the `traccia-data` volume, not at a host path, so `scp omni:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
+The snapshot lives inside the `traccia-data` volume, not at a host path, so `scp <your-server>:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api cat /data/backups/traccia-<UTC>.db' > traccia.db
+ssh -o RemoteCommand=none -o RequestTTY=no <your-server> 'cd /opt/tracker && docker compose exec -T api cat /data/backups/traccia-<UTC>.db' > traccia.db
 ```
 
 1. **Lay out a scratch data dir.** The API expects `traccia.db` and `attachments/` side by side:
@@ -147,6 +147,6 @@ ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compo
 
 6. **Record the result** (date, snapshot used, what you checked, how stale) on the restore-test issue.
 
-### Restoring for real on omni
+### Restoring for real on <your-server>
 
 Stop the stack so nothing writes (`docker compose stop`), copy the snapshot into the volume as `traccia.db` (removing any old `traccia.db-wal`/`-shm`) and `attachments/` alongside it, make them owned by the container's `node` user, then `docker compose up -d`. Keep the damaged files until the restored system is confirmed good.

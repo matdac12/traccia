@@ -1,4 +1,4 @@
-/** PROTOTYPE: throwaway, mock data only. Dev origins allow reaching it over the tailnet. */
+/** PROTOTYPE: throwaway, mock data only. Set DEV_ORIGINS (comma-separated hosts) to reach the dev server from another machine, e.g. over a tailnet. */
 export default {
-  allowedDevOrigins: ["100.123.7.116", "macbook-pro-2", "macbook-pro-2.tail2b3fbf.ts.net"],
+  allowedDevOrigins: (process.env.DEV_ORIGINS ?? "").split(",").filter(Boolean),
 };

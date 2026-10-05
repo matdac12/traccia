@@ -52,7 +52,7 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
 | 18 | Search | SQLite FTS5 over titles, descriptions, comments |
 | 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-snippet.md` |
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
-| 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`omni`); images built on the dev Mac and loaded with `docker save \| ssh omni docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
+| 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`<your-server>`); images built on the dev Mac and loaded with `docker save \| ssh <your-server> docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
 | 22 | Rollout | Build, pilot on one new project for 1-2 weeks, then import + cut over |
 
 ---
@@ -90,8 +90,8 @@ Principles:
 7. **Everything stateful lives under `DATA_DIR`** (default `/data`): the DB and attachments. Config is env vars. This keeps it deployable under Docker or systemd.
 
 ### 3.1 Tailscale setup
-- The VPS is the existing tailnet node `omni` (`omni.tail2b3fbf.ts.net`). It stays untagged and user-owned: **no `tag:traccia` and no ACL change in v1** (the node is shared with other apps; access is bounded by the tailnet itself plus bearer tokens and the dashboard access check). Revisit if other people join the tailnet.
-- Publish with `tailscale serve` on **HTTPS 443** (Tailscale-issued certificate), mapping paths to local ports as in the diagram: `/` to the dashboard (`127.0.0.1:3000`), `/mcp` and `/v1/*` to the API (`127.0.0.1:8787`). `BASE_URL` is `https://omni.tail2b3fbf.ts.net`. Port 443 on `omni` was freed for the tracker (no serve config remained, verified 2026-10-04); the old `/` -> 3773 entry is gone. Exact commands to be verified against the installed Tailscale version (1.102.4).
+- The VPS is an existing tailnet node (hostname `<your-tailnet-host>`). It stays untagged and user-owned: **no `tag:traccia` and no ACL change in v1** (the node is shared with other apps; access is bounded by the tailnet itself plus bearer tokens and the dashboard access check). Revisit if other people join the tailnet.
+- Publish with `tailscale serve` on **HTTPS 443** (Tailscale-issued certificate), mapping paths to local ports as in the diagram: `/` to the dashboard (`127.0.0.1:3000`), `/mcp` and `/v1/*` to the API (`127.0.0.1:8787`). `BASE_URL` is `https://<your-tailnet-host>`. Port 443 on that node was freed for the tracker (no serve config remained, verified 2026-10-04); the old `/` -> 3773 entry is gone. Exact commands to be verified against the installed Tailscale version (1.102.4).
 - **Do not enable Funnel** in v1 (Funnel makes the service public).
 - Caveats:
   - Any machine or runtime that needs the tracker must be on the tailnet. Cloud-hosted agents and CI that are not on the tailnet cannot reach it (they would need a Tailscale auth key / ephemeral node, or a later public path).
@@ -105,7 +105,7 @@ Principles:
 
 1. **Add a 4 GB swapfile on the VPS** (decided). The box has no swap and about 1.9 GiB available; any spike invokes the OOM killer. This is the one change to the shared VPS and needs Mattia's explicit go-ahead when it is done.
 2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built on the dev Mac (linux/amd64), using Next.js `output: 'standalone'` for the dashboard, and loaded onto the VPS over the tailnet. The VPS only runs `node server.js` inside the containers. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
-3. **VPS inspection (DONE, 2026-10-04).** `omni`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only `postgres-omni`; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
+3. **VPS inspection (DONE, 2026-10-04).** `<your-server>`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only `postgres-omni`; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
 4. **No Tailscale ACL tag** in v1 (see 3.1).
 
 Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`) roughly 200-400 MB. Total about 0.3-0.55 GB, which fits the headroom only with the swapfile in place. If memory gets tight, fall back to serving a static dashboard build from the Hono service (no Next server).
@@ -564,7 +564,7 @@ Everything configurable via env vars (validated with Zod at startup; fail fast w
 |----------|---------|---------|
 | `PORT` | `8787` | HTTP port |
 | `DATA_DIR` | `/data` | SQLite file + attachments |
-| `BASE_URL` | (required) | Externally visible base URL, e.g. `https://omni.tail2b3fbf.ts.net` (used to build attachment links in responses) |
+| `BASE_URL` | (required) | Externally visible base URL, e.g. `https://<your-tailnet-host>` (used to build attachment links in responses) |
 | `MAX_ATTACHMENT_BYTES` | `10485760` | Per-file cap |
 | `MAX_MCP_UPLOAD_BYTES` | `5242880` | Base64 upload cap |
 | `DEFAULT_ISSUE_KEY` | `MAT` | Issue prefix used when a project is created without an explicit key |
@@ -582,12 +582,12 @@ Hostname: the default is the node's MagicDNS name (`<node>.<tailnet>.ts.net`), s
 ## 14. Deployment and backups
 
 ### 14.1 Deployment (decided)
-Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/postgres-omni/docker-compose.yml`:
+Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existing `/opt/postgres-omni/docker-compose.yml`:
 - Two services: `api` (Hono, port 8787) and `web` (Next.js standalone, port 3000), both bound to localhost, never to a public interface. `restart: unless-stopped`.
 - `tailscale serve` is the only publisher (3.1), on port 443.
 - Single data directory (`/data` volume), config from env vars.
 - `GET /healthz` on the API for container health checks.
-- Images built on the dev Mac (linux/amd64, buildx) and shipped with `docker save | ssh omni docker load`, then `docker compose up -d`. No registry, no CI in v1. A deploy script in the repo wraps these steps. No builds on the VPS.
+- Images built on the dev Mac (linux/amd64, buildx) and shipped with `docker save | ssh <your-server> docker load`, then `docker compose up -d`. No registry, no CI in v1. A deploy script in the repo wraps these steps. No builds on the VPS.
 - Memory limits: `api` 256 MB, `web` 512 MB, with a 4 GB swapfile on the host.
 - Repo tooling: Biome (lint and format) and pnpm workspaces; pnpm is dev-only.
 - Docker caveat: published ports must be bound to `127.0.0.1` (e.g. `127.0.0.1:8787:8787`); Docker's default publishing bypasses some firewall rules.
@@ -698,12 +698,12 @@ Each phase ends with passing tests and a short demo.
 
 - **O1 (RESOLVED): identifier prefixes.** All projects use the single key `MAT`; the shared-key design in 6.2 handles it, and the Linear import keeps every `MAT-n` identifier valid. Original note, kept for context: **identifier prefixes vs Linear's model.** In Linear, `ABC-123` comes from a *team*, and a team normally contains many *projects*. This spec puts the prefix on the project (as decided) but stores the counter on a separate `issue_keys` table, so several projects can share one key. Confirm during the import design: if your Linear workspace has one team spanning many projects, you want those projects to share a key (e.g. all `BD-*`) so old identifiers stay valid. If each of your projects already has its own team/key, the default one-key-per-project works as is.
 - **O2 (RESOLVED): Domain/exposure.** Tailnet-only via `tailscale serve` on a MagicDNS hostname; no domain needed. A custom domain is only relevant for the future OAuth phase.
-- **O3 (RESOLVED): VPS deployment alignment.** Docker Compose on `omni`, serve on port 443 (freed), Mac-built images, 4 GB swap (sections 3.1, 14.1).
+- **O3 (RESOLVED): VPS deployment alignment.** Docker Compose on `<your-server>`, serve on port 443 (freed), Mac-built images, 4 GB swap (sections 3.1, 14.1).
 - **O4 (RESOLVED): Backups.** Daily snapshot on the VPS, manual pull to the Windows machine, keep 3 (section 14.2).
 - **O5: Dashboard design.** Reference repos and prototypes (section 12.4).
 - **O6: Import scope.** Everything vs open issues only; decided after the pilot.
 - **O7: OAuth.** Phase 2; confirm which clients need it (claude.ai custom connector, mobile).
-- **O8 (RESOLVED): Dashboard login.** Identity header check only (`Tailscale-User-Login` vs `DASHBOARD_ALLOWED_LOGINS`); the password fallback (7.3) is built only if the deploy-time header check from Mac and Windows fails. Local header forging by other processes on `omni` is accepted for v1; document in the README.
+- **O8 (RESOLVED): Dashboard login.** Identity header check only (`Tailscale-User-Login` vs `DASHBOARD_ALLOWED_LOGINS`); the password fallback (7.3) is built only if the deploy-time header check from Mac and Windows fails. Local header forging by other processes on `<your-server>` is accepted for v1; document in the README.
 - **O11 (RESOLVED): Non-tailnet clients.** v1 agent hosts are Claude Code/Codex on the Mac and the Windows machine, both on the tailnet. CI, cloud agents and phone are unsupported until the OAuth phase.
 - **O12: Memory headroom.** Dashboard adds about 200-400 MB; confirm after the 4 GB swap is in place. Fallback: static dashboard served by the API.
 - **O9: Italian-language search quality.** FTS5 with `unicode61` is language-agnostic but stems English only; revisit if search quality in Italian content is poor.
