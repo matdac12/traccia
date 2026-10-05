@@ -143,6 +143,19 @@ describe("Board live refresh", () => {
   });
 });
 
+describe("external delete (MAT-1765)", () => {
+  it("a poll after an external delete removes the card", async () => {
+    const sync = renderHook(() => useListSync({ query: "", syncToken: "2026-01-01T00:00:00.000Z" }));
+    render(<Board columns={cols([issue(1, "todo"), issue(2, "todo")])} query="" register={sync.result.current.register} />);
+    expect(screen.getByRole("link", { name: "Issue 1" })).toBeInTheDocument();
+    // The API bumps updatedAt on soft delete, so the probe now reports a newer change and the groups omit the row.
+    fetchMock.mockImplementation(async (u: string) => (String(u).startsWith("/api/issues/changes") ? json({ latest: "2026-01-01T00:00:09.000Z" }) : json(allGroups([issue(2, "todo")]))));
+    await advance(POLL_INTERVAL_MS);
+    expect(screen.queryByRole("link", { name: "Issue 1" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Issue 2" })).toBeInTheDocument();
+  });
+});
+
 describe("IssueDetail live refresh", () => {
   const detail = (over = {}) => ({
     ...issue(7, "todo", { description: "Original", createdAt: "2026-01-01T00:00:00.000Z" }), key: "TRK", number: 7,

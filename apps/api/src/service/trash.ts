@@ -60,6 +60,11 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  * the transport, or `softDeleteAttachment(tx, actor, id)` to join a larger
  * transaction. Files stay on disk until the row is purged.
  *
+ * Delete and restore also set `updated_at` on projects, milestones, issues and
+ * comments (attachments have no such column), so `updatedAfter` change probes
+ * such as the dashboard's live refresh see them (MAT-1765). A stale
+ * `expectedUpdatedAt` therefore conflicts after a delete + restore, by design.
+ *
  * Purge is a separate second step: only on already-deleted items, only if
  * `canPurge(actor)`. It removes rows, activity of purged issues, search rows
  * and (after commit, via the storage interface) attachment files. The issue
@@ -277,22 +282,25 @@ function stamp(
   now: string,
   actor: Actor,
 ): void {
+  // `updatedAt` moves with the delete so change probes (`updatedAfter`) see it;
+  // attachments have no such column.
   const mark = { deletedAt: now, deletedBatch: batch, deletedBy: actor };
+  const touched = { ...mark, updatedAt: now };
   if (s.projectIds.length)
     tx.update(projects)
-      .set(mark)
+      .set(touched)
       .where(inArray(projects.id, s.projectIds))
       .run();
   if (s.milestoneIds.length)
     tx.update(milestones)
-      .set(mark)
+      .set(touched)
       .where(inArray(milestones.id, s.milestoneIds))
       .run();
   if (s.issueIds.length)
-    tx.update(issues).set(mark).where(inArray(issues.id, s.issueIds)).run();
+    tx.update(issues).set(touched).where(inArray(issues.id, s.issueIds)).run();
   if (s.commentIds.length)
     tx.update(comments)
-      .set(mark)
+      .set(touched)
       .where(inArray(comments.id, s.commentIds))
       .run();
   if (s.attachmentIds.length)
@@ -510,22 +518,27 @@ function restoreBatch(
         .all(),
     ),
   };
+  const now = nowIso();
   const clear = { deletedAt: null, deletedBatch: null, deletedBy: null };
+  const revived = { ...clear, updatedAt: now };
   if (sets.projectIds.length)
     tx.update(projects)
-      .set(clear)
+      .set(revived)
       .where(inArray(projects.id, sets.projectIds))
       .run();
   if (sets.milestoneIds.length)
     tx.update(milestones)
-      .set(clear)
+      .set(revived)
       .where(inArray(milestones.id, sets.milestoneIds))
       .run();
   if (sets.issueIds.length)
-    tx.update(issues).set(clear).where(inArray(issues.id, sets.issueIds)).run();
+    tx.update(issues)
+      .set(revived)
+      .where(inArray(issues.id, sets.issueIds))
+      .run();
   if (sets.commentIds.length)
     tx.update(comments)
-      .set(clear)
+      .set(revived)
       .where(inArray(comments.id, sets.commentIds))
       .run();
   if (sets.attachmentIds.length)
@@ -537,7 +550,6 @@ function restoreBatch(
   // A restored issue gets `issue_restored`; a restored comment/attachment
   // records its own type on the owning issue with the ids in `data` (the issue
   // itself was never hidden).
-  const now = nowIso();
   const base = { batch, via: type, viaId: row.id };
   for (const issueId of sets.issueIds) {
     recordActivity(tx, issueId, actor, "issue_restored", base, now);

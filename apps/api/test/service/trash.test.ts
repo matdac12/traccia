@@ -286,6 +286,94 @@ describe("restore", () => {
   });
 });
 
+describe("change probe (MAT-1765)", () => {
+  // The dashboard polls `updatedAfter` + `includeDeleted`, newest updatedAt first.
+  const probe = (s: Awaited<ReturnType<typeof setup>>, since: string) =>
+    s.services.issues.list({
+      updatedAfter: since,
+      includeDeleted: true,
+      orderBy: "updatedAt",
+      order: "desc",
+      limit: 1,
+    }).items[0];
+
+  it("delete and restore bump updatedAt of every hidden or revived row", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-05T10:00:00.000Z"));
+      const s = await setup();
+      const parent = s.issue("parent");
+      const child = s.issue("child", { parentId: parent.id });
+      const c = s.services.comments.create("you", parent.id, { body: "c" });
+      const created = parent.updatedAt;
+
+      vi.setSystemTime(new Date("2026-10-05T10:00:05.000Z"));
+      await s.del("issue", parent.id);
+      const rowOf = (id: string) =>
+        s.db.select().from(issues).where(eq(issues.id, id)).get();
+      expect(rowOf(parent.id)?.updatedAt).toBe("2026-10-05T10:00:05.000Z");
+      expect(probe(s, created)?.updatedAt).toBe("2026-10-05T10:00:05.000Z");
+      expect(rowOf(child.id)?.updatedAt).toBe("2026-10-05T10:00:05.000Z");
+      expect(
+        s.db.select().from(comments).where(eq(comments.id, c.id)).get()?.updatedAt,
+      ).toBe("2026-10-05T10:00:05.000Z");
+
+      vi.setSystemTime(new Date("2026-10-05T10:00:10.000Z"));
+      s.services.trash.restore("you", "issue", parent.id);
+      expect(s.services.issues.get(parent.id).updatedAt).toBe(
+        "2026-10-05T10:00:10.000Z",
+      );
+      expect(probe(s, "2026-10-05T10:00:05.000Z")?.updatedAt).toBe(
+        "2026-10-05T10:00:10.000Z",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("project and milestone delete/restore bump their updatedAt", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-05T10:00:00.000Z"));
+      const s = await setup();
+      const m = s.services.milestones.create("you", s.project.id, { name: "M" });
+      vi.setSystemTime(new Date("2026-10-05T10:00:05.000Z"));
+      await s.del("milestone", m.id);
+      const at = (t: typeof milestones | typeof projects, id: string) =>
+        (s.db.select().from(t as typeof milestones).where(eq(t.id, id)).get())?.updatedAt;
+      expect(at(milestones, m.id)).toBe("2026-10-05T10:00:05.000Z");
+      vi.setSystemTime(new Date("2026-10-05T10:00:06.000Z"));
+      await s.del("project", s.project.id);
+      expect(at(projects, s.project.id)).toBe("2026-10-05T10:00:06.000Z");
+      vi.setSystemTime(new Date("2026-10-05T10:00:07.000Z"));
+      s.services.trash.restore("you", "project", s.project.id);
+      expect(at(projects, s.project.id)).toBe("2026-10-05T10:00:07.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a delete with a stale expectedUpdatedAt write still conflicts afterwards", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-05T10:00:00.000Z"));
+      const s = await setup();
+      const i = s.issue();
+      vi.setSystemTime(new Date("2026-10-05T10:00:05.000Z"));
+      await s.del("issue", i.id);
+      s.services.trash.restore("you", "issue", i.id);
+      expect(() =>
+        s.services.issues.update("you", i.id, {
+          title: "x",
+          expectedUpdatedAt: i.updatedAt,
+        }),
+      ).toThrow(/modified since/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("purge", () => {
   it("requires a prior soft delete", async () => {
     const s = await setup();
