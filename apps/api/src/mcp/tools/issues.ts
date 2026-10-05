@@ -115,7 +115,10 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
           .string()
           .optional()
           .describe("ISO 8601 timestamp or duration like -P1D."),
-        includeDeleted: z.boolean().optional(),
+        includeDeleted: z
+          .boolean()
+          .optional()
+          .describe("Include soft-deleted issues."),
         orderBy: z
           .enum(["updatedAt", "createdAt", "priority", "sortOrder"])
           .optional()

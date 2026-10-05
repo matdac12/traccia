@@ -1,0 +1,806 @@
+[
+  {
+    "name": "create_attachment",
+    "description": "Attach a file (typically a screenshot) to an issue or one of its comments. Provide exactly one of contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS URL the server downloads). Returns a ready-to-paste markdown snippet.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Issue identifier (MAT-123) or id."
+        },
+        "commentId": {
+          "description": "Attach to a specific comment instead of the issue.",
+          "type": "string"
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "description": "e.g. login-bug.png"
+        },
+        "mimeType": {
+          "description": "Inferred from content if omitted; verified by content sniffing.",
+          "type": "string"
+        },
+        "contentBase64": {
+          "description": "Max ~5 MB decoded.",
+          "type": "string"
+        },
+        "sourceUrl": {
+          "description": "HTTPS URL the server will download (size-capped).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issueId",
+        "filename"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "delete_attachment",
+    "description": "Soft-deletes an attachment (restorable). purge=true permanently removes an ALREADY deleted attachment and its file; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Attachment id."
+        },
+        "purge": {
+          "description": "Default false.",
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "delete_comment",
+    "description": "Soft-delete a comment and its replies (restorable via restore). purge=true permanently removes an ALREADY deleted comment; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Comment id."
+        },
+        "purge": {
+          "description": "Default false.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "delete_issue",
+    "description": "Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an ALREADY deleted issue; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Issue identifier."
+        },
+        "purge": {
+          "description": "Default false.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "delete_milestone",
+    "description": "Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge=true permanently removes an ALREADY deleted milestone; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Milestone id."
+        },
+        "purge": {
+          "description": "Default false.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "delete_project",
+    "description": "Soft-delete a project (hides its milestones and issues); restorable with restore. purge=true permanently removes an ALREADY deleted project; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Project key (e.g. ABC), name, or id."
+        },
+        "purge": {
+          "description": "Default false.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "get_attachment",
+    "description": "Get an attachment's metadata. Images under 2 MB are also returned inline unless includeContent is false.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Attachment id."
+        },
+        "includeContent": {
+          "description": "Default true; inline the image if it is under 2 MB.",
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "get_issue",
+    "description": "Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations ({blockedBy, blocks}); add 'activity' for the change log.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Issue identifier like ABC-123."
+        },
+        "include": {
+          "description": "Default: comments, attachments, children, relations.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "comments",
+              "attachments",
+              "activity",
+              "children",
+              "relations"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "get_project",
+    "description": "Get a project with its description and milestones (with progress).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Project key (e.g. ABC), name, or id."
+        },
+        "includeMilestones": {
+          "description": "Default true.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "list_comments",
+    "description": "List an issue's comments oldest first, replies directly after their parent (parentId set). Deleted comments are hidden unless includeDeleted.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "issueId": {
+          "type": "string",
+          "description": "Issue identifier like ABC-123."
+        },
+        "includeDeleted": {
+          "description": "Include soft-deleted comments.",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "From a previous nextCursor.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "issueId"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "list_issue_labels",
+    "description": "List global labels, plus a project's labels when project is given. There is no delete tool; labels are removed in the dashboard.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "description": "Include this project's labels plus global ones.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "From a previous response's nextCursor.",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "list_issues",
+    "description": "List issues, newest update first. Compact items (description truncated; use get_issue for full text). Filters are AND-ed; `status` values are OR-ed; `label` array requires ALL labels. Deleted issues are hidden unless includeDeleted. Page with nextCursor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "description": "Full-text search over titles, descriptions, comments.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Project key, name, or id.",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog|todo|in_progress|in_review|done|canceled)."
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog|todo|in_progress|in_review|done|canceled)."
+              }
+            }
+          ]
+        },
+        "assignee": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "you",
+            "none"
+          ]
+        },
+        "label": {
+          "description": "Label name(s); issues must have all.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "milestone": {
+          "description": "Milestone name or id.",
+          "type": "string"
+        },
+        "parentId": {
+          "description": "List sub-issues of this issue (identifier).",
+          "type": "string"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear)."
+        },
+        "createdBy": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "you"
+          ]
+        },
+        "updatedAfter": {
+          "description": "ISO 8601 timestamp or duration like -P1D.",
+          "type": "string"
+        },
+        "includeDeleted": {
+          "description": "Include soft-deleted issues.",
+          "type": "boolean"
+        },
+        "orderBy": {
+          "description": "Default updatedAt.",
+          "type": "string",
+          "enum": [
+            "updatedAt",
+            "createdAt",
+            "priority",
+            "sortOrder"
+          ]
+        },
+        "limit": {
+          "description": "Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "From a previous nextCursor.",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "list_milestones",
+    "description": "List milestones (all projects, or one) with progress {done,total}; canceled issues are not counted.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "description": "Omit for all projects.",
+          "type": "string"
+        },
+        "includeDeleted": {
+          "description": "Include soft-deleted milestones.",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "From a previous response's nextCursor.",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "list_projects",
+    "description": "List projects with issue counts per status.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "description": "Match against name/key.",
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "paused",
+            "completed",
+            "canceled"
+          ]
+        },
+        "includeDeleted": {
+          "description": "Include soft-deleted projects (flagged deleted:true).",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Default 50.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "From a previous response's nextCursor.",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "restore",
+    "description": "Undo a soft delete: restores the item and everything deleted with it in the same action. Restoring a milestone does not re-link its issues.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "issue",
+            "comment",
+            "project",
+            "milestone",
+            "attachment"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "description": "Identifier (ABC-123) for issues; id for others."
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "save_comment",
+    "description": "Create (no id; needs issueId) or edit (with id) a markdown comment. You can only edit comments written by your own actor. parentId replies to a top-level comment (one level of threading).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Comment id. Omit to create.",
+          "type": "string"
+        },
+        "issueId": {
+          "description": "Required on create.",
+          "type": "string"
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Markdown."
+        },
+        "parentId": {
+          "description": "Reply to a top-level comment (create only).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "body"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "save_issue",
+    "description": "Create (no id; needs title + project) or update (with id; only provided fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set. `project` on update moves the issue (identifier unchanged; parent/milestone reset). Labels must exist (list_issue_labels / save_issue_label). Pass expectedUpdatedAt to fail on concurrent edits. Returns the compact issue.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Issue identifier. Omit to create.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Required on create.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Project key, name, or id. Required on create; on update, moves the issue.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Markdown. Replaces the whole description.",
+          "type": "string"
+        },
+        "status": {
+          "description": "One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog|todo|in_progress|in_review|done|canceled). Default on create: Backlog.",
+          "type": "string"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear)."
+        },
+        "estimate": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assignee": {
+          "description": "null unassigns.",
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "agent",
+                "you"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "labels": {
+          "description": "Replaces the label set. Names must already exist.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "milestone": {
+          "description": "Milestone name or id in the issue's project; null clears.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parentId": {
+          "description": "Makes this a sub-issue; null detaches. Same project only.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockedBy": {
+          "description": "Replaces the set of issues blocking this one.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "blocks": {
+          "description": "Replaces the set of issues this one blocks.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectedUpdatedAt": {
+          "description": "Fail if the issue changed since this updatedAt (update only).",
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "save_issue_label",
+    "description": "Create a label (omit id; name required; no project = global) or update name/color (with id). Names are unique per scope, case-insensitive.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Omit to create.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Required on create.",
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "description": "Hex #rrggbb.",
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "project": {
+          "description": "Omit/null = global label. Cannot change on update.",
+          "anyOf": [
+            {
+              "type": "string",
+              "description": "Project key (e.g. ABC), name, or id."
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "save_milestone",
+    "description": "Create a milestone (omit id; project and name required) or update one (with id). targetDate is YYYY-MM-DD, null clears.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Omit to create.",
+          "type": "string"
+        },
+        "project": {
+          "description": "Required on create.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Required on create.",
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "description": "Markdown.",
+          "type": "string"
+        },
+        "targetDate": {
+          "description": "YYYY-MM-DD; null clears.",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "save_project",
+    "description": "Create a project (omit id; name required) or update one (with id). Key defaults to MAT and cannot change after creation.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "description": "Omit to create.",
+          "type": "string"
+        },
+        "name": {
+          "description": "Required on create.",
+          "type": "string",
+          "minLength": 1
+        },
+        "key": {
+          "description": "Issue prefix. Omit to use the default (MAT). Cannot be changed after creation.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]{1,7}$"
+        },
+        "description": {
+          "description": "Markdown.",
+          "type": "string"
+        },
+        "status": {
+          "description": "Default on create: active.",
+          "type": "string",
+          "enum": [
+            "active",
+            "paused",
+            "completed",
+            "canceled"
+          ]
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  },
+  {
+    "name": "whoami",
+    "description": "Returns the actor ('agent' or 'you') and token name this connection writes as.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "execution": {
+      "taskSupport": "forbidden"
+    }
+  }
+]

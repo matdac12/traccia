@@ -7,6 +7,7 @@
       "!**/dist",
       "!**/.next",
       "!**/data",
+      "!**/__snapshots__",
       "!.claude",
       "!prototypes",
       "!.agents",

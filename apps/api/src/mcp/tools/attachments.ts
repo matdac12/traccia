@@ -193,10 +193,14 @@ export function registerAttachmentTools(
     "get_attachment",
     {
       description:
-        "Metadata of an attachment. For images under 2 MB, with includeContent true (default), the image itself is returned so you can view it.",
+        "Get an attachment's metadata. Images under 2 MB are also returned inline unless includeContent is false.",
       inputSchema: {
-        id: z.string().min(1),
-        includeContent: z.boolean().default(true).optional(),
+        id: z.string().min(1).describe("Attachment id."),
+        includeContent: z
+          .boolean()
+          .default(true)
+          .optional()
+          .describe("Default true; inline the image if it is under 2 MB."),
       },
     },
     ({ id, includeContent }) =>
@@ -241,10 +245,10 @@ export function registerAttachmentTools(
     "delete_attachment",
     {
       description:
-        "Soft-deletes an attachment (restorable). purge=true permanently removes an already deleted attachment and its file; it may be refused for this token.",
+        "Soft-deletes an attachment (restorable). purge=true permanently removes an ALREADY deleted attachment and its file; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
       inputSchema: {
-        id: z.string().min(1),
-        purge: z.boolean().default(false).optional(),
+        id: z.string().min(1).describe("Attachment id."),
+        purge: z.boolean().default(false).optional().describe("Default false."),
       },
     },
     ({ id, purge }) =>

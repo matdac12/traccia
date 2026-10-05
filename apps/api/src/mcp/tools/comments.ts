@@ -23,7 +23,10 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
         "List an issue's comments oldest first, replies directly after their parent (parentId set). Deleted comments are hidden unless includeDeleted.",
       inputSchema: {
         issueId: z.string().describe("Issue identifier like ABC-123."),
-        includeDeleted: z.boolean().optional(),
+        includeDeleted: z
+          .boolean()
+          .optional()
+          .describe("Include soft-deleted comments."),
         limit: z
           .number()
           .int()

@@ -54,7 +54,7 @@ List issues, newest update first. Compact items (description truncated; use get_
 | `priority` | integer \| string | no | 0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear). |
 | `createdBy` | `agent` \| `you` | no |  |
 | `updatedAfter` | string | no | ISO 8601 timestamp or duration like -P1D. |
-| `includeDeleted` | boolean | no |  |
+| `includeDeleted` | boolean | no | Include soft-deleted issues. |
 | `orderBy` | `updatedAt` \| `createdAt` \| `priority` \| `sortOrder` | no | Default updatedAt. |
 | `limit` | integer | no | Default 50. |
 | `cursor` | string | no | From a previous nextCursor. |
@@ -113,7 +113,7 @@ List an issue's comments oldest first, replies directly after their parent (pare
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `issueId` | string | yes | Issue identifier like ABC-123. |
-| `includeDeleted` | boolean | no |  |
+| `includeDeleted` | boolean | no | Include soft-deleted comments. |
 | `limit` | integer | no | Default 50. |
 | `cursor` | string | no | From a previous nextCursor. |
 
@@ -160,23 +160,23 @@ Attach a file (typically a screenshot) to an issue or one of its comments. Provi
 
 ## get_attachment
 
-Metadata of an attachment. For images under 2 MB, with includeContent true (default), the image itself is returned so you can view it.
+Get an attachment's metadata. Images under 2 MB are also returned inline unless includeContent is false.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | yes |  |
-| `includeContent` | boolean | no |  |
+| `id` | string | yes | Attachment id. |
+| `includeContent` | boolean | no | Default true; inline the image if it is under 2 MB. |
 
 **Returns:** Metadata `{ id, filename, mimeType, sizeBytes, commentId, createdAt }`, plus the image itself as image content when `includeContent` is true and the file is an image under 2 MB.
 
 ## delete_attachment
 
-Soft-deletes an attachment (restorable). purge=true permanently removes an already deleted attachment and its file; it may be refused for this token.
+Soft-deletes an attachment (restorable). purge=true permanently removes an ALREADY deleted attachment and its file; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | yes |  |
-| `purge` | boolean | no |  |
+| `id` | string | yes | Attachment id. |
+| `purge` | boolean | no | Default false. |
 
 **Returns:** `{ id, deleted: true, purged }`.
 
@@ -215,18 +215,18 @@ Create a project (omit id; name required) or update one (with id). Key defaults 
 | `name` | string | no | Required on create. |
 | `key` | string | no | Issue prefix. Omit to use the default (MAT). Cannot be changed after creation. |
 | `description` | string | no | Markdown. |
-| `status` | `active` \| `paused` \| `completed` \| `canceled` | no |  |
+| `status` | `active` \| `paused` \| `completed` \| `canceled` | no | Default on create: active. |
 
 **Returns:** The saved project: `id`, `key`, `name`, `status`, `description`.
 
 ## delete_project
 
-Soft-delete a project (hides its milestones and issues); restorable with restore. purge:true removes an already-deleted project permanently; agents cannot purge by default.
+Soft-delete a project (hides its milestones and issues); restorable with restore. purge=true permanently removes an ALREADY deleted project; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `project` | string | yes | Project key (e.g. ABC), name, or id. |
-| `purge` | boolean | no | Permanent removal; default false. Only works on already-deleted items, and agents cannot purge unless the server allows it. |
+| `purge` | boolean | no | Default false. |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
@@ -237,7 +237,7 @@ List milestones (all projects, or one) with progress {done,total}; canceled issu
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `project` | string | no | Omit for all projects. |
-| `includeDeleted` | boolean | no |  |
+| `includeDeleted` | boolean | no | Include soft-deleted milestones. |
 | `limit` | integer | no | Default 50. |
 | `cursor` | string | no | From a previous response's nextCursor. |
 
@@ -259,12 +259,12 @@ Create a milestone (omit id; project and name required) or update one (with id).
 
 ## delete_milestone
 
-Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge:true is permanent; agents cannot purge by default.
+Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge=true permanently removes an ALREADY deleted milestone; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | yes |  |
-| `purge` | boolean | no | Permanent removal; default false. Only works on already-deleted items, and agents cannot purge unless the server allows it. |
+| `id` | string | yes | Milestone id. |
+| `purge` | boolean | no | Default false. |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
@@ -288,7 +288,7 @@ Create a label (omit id; name required; no project = global) or update name/colo
 | --- | --- | --- | --- |
 | `id` | string | no | Omit to create. |
 | `name` | string | no | Required on create. |
-| `color` | string | no |  |
+| `color` | string | no | Hex #rrggbb. |
 | `project` | string \| null | no | Omit/null = global label. Cannot change on update. |
 
 **Returns:** The saved label (as in `list_issue_labels`).

@@ -72,8 +72,9 @@ describe("MCP endpoint", () => {
     const client = await connect(agent.token);
     expect(client.getServerVersion()?.name).toBe("tracker");
 
+    // The exact tool list is pinned in mcp-tool-list.test.ts.
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name)).toContain("whoami");
+    expect(tools).toHaveLength(21);
 
     const res = await client.callTool({ name: "whoami", arguments: {} });
     expect(res.isError).toBeFalsy();
