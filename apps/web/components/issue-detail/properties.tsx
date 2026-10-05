@@ -87,10 +87,10 @@ export function Properties({ issue, projects, labels, milestones, parent, onChan
         </Menu>
       </Prop>
       <Prop label="Estimate">
-        <Menu label="Estimate" disabled={disabled} trigger={issue.estimate === null ? <span className="text-muted-foreground">No estimate</span> : `${issue.estimate} points`}>
+        <Menu label="Estimate" disabled={disabled} trigger={issue.estimate === null ? <span className="text-muted-foreground">No estimate</span> : `${issue.estimate} ${issue.estimate === 1 ? "point" : "points"}`}>
           <DropdownMenuItem onSelect={() => issue.estimate !== null && onChange("estimate", () => ({ estimate: null }), { estimate: null })}>No estimate<Tick on={issue.estimate === null} /></DropdownMenuItem>
           {estimates.map((n) => (
-            <DropdownMenuItem key={n} onSelect={() => n !== issue.estimate && onChange(`estimate to ${n}`, () => ({ estimate: n }), { estimate: n })}>{n} points<Tick on={n === issue.estimate} /></DropdownMenuItem>
+            <DropdownMenuItem key={n} onSelect={() => n !== issue.estimate && onChange(`estimate to ${n}`, () => ({ estimate: n }), { estimate: n })}>{n} {n === 1 ? "point" : "points"}<Tick on={n === issue.estimate} /></DropdownMenuItem>
           ))}
         </Menu>
       </Prop>

@@ -201,7 +201,7 @@ export function CreateIssueDialog({
                 <SelectTrigger size="sm" aria-label="Estimate" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No estimate</SelectItem>
-                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{n} points</SelectItem>)}
+                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "point" : "points"}</SelectItem>)}
                 </SelectContent>
               </Select>
               {parent ? (

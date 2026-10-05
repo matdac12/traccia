@@ -31,6 +31,12 @@ The env is validated with Zod at server start (`instrumentation.ts`, `lib/env.ts
 and exits with code 1.
 
 Scripts: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm check:bundle`.
+**HMR in headless browsers (MAT-1760):** the `/_next/webpack-hmr` websocket upgrade is handled by Next's HTTP server before
+`proxy.ts` runs, so the access check does not touch it; no exclusion was added. The QA failure (`ERR_INVALID_HTTP_RESPONSE`)
+was seen without `DASHBOARD_DEV_LOGIN` set, and with a bypass-less dev server every non-upgrade request is a 403. Use
+`DASHBOARD_DEV_LOGIN` for `pnpm dev`, or test against `next build` + `next start` with the `Tailscale-User-Login` header.
+Not reproduced here; reopen if it still fails with the bypass set.
+
 Dev and build use `--webpack` because `packages/shared` imports siblings as `./x.js` (NodeNext style) and Turbopack
 cannot map that to `.ts` yet.
 

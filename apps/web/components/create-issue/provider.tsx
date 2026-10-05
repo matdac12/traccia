@@ -13,6 +13,11 @@ export function useCreateIssue(): Ctx {
   return ctx;
 }
 
+/** Like `useCreateIssue`, but null outside the provider (so embedded views can hide their "new issue" buttons). */
+export function useOptionalCreateIssue(): Ctx | null {
+  return useContext(CreateIssueContext);
+}
+
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
   return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
