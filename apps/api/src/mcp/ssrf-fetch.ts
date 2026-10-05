@@ -91,6 +91,7 @@ function isBlockedIPv4(b: number[]): boolean {
     a === 127 ||
     (a === 169 && c === 254) || // link-local, cloud metadata
     (a === 172 && c >= 16 && c <= 31) ||
+    (a === 192 && c === 88 && d === 99) || // 6to4 relay
     (a === 192 && c === 0 && d === 0) || // IETF protocol assignments
     (a === 192 && c === 0 && d === 2) || // TEST-NET-1
     (a === 192 && c === 168) ||
@@ -230,13 +231,19 @@ function request(
         },
         ...opts.tls,
       },
-      (res) => resolve({ res, cleanup: () => clearTimeout(timer) }),
+      (res) => {
+        response = res;
+        resolve({ res, cleanup: () => clearTimeout(timer) });
+      },
     );
-    // One deadline for connect, headers and the whole body.
-    const timer = setTimeout(
-      () => req.destroy(new Error("timeout")),
-      timeoutMs,
-    );
+    // One deadline for connect, headers and the whole body. Once the response
+    // exists, destroying it surfaces a readable error to whoever consumes it.
+    let response: import("node:http").IncomingMessage | undefined;
+    const timer = setTimeout(() => {
+      const err = new ValidationError("sourceUrl timed out");
+      if (response) response.destroy(err);
+      else req.destroy(err);
+    }, timeoutMs);
     req.on("error", (err) => {
       clearTimeout(timer);
       reject(err);
@@ -257,7 +264,7 @@ export function createSourceFetcher(
   const allowed = new Set(options.allowedAddresses ?? []);
   const isBlocked = (address: string) =>
     isBlockedAddress(address) && !allowed.has(address);
-  const timeoutMs = options.timeoutMs ?? 15_000;
+  const timeoutMs = options.timeoutMs ?? 30_000;
   const maxRedirects = options.maxRedirects ?? 3;
 
   return async (rawUrl, { maxBytes }) => {
@@ -279,11 +286,10 @@ export function createSourceFetcher(
           Math.max(1, deadline - Date.now()),
         );
       } catch (err) {
-        const reason =
-          (err as Error).message === "timeout"
-            ? "timed out"
-            : "could not be fetched (connection or TLS failure)";
-        throw new ValidationError(`sourceUrl ${reason}`);
+        if (err instanceof ValidationError) throw err;
+        throw new ValidationError(
+          "sourceUrl could not be fetched (connection or TLS failure)",
+        );
       }
       const { res, cleanup } = got;
       const status = res.statusCode ?? 0;

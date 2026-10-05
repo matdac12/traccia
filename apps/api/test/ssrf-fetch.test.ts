@@ -288,7 +288,7 @@ describe("source fetcher: against a local HTTPS server", () => {
     const got = await fetcher({ ...allowed, timeoutMs: 200 })(
       `https://127.0.0.1:${port}/`,
     );
-    await expect(body(got.stream)).rejects.toThrow();
+    await expect(body(got.stream)).rejects.toThrow(/timed out/);
   });
 
   it("fails on an untrusted certificate", async () => {
