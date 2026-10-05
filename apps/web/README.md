@@ -82,7 +82,7 @@ names and the token value; run it before changing anything around the client.
   the agent mark.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
-  them. A user-selectable accent (MAT-1731) only has to override those three on `<html>`. Status colors (`--st-*`)
+  them. A selectable accent (MAT-1731) only has to override those three on `<html>`. Status colors (`--st-*`)
   and the agent color (`--agent`, cyan) are fixed and must not follow the accent.
 - Theme: `next-themes`, system by default, toggle in the sidebar footer (System / Light / Dark).
 - Every route group has `loading.tsx`, `error.tsx` and `not-found.tsx`; add them for new groups. Show an empty
@@ -96,7 +96,7 @@ names and the token value; run it before changing anything around the client.
 proxy.ts               access check on every route
 instrumentation.ts     env validation at startup
 lib/access.ts          pure access decision
-lib/env.ts             Zod env schema (+ server-env.ts, server-only cache)
+lib/env.ts             Zod env schema, pure (server-env.ts: server-only cached read)
 lib/api/               server-only API client, response schemas, per-resource functions
 lib/session.ts         current login for display
 app/(app)/             shell layout + pages (issues, projects, trash)

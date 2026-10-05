@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 
 /** What the client shell needs from a project: plain data, resolved on the server. */
-export type ShellProject = { id: string; key: string; name: string };
+export type ShellProject = { id: string; name: string };
 
 function NavItem({ href, icon, children, active }: { href: string; icon: ReactNode; children: ReactNode; active: boolean }) {
   return (
@@ -23,7 +23,7 @@ function NavItem({ href, icon, children, active }: { href: string; icon: ReactNo
   );
 }
 
-export function AppShell({ projects, login, children }: { projects: ShellProject[]; login: string; children: ReactNode }) {
+export function AppShell({ projects, projectsUnavailable = false, login, children }: { projects: ShellProject[]; projectsUnavailable?: boolean; login: string; children: ReactNode }) {
   const path = usePathname();
   const current = projects.find((p) => path === `/projects/${p.id}`);
   return (
@@ -55,7 +55,7 @@ export function AppShell({ projects, login, children }: { projects: ShellProject
           <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")}>Issues</NavItem>
           <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"}>Trash</NavItem>
           <Link href="/projects" className="block px-2 pb-1 pt-4 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>
-          {projects.length === 0 ? <p className="px-2 text-[12px] text-muted-foreground">No projects yet.</p> : null}
+          {projectsUnavailable ? <p className="px-2 text-[12px] text-destructive">Could not load projects. Is the API running?</p> : projects.length === 0 ? <p className="px-2 text-[12px] text-muted-foreground">No projects yet.</p> : null}
           {projects.map((p) => (
             <NavItem key={p.id} href={`/projects/${p.id}`} active={path === `/projects/${p.id}`} icon={<span className="size-2.5 rounded-[3px] bg-muted-foreground/50" />}>
               {p.name}

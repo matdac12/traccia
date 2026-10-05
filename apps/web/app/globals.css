@@ -9,7 +9,7 @@
  *
  * ACCENT: the accent is driven by three variables only (--brand, --brand-foreground,
  * --brand-ring). Everything accent-colored (primary, ring, sidebar-primary) derives from
- * them, so a user-selectable accent (MAT-1731) overrides just these on <html>. Status and
+ * them, so a selectable accent (MAT-1731) overrides just these on <html>. Status and
  * agent colors (--st-*, --agent) stay fixed so they never clash with the accent.
  */
 :root {

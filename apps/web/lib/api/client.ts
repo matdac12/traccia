@@ -43,7 +43,8 @@ export function createApiClient({ baseUrl, token, fetch: doFetch = fetch }: ApiC
     path: string,
     { schema, method = "GET", query, body, ifMatch, signal }: RequestOptions<S>,
   ): Promise<z.output<S>> {
-    const url = new URL(`/v1${path}`, baseUrl);
+    // Plain concatenation keeps any path prefix in the base URL (new URL("/v1…", base) would drop it).
+    const url = new URL(`${baseUrl.replace(/\/+$/, "")}/v1${path}`);
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value === undefined) continue;
       for (const v of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(v));

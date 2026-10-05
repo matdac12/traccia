@@ -7,7 +7,7 @@ import { EmptyState } from "@/components/traccia/empty-state";
  * Error boundary for everything inside the shell. Server-component errors arrive with a
  * redacted message in production (only `digest`), so this shows a generic text.
  */
-export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <EmptyState icon={TriangleAlert} title="Something went wrong">
       The dashboard could not load this page. Check that the API is running, then try again.

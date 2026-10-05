@@ -9,7 +9,7 @@ export default function IssuesPage() {
     <>
       <PageHeader title="Issues" />
       <EmptyState icon={ListTodo} title="Issue views are coming">
-        The table and Kanban views arrive in the next dashboard tickets.
+        The table and Kanban views arrive in the next dashboard iteration.
       </EmptyState>
     </>
   );

@@ -7,9 +7,14 @@ import { currentLogin } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 export default async function Layout({ children }: { children: ReactNode }) {
-  const [projects, login] = await Promise.all([listProjects(), currentLogin()]);
+  // An error boundary in this folder (error.tsx) does not catch errors thrown by this layout,
+  // so an API outage must not throw here: the shell still renders and the page shows its own error.
+  const [projects, login] = await Promise.all([
+    listProjects().catch(() => null),
+    currentLogin(),
+  ]);
   return (
-    <AppShell login={login} projects={projects.map(({ id, key, name }) => ({ id, key, name }))}>
+    <AppShell login={login} projects={projects?.map(({ id, name }) => ({ id, name })) ?? []} projectsUnavailable={projects === null}>
       {children}
     </AppShell>
   );

@@ -3,7 +3,7 @@ import { Bot, User } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Status colors are fixed tokens (--st-*), independent of the user accent. */
+/** Status colors are fixed tokens (--st-*), independent of the chosen accent. */
 const STATUS_COLOR: Record<IssueStatus, string> = {
   backlog: "var(--st-backlog)",
   todo: "var(--st-todo)",
