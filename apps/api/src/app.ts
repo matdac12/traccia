@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
-import type { AppContainer, AppEnv } from "./rest/env.js";
+import { createMcpRoute } from "./mcp/route.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
+import type { AppContainer, AppEnv } from "./rest/env.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
 import { requestContext } from "./rest/request-context.js";
 
@@ -12,7 +12,10 @@ import { requestContext } from "./rest/request-context.js";
  * root; every authenticated route belongs on `v1`, which is where auth
  * middleware will be attached later.
  */
-export function createApp(container: AppContainer) {
+export function createApp(
+  container: AppContainer,
+  mcpDeps?: Parameters<typeof createMcpRoute>[1],
+) {
   const app = new Hono<AppEnv>();
   app.use(requestContext(container));
   app.onError(errorHandler);
@@ -32,7 +35,7 @@ export function createApp(container: AppContainer) {
   );
   mountAttachmentRoutes(app, v1, container, auth);
   app.route("/v1", v1);
-  app.route("/mcp", createMcpRoute(container));
+  app.route("/mcp", createMcpRoute(container, mcpDeps));
 
   return app;
 }
