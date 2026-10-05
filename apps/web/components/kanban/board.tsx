@@ -6,10 +6,12 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useTransition, type MouseEvent } from "react";
 import { loadMoreBoardIssues, moveBoardIssue } from "@/app/(app)/issues/board-actions";
+import { useOptionalCreateIssue } from "@/components/create-issue/provider";
 import { countsOf, sameGroups, type GroupsApplier } from "@/components/issues-table/use-list-sync";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
 import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker, type InlineEditor } from "@/components/inline-edit/pickers";
@@ -32,6 +34,8 @@ export type BoardProps = {
   /** For the card menu's Project and Milestone submenus (MAT-1762). */
   projects?: Project[];
   milestones?: Milestone[];
+  /** The project a column's "+" creates in when the board is scoped to one (project page). */
+  projectId?: string;
   /** The page's search string, so "load more" re-applies the same filters. */
   query: string;
   /** Injectable for tests; defaults to the server actions. */
@@ -41,13 +45,26 @@ export type BoardProps = {
   loadMore?: (input: { query: string; status: IssueStatus; cursor: string }) => Promise<{ items: IssueRow[]; nextCursor: string | null }>;
 };
 
-export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register, labels = [], projects = [], milestones = [] }: BoardProps) {
+export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register, labels = [], projects = [], milestones = [], projectId }: BoardProps) {
   const [columns, setColumns] = useState<BoardColumn[]>(initial);
   const [active, setActive] = useState<IssueRow | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(0);
   const [loading, setLoading] = useState<Set<IssueStatus>>(new Set());
   const [, startTransition] = useTransition();
+  const creator = useOptionalCreateIssue();
+  const scroller = useRef<HTMLDivElement>(null);
+  /** More columns hidden past the right edge: shows a fade so Done and Canceled are not silently cut off. */
+  const [hiddenRight, setHiddenRight] = useState(false);
+  const measure = useCallback(() => {
+    const el = scroller.current;
+    if (el) setHiddenRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 4);
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure, columns.length]);
   /** The columns as they were when the drag started: the rollback target. */
   const snapshot = useRef<BoardColumn[] | null>(null);
   /** Moves in flight; a new drag waits for them so a failed move can be undone on its own. */
@@ -181,8 +198,11 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         onDragEnd={onEnd}
         onDragCancel={() => { if (snapshot.current && active) restore(snapshot.current, active.id); setActive(null); snapshot.current = null; }}
       >
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
-          {columns.map((c) => <Column key={c.status} column={c} editor={editor} menu={menu} loading={loading.has(c.status)} onMore={() => more(c)} />)}
+        <div className="relative min-h-0 flex-1">
+          <div ref={scroller} onScroll={measure} className="flex h-full gap-3 overflow-x-auto p-4">
+            {columns.map((c) => <Column key={c.status} column={c} editor={editor} menu={menu} loading={loading.has(c.status)} onMore={() => more(c)} onAdd={creator ? () => creator.open({ status: c.status, ...(projectId ? { projectId } : {}) }) : undefined} />)}
+          </div>
+          {hiddenRight && <div aria-hidden data-testid="board-fade" className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent" />}
         </div>
         <DragOverlay>{active && <Card issue={active} editor={INERT} overlay />}</DragOverlay>
       </DndContext>
@@ -190,14 +210,19 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   );
 }
 
-function Column({ column, editor, menu, loading, onMore }: { column: BoardColumn; editor: InlineEditor; menu: IssueMenuContext; loading: boolean; onMore: () => void }) {
+function Column({ column, editor, menu, loading, onMore, onAdd }: { column: BoardColumn; editor: InlineEditor; menu: IssueMenuContext; loading: boolean; onMore: () => void; onAdd?: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.status });
   return (
-    <section aria-label={STATUS_LABEL[column.status]} className="flex w-[280px] shrink-0 flex-col">
+    <section aria-label={STATUS_LABEL[column.status]} className="flex w-[244px] shrink-0 flex-col">
       <h2 className="m-0 mb-2 flex items-center gap-2 px-1 text-[13px] font-medium">
         <StatusIcon status={column.status} />
         <span>{STATUS_LABEL[column.status]}</span>
         <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${column.status}`}>{column.items.length}{column.nextCursor ? "+" : ""}</span>
+        {onAdd && (
+          <Button type="button" variant="ghost" size="icon" className="ml-auto size-5 text-muted-foreground" aria-label={`New ${STATUS_LABEL[column.status].toLowerCase()} issue`} onClick={onAdd}>
+            <Plus className="size-3.5" />
+          </Button>
+        )}
       </h2>
       <div ref={setNodeRef} className={cn("flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-transparent bg-surface p-1.5 transition-colors", isOver && "border-primary/40 bg-primary/5")}>
         <SortableContext items={column.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
@@ -217,9 +242,27 @@ function Column({ column, editor, menu, loading, onMore }: { column: BoardColumn
 
 function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: InlineEditor; menu: IssueMenuContext }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id });
+  const router = useRouter();
+  /** A drag ends with a click on the card; it must not open the issue. */
+  const dragged = useRef(false);
+  useEffect(() => {
+    if (isDragging) { dragged.current = true; return; }
+    const t = setTimeout(() => { dragged.current = false; }, 0);
+    return () => clearTimeout(t);
+  }, [isDragging]);
+  // The whole card opens the issue, except its own controls. Menus and pickers render in portals, whose events
+  // still bubble through React: only clicks whose DOM target is inside the card count.
+  const open = (e: MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (dragged.current || e.defaultPrevented || !e.currentTarget.contains(target)) return;
+    if (target.closest("a, button, input, textarea, select, [role=menu], [role=menuitem], [role=combobox], [role=dialog]")) return;
+    if (window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) window.open(`/issues/${issue.identifier}`, "_blank", "noopener");
+    else router.push(`/issues/${issue.identifier}`);
+  };
   return (
     <IssueContextMenu issue={issue} menu={menu}>
-      <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
+      <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} onClick={open} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
         <Card issue={issue} editor={editor} dragging={isDragging} showMenuButton />
       </div>
     </IssueContextMenu>

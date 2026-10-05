@@ -37,6 +37,20 @@ export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashIte
 }
 
 /**
+ * The rows to list: comments and attachments deleted in the same batch as an issue are folded into that issue's
+ * row (restoring the issue brings them back anyway), so one deletion is one row.
+ */
+export function groupedRows(items: readonly TrashItem[], all: readonly TrashItem[]): TrashItem[] {
+  const issueBatches = new Set(all.flatMap((o) => (o.type === "issue" && o.deletedBatch !== null ? [o.deletedBatch] : [])));
+  return items.filter((t) => !((t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)));
+}
+
+/** Badge text for a row that was deleted together with other items: "with 1 comment and 1 attachment". */
+export function togetherText(peers: readonly TrashItem[]): string {
+  return `with ${summarize(peers)}`;
+}
+
+/**
  * Other trashed items that go away with `item` when it is purged, whatever batch they were deleted
  * in: a project takes everything that belongs to it; an issue its sub-issues and their comments and
  * attachments; a comment its replies and their attachments. A milestone or attachment goes alone.

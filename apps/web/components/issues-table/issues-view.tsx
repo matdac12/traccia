@@ -2,7 +2,8 @@
 import { Columns3, Rows3 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ListTodo, SearchX, TriangleAlert } from "lucide-react";
+import { ListTodo, Plus, SearchX, TriangleAlert } from "lucide-react";
+import { useOptionalCreateIssue } from "@/components/create-issue/provider";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { Button } from "@/components/ui/button";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
@@ -23,6 +24,7 @@ export type IssuesData = {
 /** `lockProject`: embedded in a project page, where `filters.project` is fixed and the project filter is hidden. */
 export function IssuesView({ filters, data, error, lockProject = false, title = "Issues" }: { filters: IssueFilters; data?: IssuesData; error?: string; lockProject?: boolean; title?: string }) {
   const router = useRouter();
+  const creator = useOptionalCreateIssue();
   const path = usePathname();
   const [pending, startTransition] = useTransition();
   // Kept here so re-sorting (which reloads the groups) does not re-collapse what the user opened.
@@ -65,7 +67,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {error ? (
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
         ) : !data ? null : filters.view === "kanban" ? (
-          <Board key={query} columns={data.groups} labels={lookups.labels} projects={lookups.projects} milestones={lookups.milestones} query={query} register={sync.register} />
+          <Board key={query} columns={data.groups} labels={lookups.labels} projects={lookups.projects} milestones={lookups.milestones} projectId={lockProject ? filters.project : undefined} query={query} register={sync.register} />
         ) : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
@@ -73,7 +75,10 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
               <span className="mt-3 block"><Button type="button" size="sm" variant="outline" onClick={clear}>Clear filters</Button></span>
             </EmptyState>
           ) : (
-            <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
+            <EmptyState icon={ListTodo} title="No issues yet">
+              {lockProject ? "This project has no issues." : "Nothing here yet."} Create one to get started; agents can also add issues over MCP, the API or the CLI.
+              {creator ? <span className="mt-3 block"><Button type="button" size="sm" onClick={() => creator.open(lockProject && filters.project ? { projectId: filters.project } : undefined)}><Plus className="size-3.5" />New issue</Button></span> : null}
+            </EmptyState>
           )
         ) : (
           <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />

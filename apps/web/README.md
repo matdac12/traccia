@@ -34,6 +34,12 @@ Scripts: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm check:bu
 Dev and build use `--webpack` because `packages/shared` imports siblings as `./x.js` (NodeNext style) and Turbopack
 cannot map that to `.ts` yet.
 
+**HMR in headless browsers (MAT-1760):** Next handles the `/_next/webpack-hmr` websocket upgrade in its HTTP server, not
+through `proxy.ts`, so the access check should not see it and no exclusion was added. The QA report
+(`ERR_INVALID_HTTP_RESPONSE`) is unconfirmed; I could not tell whether `DASHBOARD_DEV_LOGIN` was set. For `pnpm dev`
+set it, or test against `next build` + `next start` with the `Tailscale-User-Login` header. Reopen if it still fails
+with the bypass set.
+
 ## Access check (ADR 0008)
 
 `proxy.ts` (Next 16's name for middleware) runs on **every** request: pages, server actions, route handlers and
@@ -154,6 +160,10 @@ save through `useInlineEdit`, so optimistic updates and the conflict notice are 
 Set parent uses `IssuePicker`, Add sub-issue calls `createSubIssueAction`. Delete is a soft delete via `useIssueDelete` (row leaves at once, failure
 restores it, notice offers Undo). The menu, submenus and dialogs stop key and pointer events from reaching a board card's drag listeners.
 Not done: single-key shortcuts (S/P/A/L) on a focused row.
+
+## Board polish (MAT-1760)
+
+A board card opens its issue on a click anywhere on it except its own controls (links, buttons, pickers, the "..." menu, and anything rendered in a portal); a click that ends a drag or selects text is ignored, and Cmd/Ctrl/Shift-click opens a new tab. Each column header has a "+" that opens the create dialog with that status (and the project, on a project page); it uses `useOptionalCreateIssue`, so a board rendered outside the provider simply has no "+". A fade on the right edge shows when columns are scrolled out of view. Trash folds an issue's comments and attachments deleted in the same batch into the issue's row (`groupedRows`), except when the list is filtered to one type.
 
 ## Docker
 

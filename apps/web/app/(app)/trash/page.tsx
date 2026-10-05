@@ -51,7 +51,7 @@ export default async function TrashPage({ searchParams }: { searchParams: Search
         </EmptyState>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <TrashList items={page.items} all={all} />
+          <TrashList items={page.items} all={all} group={!type} />
           <div className="flex items-center gap-3 px-4 py-3 text-xs text-muted-foreground">
             {sp.cursor ? (
               <Link href={href(type)} className="hover:text-foreground">

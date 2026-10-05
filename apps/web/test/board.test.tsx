@@ -11,6 +11,8 @@ vi.mock("@dnd-kit/core", async (orig) => ({
   ...(await orig<typeof import("@dnd-kit/core")>()),
   DndContext: (props: { children: React.ReactNode } & NonNullable<typeof captured>) => { captured = props; return <>{props.children}</>; },
 }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace: vi.fn() }), usePathname: () => "/issues" }));
 vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 
 const label = { id: "l1", name: "bug", color: "#f00", projectId: null };
@@ -84,5 +86,24 @@ describe("Board drop handling", () => {
     act(() => drop(captured!, "i2", "done"));
     expect(await screen.findByRole("alert")).toHaveTextContent(/Could not move TRK-2/);
     expect(screen.getByTestId("count-todo")).toHaveTextContent("2");
+  });
+
+  it("opens the issue when the card body or identifier is clicked, but not its controls", async () => {
+    push.mockClear();
+    render(<Board columns={columns()} query="view=kanban" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByText("TRK-1"));
+    expect(push).toHaveBeenCalledWith("/issues/TRK-1");
+    push.mockClear();
+    await user.click(screen.getAllByText("3pt")[1]!);
+    expect(push).toHaveBeenCalledWith("/issues/TRK-2");
+    push.mockClear();
+    await user.click(screen.getAllByRole("button", { name: /status/i })[0]!);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("has no per-column add without the create provider", () => {
+    render(<Board columns={columns()} query="view=kanban" />);
+    expect(screen.queryByRole("button", { name: /^New .* issue$/ })).toBeNull();
   });
 });

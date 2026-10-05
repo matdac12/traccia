@@ -56,7 +56,7 @@ function MilestoneItem({ projectId, milestone }: { projectId: string; milestone:
       if (!res.ok) setError(res.error);
     });
   return (
-    <div className="group rounded-lg border bg-card p-3">
+    <div className="group relative rounded-lg border bg-card p-3">
       {editing ? (
         <MilestoneForm
           initial={{ name: milestone.name, targetDate: milestone.targetDate ?? "" }}
@@ -71,7 +71,7 @@ function MilestoneItem({ projectId, milestone }: { projectId: string; milestone:
       ) : (
         <>
           <MilestoneSummary milestone={milestone} />
-          <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <div className="absolute -top-3 right-2 flex items-center gap-1 rounded-md border bg-card px-0.5 shadow-sm opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
             <Button type="button" variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setEditing(true)}><Pencil />Edit</Button>
             <ConfirmButton label="Delete milestone" disabled={pending} onConfirm={remove}><Trash2 />Delete</ConfirmButton>
           </div>

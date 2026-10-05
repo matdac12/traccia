@@ -9,7 +9,7 @@ import { ActorAvatar, StatusIcon, STATUS_LABEL } from "@/components/traccia/atom
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { IssueDetail, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { ISSUE_STATUSES } from "@traccia/shared";
-import { cn } from "@/lib/utils";
+import { cn, pointsLabel } from "@/lib/utils";
 import { LabelChip, PRIORITY_OPTIONS, PriorityIcon, TimeAgo } from "./atoms";
 import { IssuePicker } from "./issue-picker";
 
@@ -87,10 +87,10 @@ export function Properties({ issue, projects, labels, milestones, parent, onChan
         </Menu>
       </Prop>
       <Prop label="Estimate">
-        <Menu label="Estimate" disabled={disabled} trigger={issue.estimate === null ? <span className="text-muted-foreground">No estimate</span> : `${issue.estimate} points`}>
+        <Menu label="Estimate" disabled={disabled} trigger={issue.estimate === null ? <span className="text-muted-foreground">No estimate</span> : pointsLabel(issue.estimate)}>
           <DropdownMenuItem onSelect={() => issue.estimate !== null && onChange("estimate", () => ({ estimate: null }), { estimate: null })}>No estimate<Tick on={issue.estimate === null} /></DropdownMenuItem>
           {estimates.map((n) => (
-            <DropdownMenuItem key={n} onSelect={() => n !== issue.estimate && onChange(`estimate to ${n}`, () => ({ estimate: n }), { estimate: n })}>{n} points<Tick on={n === issue.estimate} /></DropdownMenuItem>
+            <DropdownMenuItem key={n} onSelect={() => n !== issue.estimate && onChange(`estimate to ${n}`, () => ({ estimate: n }), { estimate: n })}>{pointsLabel(n)}<Tick on={n === issue.estimate} /></DropdownMenuItem>
           ))}
         </Menu>
       </Prop>

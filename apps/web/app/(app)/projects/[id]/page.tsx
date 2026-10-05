@@ -31,9 +31,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <DeleteProjectButton projectId={project.id} />
         <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
       </PageHeader>
-      <div className="grid gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid items-start gap-6 px-4 py-4 lg:grid-cols-[1fr_340px]">
         <ProjectDescription projectId={project.id} description={project.description} updatedAt={project.updatedAt} />
-        <div className="space-y-6">
+        <div className="space-y-4">
           <MilestonesPanel projectId={project.id} milestones={milestones} />
           <LabelsPanel projectId={project.id} labels={labels} />
         </div>

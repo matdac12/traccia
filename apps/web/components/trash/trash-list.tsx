@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { purgeAction, restoreAction } from "@/app/(app)/trash/actions";
 import { Button } from "@/components/ui/button";
 import type { TrashItem, TrashType } from "@/lib/api/schemas";
-import { batchPeers, deletedByText, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL } from "./trash-model";
+import { batchPeers, deletedByText, groupedRows, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL, togetherText } from "./trash-model";
 
 const ICON = { issue: SquareCheck, comment: MessageSquare, project: FolderKanban, milestone: Flag, attachment: FileImage } satisfies Record<TrashType, unknown>;
 
@@ -21,7 +21,8 @@ function ago(iso: string) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[] }) {
+/** `group`: fold an issue's comments and attachments into its row (off when the list is filtered to one type). */
+export function TrashList({ items, all, group = true }: { items: TrashItem[]; all: TrashItem[]; group?: boolean }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [confirm, setConfirm] = useState<TrashItem | null>(null);
   const [purgeError, setPurgeError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
         </div>
       ) : null}
       <ul>
-        {items.map((t) => {
+        {(group ? groupedRows(items, all) : items).map((t) => {
           const Icon = ICON[t.type];
           const together = batchPeers(t, all);
           return (
@@ -90,7 +91,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
                   className="shrink-0 rounded-full border px-2 text-[11px] text-muted-foreground"
                   title={`Deleted together: ${summarize(together)}. Restoring brings the whole batch back.`}
                 >
-                  with {together.length} {together.length === 1 ? "other" : "others"}
+                  {togetherText(together)}
                 </span>
               ) : null}
               <time dateTime={t.deletedAt} title={new Date(t.deletedAt).toLocaleString()} className="w-32 shrink-0 text-right text-xs text-muted-foreground">
