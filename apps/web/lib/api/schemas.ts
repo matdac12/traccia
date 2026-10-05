@@ -66,3 +66,35 @@ export const restoreResultSchema = z.object({ type: z.enum(TRASH_TYPES), id: z.s
 export type RestoreResult = z.infer<typeof restoreResultSchema>;
 
 export const purgeResultSchema = z.object({ purged: z.literal(true) });
+
+export const labelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string(),
+  projectId: z.string().nullable(),
+});
+export type Label = z.infer<typeof labelSchema>;
+
+export const milestoneSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  name: z.string(),
+  targetDate: z.string().nullable(),
+});
+export type Milestone = z.infer<typeof milestoneSchema>;
+
+export const issueSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  identifier: z.string(),
+  title: z.string(),
+  status: z.enum(ISSUE_STATUSES),
+  priority: z.number().int().min(0).max(4),
+  estimate: z.number().int().nullable(),
+  assignee: z.enum(ACTORS).nullable(),
+  milestoneId: z.string().nullable(),
+  createdBy: z.enum(ACTORS),
+  updatedAt: z.string(),
+  labels: z.array(labelSchema),
+});
+export type IssueRow = z.infer<typeof issueSchema>;
