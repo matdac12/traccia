@@ -7,11 +7,12 @@ import { createTestDb } from "./test-db.js";
 export function createTestApp(
   env: Record<string, string> = {},
   mcpDeps?: Parameters<typeof createApp>[1],
+  oauthHardening?: Parameters<typeof createApp>[2],
 ) {
   const config = loadConfig({ BASE_URL: "http://localhost:8787", ...env });
   const { db, sqlite } = createTestDb();
   const logs: string[] = [];
   const logger = createLogger(config.logLevel, (line) => logs.push(line));
-  const app = createApp({ config, db, logger }, mcpDeps);
+  const app = createApp({ config, db, logger }, mcpDeps, oauthHardening);
   return { app, logs, sqlite, db, config };
 }

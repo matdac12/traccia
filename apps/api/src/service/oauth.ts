@@ -1,5 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, count, eq, isNull, lt, notExists } from "drizzle-orm";
 import type { Db } from "../db/connection.js";
 import {
   oauthAuthCodes,
@@ -44,6 +44,12 @@ const inMs = (ms: number) => new Date(Date.now() + ms).toISOString();
 const isLoopback = (host: string) =>
   host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 
+/** Redirect URIs always allowed, on top of any configured extras. */
+export const DEFAULT_REDIRECT_URIS = [
+  "https://claude.ai/api/mcp/auth_callback",
+  "https://claude.com/api/mcp/auth_callback",
+];
+
 /** https, or http on a loopback host (native clients); no fragment, no credentials. */
 export function isAcceptableRedirectUri(value: string): boolean {
   let url: URL;
@@ -59,9 +65,75 @@ export function isAcceptableRedirectUri(value: string): boolean {
   );
 }
 
+/**
+ * Whether a redirect URI may be registered or used at all: an exact match
+ * against the default and configured allowlist, or an http loopback URI on any
+ * port (RFC 8252). Anything else could hand an authorization code, or phish the
+ * admin secret, to an attacker's site.
+ */
+export function isAllowedRedirectUri(
+  value: string,
+  extraAllowed: readonly string[] = [],
+): boolean {
+  if (!isAcceptableRedirectUri(value)) return false;
+  if (DEFAULT_REDIRECT_URIS.includes(value) || extraAllowed.includes(value)) {
+    return true;
+  }
+  return new URL(value).protocol === "http:";
+}
+
+export type ClientLimits = {
+  /** Registrations beyond this many live clients are rejected. */
+  maxClients: number;
+  /** A client with no authorization code issued is deleted after this long. */
+  unusedClientTtlMs: number;
+};
+
+export const DEFAULT_CLIENT_LIMITS: ClientLimits = {
+  maxClients: 100,
+  unusedClientTtlMs: 60 * 60_000,
+};
+
+/**
+ * Deletes clients that never had an authorization code issued and are older
+ * than the TTL. A client with any code (so any grant) is never deleted.
+ */
+export function deleteExpiredClients(
+  db: Db,
+  ttlMs: number,
+  now = Date.now(),
+): number {
+  const cutoff = new Date(now - ttlMs).toISOString();
+  return db
+    .delete(oauthClients)
+    .where(
+      and(
+        lt(oauthClients.createdAt, cutoff),
+        notExists(
+          db
+            .select({ one: oauthAuthCodes.clientId })
+            .from(oauthAuthCodes)
+            .where(eq(oauthAuthCodes.clientId, oauthClients.id)),
+        ),
+        notExists(
+          db
+            .select({ one: oauthRefreshTokens.clientId })
+            .from(oauthRefreshTokens)
+            .where(eq(oauthRefreshTokens.clientId, oauthClients.id)),
+        ),
+      ),
+    )
+    .run().changes;
+}
+
 export function registerClient(
   db: Db,
   input: { name: string; redirectUris: string[] },
+  options: {
+    extraRedirectUris?: readonly string[];
+    limits?: ClientLimits;
+    now?: number;
+  } = {},
 ): OAuthClient {
   if (!input.redirectUris.length) {
     throw new OAuthError("invalid_redirect_uri", "redirect_uris is required");
@@ -73,12 +145,30 @@ export function registerClient(
         "redirect_uris must be https URLs (or http on localhost) without a fragment",
       );
     }
+    if (!isAllowedRedirectUri(uri, options.extraRedirectUris)) {
+      throw new OAuthError(
+        "invalid_redirect_uri",
+        "redirect_uri is not on this server's allowlist",
+      );
+    }
+  }
+  const limits = options.limits ?? DEFAULT_CLIENT_LIMITS;
+  const now = options.now ?? Date.now();
+  // Lazy cleanup: expired unused clients are dropped as part of registering.
+  deleteExpiredClients(db, limits.unusedClientTtlMs, now);
+  const total = db.select({ n: count() }).from(oauthClients).get()?.n ?? 0;
+  if (total >= limits.maxClients) {
+    throw new OAuthError(
+      "temporarily_unavailable",
+      "Too many registered clients; try again later",
+      503,
+    );
   }
   const client: OAuthClient = {
     id: `trc_client_${newId()}`,
     name: input.name,
     redirectUris: [...new Set(input.redirectUris)],
-    createdAt: nowIso(),
+    createdAt: new Date(now).toISOString(),
   };
   db.insert(oauthClients)
     .values({

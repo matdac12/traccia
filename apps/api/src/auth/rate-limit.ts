@@ -1,4 +1,4 @@
-/** Fixed-window, in-memory request counter keyed by token id. */
+/** Fixed-window, in-memory request counter keyed by token id or client IP. */
 export class RateLimiter {
   private readonly windows = new Map<
     string,
@@ -12,6 +12,11 @@ export class RateLimiter {
 
   /** Counts one request; returns seconds to wait if over the limit, else null. */
   hit(key: string, now = Date.now()): number | null {
+    if (this.windows.size > 10_000) {
+      for (const [k, w] of this.windows) {
+        if (now >= w.resetAt) this.windows.delete(k);
+      }
+    }
     let window = this.windows.get(key);
     if (!window || now >= window.resetAt) {
       window = { resetAt: now + this.windowMs, count: 0 };

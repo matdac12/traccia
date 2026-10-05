@@ -18,6 +18,7 @@ describe("loadConfig", () => {
       logLevel: "info",
       trustProxy: true,
       sourceUrlExtraPorts: [],
+      oauthExtraRedirectUris: [],
     });
   });
 
@@ -45,6 +46,24 @@ describe("loadConfig", () => {
         .sourceUrlExtraPorts,
     ).toEqual([8443, 9443]);
   });
+
+  it("parses OAUTH_EXTRA_REDIRECT_URIS as a URI list", () => {
+    expect(
+      loadConfig({
+        ...valid,
+        OAUTH_EXTRA_REDIRECT_URIS: "https://a.example/cb, https://b.example/cb",
+      }).oauthExtraRedirectUris,
+    ).toEqual(["https://a.example/cb", "https://b.example/cb"]);
+  });
+
+  it.each(["http://a.example/cb", "https://a.example/cb#x", "nope"])(
+    "rejects OAUTH_EXTRA_REDIRECT_URIS=%s",
+    (value) => {
+      expect(() =>
+        loadConfig({ ...valid, OAUTH_EXTRA_REDIRECT_URIS: value }),
+      ).toThrow(ConfigError);
+    },
+  );
 
   it.each(["abc", "0", "70000", "8443,x"])(
     "rejects SOURCE_URL_EXTRA_PORTS=%s",

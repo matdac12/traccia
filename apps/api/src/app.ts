@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth } from "./auth/middleware.js";
 import { createOAuthMetadataRoutes } from "./auth/oauth-metadata.js";
+import type { OAuthHardeningOptions } from "./auth/oauth-limits.js";
 import { createOAuthServerRoutes } from "./auth/oauth-server.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import { createMcpRoute } from "./mcp/route.js";
@@ -26,6 +27,7 @@ import { mountTrashRoutes } from "./rest/trash.js";
 export function createApp(
   container: AppContainer,
   mcpDeps?: Parameters<typeof createMcpRoute>[1],
+  oauthHardening?: OAuthHardeningOptions,
 ) {
   const app = new Hono<AppEnv>();
   app.use(requestContext(container));
@@ -35,7 +37,7 @@ export function createApp(
   app.get("/healthz", (c) => c.json({ ok: true }));
 
   app.route("/", createOAuthMetadataRoutes(container.config.baseUrl));
-  app.route("/", createOAuthServerRoutes());
+  app.route("/", createOAuthServerRoutes(oauthHardening));
 
   const v1 = new Hono<AppEnv>();
   const auth = requireAuth({
