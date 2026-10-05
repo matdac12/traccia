@@ -30,7 +30,7 @@ pnpm dev          # http://localhost:3000
 The env is validated with Zod at server start (`instrumentation.ts`, `lib/env.ts`): a bad env prints every problem
 and exits with code 1.
 
-Scripts: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm check:bundle`.
+Scripts: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e`, `pnpm check:bundle`.
 Dev and build use `--webpack` because `packages/shared` imports siblings as `./x.js` (NodeNext style) and Turbopack
 cannot map that to `.ts` yet.
 
@@ -108,6 +108,7 @@ components/traccia/    app components
 components/issue-detail/  issue page (MAT-1721); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
+e2e/                   Playwright smoke tests (support/ boots the API + dashboard)
 ```
 
 ## Project page and create-issue dialog
@@ -132,6 +133,35 @@ change" (patches are rebuilt against the fresh issue, and title/description are 
 Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
+
+## Browser smoke tests (`pnpm test:e2e`, MAT-1736)
+
+Playwright (headless Chromium) clicks through the real dashboard. `pnpm test` stays fast and does not run it.
+
+```sh
+pnpm install
+pnpm --filter web exec playwright install chromium   # once per machine
+pnpm --filter web test:e2e                           # about 1-3 minutes (dev server compiles routes)
+```
+
+`e2e/global-setup.ts` starts everything itself: the API (`tsx src/main.ts`) on a fresh SQLite database in the OS
+temp dir, a `you` token created through the `tracker` CLI (held in memory, never printed or written), seed data
+(one project `SMK`), and `next dev` on `127.0.0.1:3100`. Everything is stopped and the database deleted afterwards.
+It needs no `.env` and touches no real data. Ports: `E2E_WEB_PORT` (3100), `E2E_API_PORT` (8799). Stop any other
+`next dev` in `apps/web` first (Next allows one dev server per directory).
+
+The dashboard runs with `DASHBOARD_ALLOWED_LOGINS=e2e@local` and the browser sends that `Tailscale-User-Login`
+header (ADR 0008), so the same run proves the 403 for a missing or unknown login. The dev-login bypass is not used.
+
+Scenarios (`e2e/smoke.spec.ts`, run serially, each on its own uniquely titled issue): project list in the shell;
+create an issue from the dialog; change status in the detail page; drag a Kanban card and reload; upload and preview
+an image; delete an issue and restore it from Trash; the 409 conflict banner (the page's live refresh is blocked,
+the issue is changed through the API, then the stale page edits it); 403 without the identity header; light and
+dark theme (checks the `dark` class and background luminance, and attaches a screenshot to the report; not a pixel
+comparison).
+
+`next dev` serves HTML before React hydrates, so `visit()` waits for hydration (reloading if the bundle came out
+half-compiled) before a test clicks. Failure traces and screenshots land in `e2e/.results/` (git-ignored).
 
 ## Docker
 
