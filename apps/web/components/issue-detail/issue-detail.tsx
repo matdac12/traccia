@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ChevronRight, GitBranch, Link2, Paperclip, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, GitBranch, Link2, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { deleteIssueAction, restoreIssueAction, updateIssueAction } from "@/app/(app)/issues/[identifier]/actions";
@@ -8,6 +8,7 @@ import { AgentMark } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { TimeAgo } from "./atoms";
+import { Attachments } from "./attachments";
 import { ActivityTimeline } from "./activity";
 import { Comments } from "./comments";
 import { Description } from "./description";
@@ -189,7 +190,7 @@ export function IssueDetail(props: IssueDetailProps) {
               <Description value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
             </div>
 
-            <AttachmentsSlot count={issue.attachments.length} />
+            <Attachments identifier={issue.identifier} attachments={issue.attachments} />
 
             <SubIssues parentIdentifier={issue.identifier} items={issue.children} />
 
@@ -257,20 +258,5 @@ function Title({ value, onSave, disabled }: { value: string; onSave: (title: str
       }}
       className="field-sizing-content w-full resize-none bg-transparent text-[22px] font-semibold leading-snug tracking-tight outline-none"
     />
-  );
-}
-
-/**
- * Slot for attachments (MAT-1725): replace the body with the list and the drop zone. The
- * issue's attachments already arrive in `issue.attachments` (count shown here for now).
- */
-function AttachmentsSlot({ count }: { count: number }) {
-  return (
-    <section className="mt-8" aria-label="Attachments" data-slot="attachments">
-      <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium">
-        <Paperclip className="size-3.5 text-muted-foreground" />Attachments <span className="text-xs font-normal text-muted-foreground">{count}</span>
-      </h3>
-      <p className="text-xs text-muted-foreground">Attachments are coming in a later iteration.</p>
-    </section>
   );
 }

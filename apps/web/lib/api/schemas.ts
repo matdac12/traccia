@@ -152,13 +152,15 @@ export const activitySchema = z.object({
 });
 export type ActivityRow = z.infer<typeof activitySchema>;
 
-/** Slot for MAT-1725: the dashboard only counts attachments for now. */
+/** A file on an issue (MAT-1725). `actor` and `createdAt` come with every attachment the API returns. */
 export const attachmentSchema = z.object({
   id: z.string(),
   filename: z.string(),
   mimeType: z.string(),
   sizeBytes: z.number(),
   commentId: z.string().nullable(),
+  actor: z.enum(ACTORS),
+  createdAt: z.string(),
 });
 export type Attachment = z.infer<typeof attachmentSchema>;
 
