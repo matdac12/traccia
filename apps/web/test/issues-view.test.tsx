@@ -9,6 +9,7 @@ import { DEFAULT_FILTERS, type IssueFilters } from "../lib/issue-filters";
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }), usePathname: () => "/issues" }));
 const loadMore = vi.fn();
+vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 vi.mock("../app/(app)/issues/actions", () => ({ loadMoreIssues: (...a: unknown[]) => loadMore(...a) }));
 
 const label = { id: "l1", name: "bug", color: "#f00", projectId: null };
@@ -154,7 +155,7 @@ describe("IssuesView filters and URL sync", () => {
     await user.click(screen.getByRole("button", { name: "Board" }));
     expect(replace).toHaveBeenLastCalledWith("/issues?project=p1&view=kanban", { scroll: false });
     rerender(<IssuesView filters={{ ...DEFAULT_FILTERS, view: "kanban" }} data={data()} />);
-    expect(screen.getByText("Board view is coming")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "In Progress" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Table" }));
     expect(replace).toHaveBeenLastCalledWith("/issues", { scroll: false });
   });
