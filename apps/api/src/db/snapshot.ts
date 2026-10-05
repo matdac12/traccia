@@ -12,7 +12,8 @@ import { join, resolve } from "node:path";
 import Database from "better-sqlite3";
 import type { Sqlite } from "./connection.js";
 
-export const SNAPSHOT_PATTERN = /^tracker-\d{8}T\d{6}Z\.db$/;
+/** Matches `traccia-<UTC>.db` and the pre-rename `tracker-<UTC>.db`, so retention still prunes old snapshots. */
+export const SNAPSHOT_PATTERN = /^(?:traccia|tracker)-\d{8}T\d{6}Z\.db$/;
 
 export class SnapshotError extends Error {
   override name = "SnapshotError";
@@ -24,10 +25,10 @@ export type SnapshotResult = {
   removed: string[];
 };
 
-/** `tracker-20261005T083000Z.db`: sorts lexically in time order. */
+/** `traccia-20261005T083000Z.db`: sorts lexically in time order. */
 export function snapshotName(now: Date): string {
   const stamp = now.toISOString().replace(/[-:]/g, "").slice(0, 15);
-  return `tracker-${stamp}Z.db`;
+  return `traccia-${stamp}Z.db`;
 }
 
 function prepareDir(dir: string): void {
@@ -108,10 +109,13 @@ function verify(path: string): void {
   }
 }
 
+const timestampOf = (file: string) => file.slice(file.indexOf("-") + 1);
+
 function applyRetention(dir: string, keep: number): string[] {
   const snapshots = readdirSync(dir)
     .filter((f) => SNAPSHOT_PATTERN.test(f))
-    .sort();
+    // Sort by timestamp: the two prefixes would otherwise order by name, not age.
+    .sort((a, b) => timestampOf(a).localeCompare(timestampOf(b)));
   const stale = snapshots.slice(0, Math.max(0, snapshots.length - keep));
   for (const f of stale) rmSync(join(dir, f), { force: true });
   return stale;

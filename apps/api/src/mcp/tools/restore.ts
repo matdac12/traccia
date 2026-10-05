@@ -1,4 +1,4 @@
-import { restoreToolShape } from "@linear-matti/shared";
+import { restoreToolShape } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { McpContext } from "../server.js";
 import { defineTool } from "./helpers.js";

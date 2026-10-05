@@ -3,7 +3,7 @@ import {
   listMilestonesToolShape,
   ServiceError,
   saveMilestoneToolShape,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Services } from "../../service/index.js";
 import type { Milestone } from "../../service/milestones.js";

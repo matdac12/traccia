@@ -1,5 +1,5 @@
 import "server-only";
-import type { CreateMilestoneInput, UpdateMilestoneInput } from "@linear-matti/shared";
+import type { CreateMilestoneInput, UpdateMilestoneInput } from "@traccia/shared";
 import { api } from "./client";
 import { deletedResultSchema, milestoneSchema } from "./schemas";
 

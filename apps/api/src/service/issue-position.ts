@@ -3,7 +3,7 @@ import {
   type MoveIssuePositionInput,
   moveIssuePositionInputSchema,
   ServiceError,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { issues } from "../db/schema.js";
 import { nowIso } from "../time.js";

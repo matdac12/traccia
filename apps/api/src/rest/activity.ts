@@ -1,4 +1,4 @@
-import { activityQuerySchema } from "@linear-matti/shared";
+import { activityQuerySchema } from "@traccia/shared";
 import type { Hono } from "hono";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";

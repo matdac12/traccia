@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServiceContext } from "../../src/service/context.js";
 import { allocateIssueNumber } from "../../src/service/index.js";

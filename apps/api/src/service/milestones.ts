@@ -5,7 +5,7 @@ import {
   ServiceError,
   type UpdateMilestoneInput,
   updateMilestoneInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { milestones, projects } from "../db/schema.js";
 import { newId } from "../ids.js";

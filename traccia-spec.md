@@ -62,7 +62,7 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
 ```
  Agents on your machines (Claude Code, Codex, ...)       You (browser / phone with Tailscale app)
         |  all on the tailnet                                   |
-        |  MCP: https://<tracker-host>/mcp                      |  https://<tracker-host>/
+        |  MCP: https://<traccia-host>/mcp                      |  https://<traccia-host>/
         |  Authorization: Bearer <agent token>                  |
         v                                                       v
  +--- VPS (tailnet node) -------------------------------------------------+
@@ -76,7 +76,7 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
  |  api: Hono service (one Node process): REST + MCP + attachments        |
  |     Service layer (all business rules live here)                       |
  |        |                                                               |
- |     SQLite (WAL) /data/tracker.db      /data/attachments/...           |
+ |     SQLite (WAL) /data/traccia.db      /data/attachments/...           |
  +------------------------------------------------------------------------+
 ```
 
@@ -84,13 +84,13 @@ Principles:
 1. **One service layer.** MCP tools and REST handlers are thin adapters over the same functions. No business logic in either adapter.
 2. **Dashboard never touches the DB.** It calls the REST API from server-side code only (server components, server actions, route handlers), using a `you`-actor token held in the web container's environment. The token never reaches the browser.
 3. **Private network only.** Both services bind to `127.0.0.1` (or an internal Docker network) and are published to the tailnet only through `tailscale serve`. Nothing listens on a public interface. Verify with an external port scan after deploy.
-4. **One hostname, path-routed.** Agents and the browser use the same MagicDNS name (e.g. `tracker.<tailnet>.ts.net`). No CORS needed (same origin; browsers never call the API directly).
+4. **One hostname, path-routed.** Agents and the browser use the same MagicDNS name (e.g. `traccia.<tailnet>.ts.net`). No CORS needed (same origin; browsers never call the API directly).
 5. **Defense in depth.** Tailscale ACLs control *which devices* can reach the node; bearer tokens control *which actor* is calling. Both stay on.
 6. **Single writer.** One backend process owns the SQLite file. Do not run two instances against it.
 7. **Everything stateful lives under `DATA_DIR`** (default `/data`): the DB and attachments. Config is env vars. This keeps it deployable under Docker or systemd.
 
 ### 3.1 Tailscale setup
-- The VPS is the existing tailnet node `omni` (`omni.tail2b3fbf.ts.net`). It stays untagged and user-owned: **no `tag:tracker` and no ACL change in v1** (the node is shared with other apps; access is bounded by the tailnet itself plus bearer tokens and the dashboard access check). Revisit if other people join the tailnet.
+- The VPS is the existing tailnet node `omni` (`omni.tail2b3fbf.ts.net`). It stays untagged and user-owned: **no `tag:traccia` and no ACL change in v1** (the node is shared with other apps; access is bounded by the tailnet itself plus bearer tokens and the dashboard access check). Revisit if other people join the tailnet.
 - Publish with `tailscale serve` on **HTTPS 443** (Tailscale-issued certificate), mapping paths to local ports as in the diagram: `/` to the dashboard (`127.0.0.1:3000`), `/mcp` and `/v1/*` to the API (`127.0.0.1:8787`). `BASE_URL` is `https://omni.tail2b3fbf.ts.net`. Port 443 on `omni` was freed for the tracker (no serve config remained, verified 2026-10-04); the old `/` -> 3773 entry is gone. Exact commands to be verified against the installed Tailscale version (1.102.4).
 - **Do not enable Funnel** in v1 (Funnel makes the service public).
 - Caveats:
@@ -130,10 +130,10 @@ Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`
 
 Note on MCP + Hono: the SDK's Streamable HTTP transport has historically been written for Node `req`/`res`. Check the current SDK for a web-standard (Fetch API) transport first. If unavailable, use the raw Node request/response objects exposed by `@hono/node-server` and delegate `/mcp` to the SDK transport. Verify against current SDK docs at build time rather than assuming.
 
-Repo layout (monorepo, pnpm workspaces). **The tracker is built inside the existing `linear-matti` repo, at its root** (decision: no separate repo or folder). This spec stays at the root as `tracker-spec.md`. The root `AGENTS.md` already holds the repo's agent-skills configuration and is left as is; the tracker's own agent snippet goes in `docs/agent-snippet.md` instead. `docs/` already exists (`docs/agents/`, `docs/adr/`) and is shared.
+Repo layout (monorepo, pnpm workspaces). **Traccia is built inside the existing repo (originally `linear-matti`, renamed `traccia` with the product), at its root** (decision: no separate repo or folder). This spec stays at the root as `traccia-spec.md`. The root `AGENTS.md` already holds the repo's agent-skills configuration and is left as is; the tracker's own agent snippet goes in `docs/agent-snippet.md` instead. `docs/` already exists (`docs/agents/`, `docs/adr/`) and is shared.
 
 ```
-linear-matti/        # repo root
+traccia/             # repo root (originally linear-matti)
   apps/
     api/            # Hono service: REST + MCP + attachments
       src/
@@ -153,7 +153,7 @@ linear-matti/        # repo root
   AGENTS.md         # existing: agent-skills config (do not replace)
   README.md
   docs/             # shared with existing docs/agents; adds agent-snippet.md, mcp-tools.md, agent-setup.md, backup-restore.md
-  tracker-spec.md   # this spec
+  traccia-spec.md   # this spec
 ```
 
 ---
@@ -392,9 +392,9 @@ Exactly two: `agent` and `you`.
 - Stored as SHA-256 hash only. Compare with constant-time equality.
 - Header: `Authorization: Bearer <token>`.
 - Managed via CLI on the VPS (no public token endpoint in v1):
-  - `tracker token create --name claude-code-laptop --actor agent`
-  - `tracker token list`
-  - `tracker token revoke <id>`
+  - `traccia token create --name claude-code-laptop --actor agent`
+  - `traccia token list`
+  - `traccia token revoke <id>`
 - Revocation takes effect immediately (look up on each request; it is one indexed query).
 - `last_used_at` updated at most once a minute per token to avoid write churn.
 - Basic rate limiting per token (in-memory, e.g. 120 req/min) to contain runaway agent loops.
@@ -402,7 +402,7 @@ Exactly two: `agent` and `you`.
 ### 7.3 Dashboard access
 - The network already restricts access to your tailnet devices. On top of that, the dashboard checks the **Tailscale identity header** (`Tailscale-User-Login`) against an allowlist (`DASHBOARD_ALLOWED_LOGINS`, e.g. your Tailscale login). Valid only because the web service listens on localhost behind `tailscale serve`; reject the header if the request did not come from the local proxy.
 - **Fallback** if the identity header is unavailable (e.g. serve configuration changes): single-user password login with `DASHBOARD_PASSWORD_HASH` + `SESSION_SECRET` and a signed httpOnly session cookie.
-- All API calls from the dashboard are server-side and use `TRACKER_API_TOKEN` (a `you` actor token) from the web container's environment (not `NEXT_PUBLIC_`).
+- All API calls from the dashboard are server-side and use `TRACCIA_API_TOKEN` (a `you` actor token) from the web container's environment (not `NEXT_PUBLIC_`).
 
 ### 7.4 OAuth (phase 2, designed for now)
 Goal: use the MCP server from claude.ai / mobile as a custom connector.
@@ -504,7 +504,7 @@ Concurrency: PATCH accepts optional `If-Match: <updated_at>` (or `expectedUpdate
 
 - Endpoint: `<BASE_URL>/mcp`, Streamable HTTP, **stateless** (new server instance per request is fine; no session state needed).
 - Auth: same Bearer token. Actor taken from the token and stamped on all writes.
-- Server name: `tracker`. Version from `package.json`.
+- Server name: `traccia`. Version from `package.json`.
 - Tool design principles:
   1. **Mirror Linear's MCP naming and argument shapes** where one exists (`list_issues`, `get_issue`, `save_issue`, `save_comment`, `list_projects`, `save_project`, ...), so existing agent prompts keep working.
   2. `save_*` = create when no `id` is given, update when `id` is given.
@@ -547,7 +547,7 @@ The dashboard should be "impeccable and exactly as wanted", so design happens **
 The REST API and MCP server are built first and do not depend on this phase.
 
 ### 12.5 Dashboard technical rules
-- All API access in server components / server actions / route handlers via a `server-only` API client pointed at the local API (`TRACKER_API_URL`, e.g. `http://api:8787`). Never expose `TRACKER_API_TOKEN` to client bundles (no `NEXT_PUBLIC_` prefix).
+- All API access in server components / server actions / route handlers via a `server-only` API client pointed at the local API (`TRACCIA_API_URL`, e.g. `http://api:8787`). Never expose `TRACCIA_API_TOKEN` to client bundles (no `NEXT_PUBLIC_` prefix).
 - Types and Zod schemas come from `packages/shared`.
 - Attachments proxied through `/api/files/[id]`.
 - Access check (7.3) required on every route (middleware).
@@ -573,7 +573,7 @@ Everything configurable via env vars (validated with Zod at startup; fail fast w
 | `LOG_LEVEL` | `info` | |
 | `TRUST_PROXY` | `true` | Read client IP from `X-Forwarded-For` when behind a proxy |
 
-**Dashboard (web container on the VPS)**: `TRACKER_API_URL`, `TRACKER_API_TOKEN`, `DASHBOARD_ALLOWED_LOGINS`. (`DASHBOARD_PASSWORD_HASH` and `SESSION_SECRET` exist only if the fallback login in 7.3 is built, which happens only if the deploy-time header check fails.)
+**Dashboard (web container on the VPS)**: `TRACCIA_API_URL`, `TRACCIA_API_TOKEN`, `DASHBOARD_ALLOWED_LOGINS`. (`DASHBOARD_PASSWORD_HASH` and `SESSION_SECRET` exist only if the fallback login in 7.3 is built, which happens only if the deploy-time header check fails.)
 
 Hostname: the default is the node's MagicDNS name (`<node>.<tailnet>.ts.net`), so no domain purchase or DNS work is needed. If you later want a custom domain (for example for the OAuth phase), only `BASE_URL` and the proxy config change; nothing in code hardcodes a host.
 
@@ -593,7 +593,7 @@ Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/
 - Docker caveat: published ports must be bound to `127.0.0.1` (e.g. `127.0.0.1:8787:8787`); Docker's default publishing bypasses some firewall rules.
 
 ### 14.2 Backups (decided)
-- A **daily** job on the VPS writes a consistent DB snapshot using SQLite's online backup (`better-sqlite3` backup / `VACUUM INTO`, run from the tracker's own runtime because the host has no `sqlite3` CLI). Never a plain file copy of the live DB. Default: keep the last 3 snapshots on the VPS.
+- A **daily** job on the VPS writes a consistent DB snapshot using SQLite's online backup (`better-sqlite3` backup / `VACUUM INTO`, run from Traccia's own runtime because the host has no `sqlite3` CLI). Never a plain file copy of the live DB. Default: keep the last 3 snapshots on the VPS.
 - The **Windows machine pulls manually** over the tailnet (documented rsync-style script): latest snapshot plus `/data/attachments`. Keep the last 3 copies there. Accepted: the off-box copy can be stale, and losing some recent work is tolerable in v1. No Litestream, no cloud account.
 - Document a tested **restore** procedure in the README (restore the Windows copy into a scratch folder or container, start the service on it, check issues and attachments load) and run it once before the pilot ends.
 - No backup process existed on the VPS, so there is nothing to integrate with.
@@ -633,10 +633,10 @@ Docker Compose in `/opt/tracker/` on `omni`, same pattern as the existing `/opt/
 4. Decide import scope: everything, or open issues and active projects only.
 5. Run the import, switch all agents to the new MCP server, then cancel the Linear plan once satisfied.
 
-### 16.2 Import script (CLI: `tracker import linear`)
+### 16.2 Import script (CLI: `traccia import linear`)
 - Source: Linear GraphQL API with a personal API key (read-only use).
 - Imports: projects, project milestones, issues (title, description, status, priority, estimate, assignee mapping, labels, parent/child, blocks/blocked-by, created/updated/completed timestamps), comments (with original author mapped to `you` or `agent`, original name noted in the text), and attachments/images (downloaded and re-stored).
-- **Keeps original identifiers** (e.g. `MAT-123`) and sets the `MAT` key's `next_number` above the highest imported number. All Linear projects map to tracker projects under the shared `MAT` key.
+- **Keeps original identifiers** (e.g. `MAT-123`) and sets the `MAT` key's `next_number` above the highest imported number. All Linear projects map to Traccia projects under the shared `MAT` key.
 - Status mapping: Linear workflow states map by *type* (backlog, unstarted, started, completed, canceled) to the six fixed statuses; "In Review" is matched by name.
 - Idempotent: re-running updates instead of duplicating (store Linear IDs in a mapping table `import_map`).
 - Dry-run mode prints counts and anomalies without writing.

@@ -6,7 +6,7 @@ A minimal self-hosted issue tracker for one human and their AI agents, replacing
 
 **Traccia**:
 The system this repo builds (Italian for "trace" or "track").
-_Avoid_: Tracker, Linear clone, linear-matti
+_Avoid_: Tracker (the pre-rename working name), Linear clone, linear-matti
 
 **Linear**:
 The legacy SaaS Traccia replaces. Its workspace still hosts the build backlog until cutover.

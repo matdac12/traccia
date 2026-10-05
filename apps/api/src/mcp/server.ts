@@ -1,4 +1,4 @@
-import type { Actor } from "@linear-matti/shared";
+import type { Actor } from "@traccia/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import pkg from "../../package.json" with { type: "json" };
 import { errorFields } from "../logger.js";
@@ -33,7 +33,7 @@ export function createMcpServer(
   ctx: McpContext,
   deps: { attachments: AttachmentToolDeps },
 ): McpServer {
-  const server = new McpServer({ name: "tracker", version: pkg.version });
+  const server = new McpServer({ name: "traccia", version: pkg.version });
 
   server.registerTool(
     "whoami",

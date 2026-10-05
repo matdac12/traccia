@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { EnvError, parseEnv } from "../lib/env";
 
 const base = {
-  TRACKER_API_URL: "http://api:8787/",
-  TRACKER_API_TOKEN: "tok_abc",
+  TRACCIA_API_URL: "http://api:8787/",
+  TRACCIA_API_TOKEN: "tok_abc",
   DASHBOARD_ALLOWED_LOGINS: "me@example.com",
   NODE_ENV: "production",
 };
@@ -24,11 +24,21 @@ describe("parseEnv", () => {
       }
     })();
     expect(err).toBeInstanceOf(EnvError);
-    for (const name of ["TRACKER_API_URL", "TRACKER_API_TOKEN", "DASHBOARD_ALLOWED_LOGINS"])
+    for (const name of ["TRACCIA_API_URL", "TRACCIA_API_TOKEN", "DASHBOARD_ALLOWED_LOGINS"])
       expect(err?.message).toContain(name);
   });
   it("treats empty strings as unset (compose passes empty defaults)", () => {
-    expect(() => parseEnv({ ...base, TRACKER_API_TOKEN: "" })).toThrow(/TRACKER_API_TOKEN/);
+    expect(() => parseEnv({ ...base, TRACCIA_API_TOKEN: "" })).toThrow(/TRACCIA_API_TOKEN/);
+  });
+  it("honors the pre-rename TRACKER_API_* names", () => {
+    const { TRACCIA_API_URL: _u, TRACCIA_API_TOKEN: _t, ...rest } = base;
+    const env = parseEnv({ ...rest, TRACKER_API_URL: "http://old:8787/", TRACKER_API_TOKEN: "tok_old" });
+    expect(env.apiUrl).toBe("http://old:8787");
+    expect(env.apiToken).toBe("tok_old");
+  });
+  it("prefers TRACCIA_API_* when both spellings are set", () => {
+    const env = parseEnv({ ...base, TRACKER_API_URL: "http://old:8787", TRACKER_API_TOKEN: "tok_old" });
+    expect(env.apiToken).toBe("tok_abc");
   });
   it("refuses DASHBOARD_DEV_LOGIN in production", () => {
     expect(() => parseEnv({ ...base, DASHBOARD_DEV_LOGIN: "dev@local" })).toThrow(/DASHBOARD_DEV_LOGIN.*production/);

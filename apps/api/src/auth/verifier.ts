@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import type { Actor } from "@linear-matti/shared";
+import type { Actor } from "@traccia/shared";
 import { eq } from "drizzle-orm";
 import type { Db } from "../db/connection.js";
 import { tokens } from "../db/schema.js";

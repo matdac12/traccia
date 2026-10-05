@@ -69,8 +69,8 @@ export async function startStack(): Promise<Stack> {
     const { NODE_ENV: _inherited, ...inherited } = process.env;
     const webEnv = {
       ...inherited,
-      TRACKER_API_URL: apiUrl,
-      TRACKER_API_TOKEN: token,
+      TRACCIA_API_URL: apiUrl,
+      TRACCIA_API_TOKEN: token,
       DASHBOARD_ALLOWED_LOGINS: E2E_LOGIN,
       DASHBOARD_DEV_LOGIN: "",
       NEXT_TELEMETRY_DISABLED: "1",

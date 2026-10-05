@@ -1,4 +1,4 @@
-import { ACTORS, ISSUE_ORDER_BYS, PRIORITIES, type Actor, type IssueOrderBy, type Priority } from "@linear-matti/shared";
+import { ACTORS, ISSUE_ORDER_BYS, PRIORITIES, type Actor, type IssueOrderBy, type Priority } from "@traccia/shared";
 
 /**
  * Filter, sort and view state of the issues page. It lives in the URL (`?project=&label=...`) so views are

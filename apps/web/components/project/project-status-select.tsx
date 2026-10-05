@@ -1,5 +1,5 @@
 "use client";
-import { PROJECT_STATUSES, type ProjectStatus } from "@linear-matti/shared";
+import { PROJECT_STATUSES, type ProjectStatus } from "@traccia/shared";
 import { useState, useTransition } from "react";
 import { updateProjectStatusAction } from "@/app/(app)/projects/[id]/actions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

@@ -3,7 +3,7 @@ import {
   type ListIssuesInput,
   listIssuesInputSchema,
   ServiceError,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import {
   and,
   asc,

@@ -1,4 +1,4 @@
-import type { Priority } from "@linear-matti/shared";
+import type { Priority } from "@traccia/shared";
 import { Minus, SignalHigh, SignalLow, SignalMedium, TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 

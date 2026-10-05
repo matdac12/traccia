@@ -1,8 +1,8 @@
 # Traccia
 
-A minimal self-hosted issue tracker for one human and their AI agents, replacing a mostly unused Linear plan. Agents reach it over MCP; the human uses a dashboard. Everything stays on a private Tailscale network. The source of truth is [`tracker-spec.md`](tracker-spec.md); vocabulary is in [`GLOSSARY.md`](GLOSSARY.md) and design decisions are in [`docs/adr/`](docs/adr/).
+A minimal self-hosted issue tracker for one human and their AI agents, replacing a mostly unused Linear plan. Agents reach it over MCP; the human uses a dashboard. Everything stays on a private Tailscale network. The source of truth is [`traccia-spec.md`](traccia-spec.md); vocabulary is in [`GLOSSARY.md`](GLOSSARY.md) and design decisions are in [`docs/adr/`](docs/adr/).
 
-The product is called Traccia; code, images and the CLI keep the identifier `tracker` ([ADR 0011](docs/adr/0011-product-name-traccia.md)).
+The product is called Traccia, and so are the CLI (`traccia`), the MCP server, the images and the packages. The pre-rename `tracker` CLI, `TRACKER_API_*` variables and `tracker.db` file still work for one release ([ADR 0012](docs/adr/0012-rename-to-traccia-with-legacy-aliases.md)).
 
 ## What v1 includes
 
@@ -29,7 +29,7 @@ The product is called Traccia; code, images and the CLI keep the identifier `tra
                                                      |  server-side calls, `you` token
  api (Hono, one Node process): REST + MCP + attachments --+
    one service layer, all business rules live here
-   SQLite (WAL) DATA_DIR/tracker.db   DATA_DIR/attachments/
+   SQLite (WAL) DATA_DIR/traccia.db   DATA_DIR/attachments/
 ```
 
 - **api** (`apps/api`): a Hono service. REST (`/v1/*`), MCP (`/mcp`) and attachment downloads (`/files/*`) are thin adapters over one service layer ([ADR 0006](docs/adr/0006-one-service-layer-stateless-mcp-on-hono.md)). It is the only process that touches the database.
@@ -59,11 +59,11 @@ mkdir -p "$DATA_DIR"
 pnpm --filter api dev                   # http://localhost:8787/healthz -> {"ok":true}
 
 # in another shell, with the same BASE_URL and DATA_DIR:
-pnpm --filter api tracker token create --name local --actor you
+pnpm --filter api traccia token create --name local --actor you
 curl -H "Authorization: Bearer <token>" http://localhost:8787/v1/me
 ```
 
-The CLI (`pnpm --filter api tracker <command>`; in the container it is `node dist/tracker.js`) manages tokens, migrations and snapshots; every command takes `--help`. The database is created and migrated on startup.
+The CLI (`pnpm --filter api traccia <command>`; in the container it is `node dist/traccia.js`) manages tokens, migrations and snapshots; every command takes `--help`. The database is created and migrated on startup.
 
 The dashboard is a placeholder for now, so there is nothing to run for `apps/web` yet.
 
@@ -74,7 +74,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | Variable | Service | Default | Purpose |
 |----------|---------|---------|---------|
 | `PORT` | api | `8787` | HTTP port. Fixed to `8787` in the compose file |
-| `DATA_DIR` | api | `/data` | SQLite file and attachments. Fixed to `/data` (the `tracker-data` volume) in the compose file |
+| `DATA_DIR` | api | `/data` | SQLite file and attachments. Fixed to `/data` (the data volume, `traccia-data`) in the compose file |
 | `BASE_URL` | api | required | Externally visible URL, e.g. `https://omni.tail2b3fbf.ts.net`; used to build attachment links |
 | `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap (10 MiB) |
 | `MAX_MCP_UPLOAD_BYTES` | api | `5242880` | Base64 upload cap over MCP (5 MiB) |
@@ -85,9 +85,11 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `TRUST_PROXY` | api | `true` | Read the client IP from `X-Forwarded-For` |
 | `SOURCE_URL_EXTRA_PORTS` | api | empty | Comma-separated extra ports MCP `sourceUrl` fetches may use besides 443. Empty means 443 only |
 | `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
-| `TRACKER_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
-| `TRACKER_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
+| `TRACCIA_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
+| `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
 | `DASHBOARD_ALLOWED_LOGINS` | web | empty | Comma-separated Tailscale logins allowed to open the dashboard |
+
+`TRACKER_API_URL` and `TRACKER_API_TOKEN` are the pre-rename names of the two web variables. They are still read when the `TRACCIA_*` name is unset; remove them from the `.env` when convenient. A test (`apps/web/test/env.test.ts`) pins both spellings.
 
 Booleans accept only `true` or `false`. An empty value counts as unset.
 
@@ -100,7 +102,7 @@ deploy/deploy.sh --dry-run   # print the steps, touch nothing
 deploy/deploy.sh             # build, ship, restart, wait for /healthz
 ```
 
-One-time setup: create `/opt/tracker` on the VPS and put the `.env` there (`cp deploy/.env.example`, fill in `BASE_URL`, `TRACKER_API_TOKEN` and `DASHBOARD_ALLOWED_LOGINS`, `chmod 600`). Create tokens with the CLI inside the container (`docker compose exec api node dist/tracker.js token create ...`). Rollback is `TAG=<previous tag> docker compose up -d`; tags are listed in `/opt/tracker/deployed-tags`. Full details, rollback and token management: [`deploy/README.md`](deploy/README.md).
+One-time setup: create `/opt/tracker` on the VPS and put the `.env` there (`cp deploy/.env.example`, fill in `BASE_URL`, `TRACCIA_API_TOKEN` and `DASHBOARD_ALLOWED_LOGINS`, `chmod 600`). Create tokens with the CLI inside the container (`docker compose exec api node dist/traccia.js token create ...`). Rollback is `TAG=<previous tag> docker compose up -d`; tags are listed in `/opt/tracker/deployed-tags`. Full details, rollback and token management: [`deploy/README.md`](deploy/README.md).
 
 Both services bind to `127.0.0.1` only. Publish them to the tailnet with `tailscale serve` on `omni`:
 
@@ -113,17 +115,24 @@ sudo tailscale serve --bg --https=443 --set-path=/healthz http://127.0.0.1:8787/
 tailscale serve status
 ```
 
-> These commands have not been run against `omni`. The flags match the CLI help of Tailscale 1.102.4, but the path mapping (a path is stripped unless the target repeats it, hence the repeated paths) must be checked on the real node during the deploy phase, as spec 3.1 says. Do not run `tailscale funnel`.
+> Verified on `omni` on 2026-10-05 (MAT-1727): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
+
+### Dashboard access check (verified)
+
+Allowlist format: the plain Tailscale login (an email address, e.g. `you@gmail.com`), comma-separated, compared case-insensitively. Checked on the real setup:
+
+- Through serve (443) from the Mac, an allowed login loads the dashboard with data.
+- Direct to `127.0.0.1:3000` on `omni` without the header: 403. With a non-allowed login in the header: 403. With an allowed login: the page is served (this is the accepted forging risk below).
 
 ## Backup and restore
 
-A daily SQLite snapshot on the VPS (`tracker db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has not yet been run for real, and the restore test is still to be done.
+A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has not yet been run for real, and the restore test is still to be done.
 
 ## Security notes
 
 - **Tailnet only.** Nothing listens on a public interface and Funnel stays off. Tailscale ACLs decide which devices reach `omni`; bearer tokens decide which actor is calling. Both stay on.
 - **Tokens.** Create one per machine or agent. A token is bound to one actor, stored hashed (SHA-256), and shown once at creation. Revocation is immediate. There is no public token endpoint; tokens are managed with the CLI on the VPS.
-- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk:** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
+- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the MAT-1727 check):** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
 - **Agent purge** is disabled by default (`ALLOW_AGENT_PURGE=false`); deletes by agents are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
 - Attachment uploads are validated by magic bytes and size, and the MCP `sourceUrl` fetch goes through an SSRF blocklist.
 
@@ -136,7 +145,7 @@ A daily SQLite snapshot on the VPS (`tracker db snapshot`, last 3 kept), a manua
 
 ## Layout
 
-- `apps/api`: Hono service (REST, MCP, attachments) and the `tracker` CLI
+- `apps/api`: Hono service (REST, MCP, attachments) and the `traccia` CLI
 - `apps/web`: dashboard (placeholder, in progress)
 - `packages/shared`: shared schemas, types, constants
 - `deploy/`: compose file, deploy script, backup units, Windows pull script

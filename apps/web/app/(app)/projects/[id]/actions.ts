@@ -6,7 +6,7 @@ import {
   updateLabelInputSchema,
   updateMilestoneInputSchema,
   updateProjectInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";

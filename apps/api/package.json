@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
+    "traccia": "tsx src/cli/index.ts",
     "tracker": "tsx src/cli/index.ts",
     "docs:tools": "tsx scripts/generate-mcp-tools-doc.ts",
     "typecheck": "tsc -p .",
@@ -13,7 +14,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",
-    "@linear-matti/shared": "workspace:*",
+    "@traccia/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.32.0",
     "better-sqlite3": "^13.0.3",
     "busboy": "^1.6.0",

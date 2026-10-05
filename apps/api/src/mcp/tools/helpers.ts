@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../rest/pagination.js";
@@ -59,13 +59,14 @@ export function paginate<T extends Record<string, unknown>>(
   };
 }
 
+/** The one refusal text every MCP delete tool uses when an actor may not purge. */
+export const PURGE_DENIED_MESSAGE =
+  "Agents cannot purge by default (purge is permanent and ALLOW_AGENT_PURGE is off). Nothing was changed. Soft-delete instead (purge=false; restorable), then ask the owner ('you') to purge it from the dashboard.";
+
 /** Clear message for an agent that tries to purge without permission. */
 export function explainPurgeDenied(err: unknown): never {
   if (err instanceof ServiceError && err.code === "forbidden") {
-    throw new ServiceError(
-      "forbidden",
-      "Agents cannot purge by default (purge is permanent and ALLOW_AGENT_PURGE is off). Nothing was changed. The item stays soft-deleted and can be restored; ask the owner to purge it from the dashboard.",
-    );
+    throw new ServiceError("forbidden", PURGE_DENIED_MESSAGE);
   }
   throw err;
 }

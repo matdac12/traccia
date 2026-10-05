@@ -1,6 +1,6 @@
 "use server";
 
-import { createCommentInputSchema, patchIssueBodySchema, updateCommentInputSchema } from "@linear-matti/shared";
+import { createCommentInputSchema, patchIssueBodySchema, updateCommentInputSchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createComment, deleteComment, updateComment } from "@/lib/api/comments";

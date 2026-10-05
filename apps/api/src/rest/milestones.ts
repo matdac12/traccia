@@ -3,7 +3,7 @@ import {
   listMilestonesQuerySchema,
   purgeQuerySchema,
   updateMilestoneInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import type { Hono } from "hono";
 import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";

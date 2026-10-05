@@ -1,5 +1,5 @@
 import { parseArgs } from "node:util";
-import { ACTORS, type Actor } from "@linear-matti/shared";
+import { ACTORS, type Actor } from "@traccia/shared";
 import type { Db } from "../db/connection.js";
 import { createToken, listTokens, revokeToken } from "../service/tokens.js";
 
@@ -9,20 +9,20 @@ export class UsageError extends Error {
 }
 
 const TOKEN_USAGE = `Usage:
-  tracker token create --name <name> --actor agent|you
-  tracker token list
-  tracker token revoke <id>
+  traccia token create --name <name> --actor agent|you
+  traccia token list
+  traccia token revoke <id>
 
-Run "tracker token <command> --help" for details.`;
+Run "traccia token <command> --help" for details.`;
 
 const HELP = {
-  create: `Usage: tracker token create --name <name> --actor agent|you
+  create: `Usage: traccia token create --name <name> --actor agent|you
 
 Creates a token and prints its plaintext once. It cannot be shown again.`,
-  list: `Usage: tracker token list
+  list: `Usage: traccia token list
 
 Lists tokens: id, name, actor, created, last used, revoked. Never prints secrets.`,
-  revoke: `Usage: tracker token revoke <id>
+  revoke: `Usage: traccia token revoke <id>
 
 Revokes a token immediately. Revoking an already revoked token is a no-op.`,
 };
@@ -60,7 +60,7 @@ function table(header: string[], rows: string[][]): string {
     .join("\n");
 }
 
-/** Help text for `tracker token ...` args, or null if help wasn't requested. */
+/** Help text for `traccia token ...` args, or null if help wasn't requested. */
 export function tokenHelp(args: string[]): string | null {
   const [command] = args;
   if (command === "--help") return TOKEN_USAGE;
@@ -88,7 +88,7 @@ export function runTokenCommand(
     command !== "create" &&
     (values.name !== undefined || values.actor !== undefined)
   ) {
-    throw new UsageError(`tracker token ${command} takes no --name or --actor`);
+    throw new UsageError(`traccia token ${command} takes no --name or --actor`);
   }
 
   if (command === "create") {

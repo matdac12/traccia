@@ -1,4 +1,4 @@
-import type { ActivityType, Actor } from "@linear-matti/shared";
+import type { ActivityType, Actor } from "@traccia/shared";
 import { inArray } from "drizzle-orm";
 import { issues } from "../db/schema.js";
 import type { Tx } from "./context.js";

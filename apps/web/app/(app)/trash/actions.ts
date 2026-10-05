@@ -1,6 +1,6 @@
 "use server";
 
-import { restoreBodySchema } from "@linear-matti/shared";
+import { restoreBodySchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError } from "@/lib/api/client";
 import type { RestoreResult, TrashType } from "@/lib/api/schemas";

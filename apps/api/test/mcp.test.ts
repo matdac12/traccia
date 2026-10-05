@@ -70,7 +70,7 @@ describe("MCP endpoint", () => {
   it("initializes, lists tools and calls whoami with the token's actor", async () => {
     const { connect, agent, you } = await start();
     const client = await connect(agent.token);
-    expect(client.getServerVersion()?.name).toBe("tracker");
+    expect(client.getServerVersion()?.name).toBe("traccia");
 
     // The exact tool list is pinned in mcp-tool-list.test.ts.
     const { tools } = await client.listTools();

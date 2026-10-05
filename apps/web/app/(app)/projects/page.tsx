@@ -1,6 +1,7 @@
-import { ISSUE_STATUSES } from "@linear-matti/shared";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import { FolderKanban } from "lucide-react";
 import Link from "next/link";
+import { NewProjectButton } from "@/components/project/new-project-button";
 import { PROJECT_STATUS_TONE } from "@/components/project/project-status-select";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { StatusIcon } from "@/components/traccia/atoms";
@@ -14,9 +15,9 @@ export default async function ProjectsPage() {
   const projects = await listProjects();
   return (
     <>
-      <PageHeader title="Projects" />
+      <PageHeader title="Projects"><NewProjectButton className="h-7">New project</NewProjectButton></PageHeader>
       {projects.length === 0 ? (
-        <EmptyState icon={FolderKanban} title="No projects yet">Create one with the tracker CLI, REST or an agent over MCP.</EmptyState>
+        <EmptyState icon={FolderKanban} title="No projects yet">Create one with the New project button, the traccia CLI, REST or an agent over MCP.</EmptyState>
       ) : (
         <ul className="divide-y overflow-y-auto">
           {projects.map((p) => {

@@ -7,8 +7,8 @@ import { accessConfigFromEnv, parseLogins } from "./access";
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  TRACKER_API_URL: z.url("must be a URL like http://api:8787"),
-  TRACKER_API_TOKEN: z.string().min(1, "must be a `you` token from `tracker token create`"),
+  TRACCIA_API_URL: z.url("must be a URL like http://api:8787"),
+  TRACCIA_API_TOKEN: z.string().min(1, "must be a `you` token from `traccia token create`"),
   DASHBOARD_ALLOWED_LOGINS: z.string().default(""),
   DASHBOARD_DEV_LOGIN: z.string().optional(),
 });
@@ -23,12 +23,25 @@ export class EnvError extends Error {
   override name = "EnvError";
 }
 
+/**
+ * Pre-rename names, still honored for one release so an existing `.env` keeps
+ * working. The TRACCIA_* name wins when both are set.
+ */
+const LEGACY_ALIASES = {
+  TRACKER_API_URL: "TRACCIA_API_URL",
+  TRACKER_API_TOKEN: "TRACCIA_API_TOKEN",
+} as const;
+
 /** Validates an env-like record. Throws EnvError naming each bad variable. */
 export function parseEnv(source: Record<string, string | undefined>): Env {
   // Empty strings count as unset (compose passes `${VAR:-}` as "").
-  const cleaned = Object.fromEntries(
+  const cleaned: Record<string, string> = Object.fromEntries(
     Object.entries(source).filter(([, v]) => v !== undefined && v !== ""),
-  );
+  ) as Record<string, string>;
+  for (const [legacy, current] of Object.entries(LEGACY_ALIASES)) {
+    const old = cleaned[legacy];
+    if (old !== undefined && cleaned[current] === undefined) cleaned[current] = old;
+  }
   const result = envSchema.safeParse(cleaned);
   const problems = result.success
     ? []
@@ -47,8 +60,8 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   }
   const e = result.data;
   return {
-    apiUrl: e.TRACKER_API_URL.replace(/\/+$/, ""),
-    apiToken: e.TRACKER_API_TOKEN,
+    apiUrl: e.TRACCIA_API_URL.replace(/\/+$/, ""),
+    apiToken: e.TRACCIA_API_TOKEN,
     access: accessConfigFromEnv({ ...cleaned, NODE_ENV: e.NODE_ENV }),
   };
 }

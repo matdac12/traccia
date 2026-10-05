@@ -24,13 +24,13 @@ afterEach(() => {
 });
 
 function env() {
-  const dir = mkdtempSync(join(tmpdir(), "tracker-cli-"));
+  const dir = mkdtempSync(join(tmpdir(), "traccia-cli-"));
   dirs.push(dir);
   return { DATA_DIR: dir, BASE_URL: "http://localhost:8787" };
 }
 
 function migrationCount(dataDir: string) {
-  const sqlite = new Database(join(dataDir, "tracker.db"));
+  const sqlite = new Database(join(dataDir, "traccia.db"));
   const row = sqlite
     .prepare("SELECT count(*) AS n FROM __drizzle_migrations")
     .get() as { n: number };
@@ -38,7 +38,7 @@ function migrationCount(dataDir: string) {
   return row.n;
 }
 
-describe("tracker db migrate", () => {
+describe("traccia db migrate", () => {
   it("is idempotent: running twice leaves the same applied migrations", async () => {
     const e = env();
     expect(await runCli(["db", "migrate"], e)).toBe(0);
@@ -60,7 +60,7 @@ describe("tracker db migrate", () => {
   });
 });
 
-describe("tracker token", () => {
+describe("traccia token", () => {
   async function run(e: ReturnType<typeof env>, ...argv: string[]) {
     const out: string[] = [];
     const errors: string[] = [];
@@ -222,7 +222,7 @@ describe("tracker token", () => {
   });
 });
 
-describe("tracker db snapshot", () => {
+describe("traccia db snapshot", () => {
   async function run(e: ReturnType<typeof env>, ...argv: string[]) {
     const out: string[] = [];
     const errors: string[] = [];
@@ -248,16 +248,16 @@ describe("tracker db snapshot", () => {
 
   const snapshots = (dir: string) =>
     readdirSync(dir)
-      .filter((f) => /^tracker-.*\.db$/.test(f))
+      .filter((f) => /^traccia-.*\.db$/.test(f))
       .sort();
 
-  it("writes tracker-<UTC timestamp>.db to DATA_DIR/backups by default", async () => {
+  it("writes traccia-<UTC timestamp>.db to DATA_DIR/backups by default", async () => {
     const e = await migrated();
     const r = await run(e);
     expect(r.code).toBe(0);
     const files = snapshots(join(e.DATA_DIR, "backups"));
     expect(files).toHaveLength(1);
-    expect(files[0]).toMatch(/^tracker-\d{8}T\d{6}Z\.db$/);
+    expect(files[0]).toMatch(/^traccia-\d{8}T\d{6}Z\.db$/);
   });
 
   it("opens cleanly with integrity_check ok and the migrated schema", async () => {
@@ -297,7 +297,7 @@ describe("tracker db snapshot", () => {
     `;
     const writer = spawn(
       process.execPath,
-      ["-e", writerScript, join(e.DATA_DIR, "tracker.db")],
+      ["-e", writerScript, join(e.DATA_DIR, "traccia.db")],
       { stdio: ["ignore", "pipe", "inherit"] },
     );
     try {
@@ -336,7 +336,7 @@ describe("tracker db snapshot", () => {
     const dir = join(e.DATA_DIR, "backups");
     mkdirSync(dir, { recursive: true });
     for (const d of ["20200101", "20200102", "20200103", "20200104"]) {
-      writeFileSync(join(dir, `tracker-${d}T000000Z.db`), "old");
+      writeFileSync(join(dir, `traccia-${d}T000000Z.db`), "old");
     }
     writeFileSync(join(dir, "notes.txt"), "keep me");
     const r = await run(e, "--keep", "3");
@@ -344,24 +344,39 @@ describe("tracker db snapshot", () => {
     const files = snapshots(dir);
     expect(files).toHaveLength(3);
     expect(files.slice(0, 2)).toEqual([
-      "tracker-20200103T000000Z.db",
-      "tracker-20200104T000000Z.db",
+      "traccia-20200103T000000Z.db",
+      "traccia-20200104T000000Z.db",
     ]);
     expect(readdirSync(dir)).toContain("notes.txt");
+  });
+
+  it("prunes pre-rename tracker-* snapshots by age alongside traccia-* ones", async () => {
+    const e = await migrated();
+    const dir = join(e.DATA_DIR, "backups");
+    mkdirSync(dir, { recursive: true });
+    for (const d of ["20200101", "20200102"]) {
+      writeFileSync(join(dir, `tracker-${d}T000000Z.db`), "old");
+    }
+    writeFileSync(join(dir, "traccia-20200103T000000Z.db"), "old");
+    const r = await run(e, "--keep", "2");
+    expect(r.code).toBe(0);
+    const files = readdirSync(dir).filter((f) => f.endsWith(".db")).sort();
+    expect(files).toHaveLength(2);
+    expect(files[0]).toBe("traccia-20200103T000000Z.db");
   });
 
   it("fails clearly on a non-writable --out and removes nothing", async () => {
     const e = await migrated();
     const out = join(e.DATA_DIR, "ro");
     mkdirSync(out);
-    writeFileSync(join(out, "tracker-20200101T000000Z.db"), "old");
+    writeFileSync(join(out, "traccia-20200101T000000Z.db"), "old");
     chmodSync(out, 0o500);
     try {
       if (process.getuid?.() === 0) return; // root ignores permissions
       const r = await run(e, "--out", out);
       expect(r.code).toBe(1);
       expect(r.err).toMatch(/Cannot write snapshots to .*--out/);
-      expect(snapshots(out)).toEqual(["tracker-20200101T000000Z.db"]);
+      expect(snapshots(out)).toEqual(["traccia-20200101T000000Z.db"]);
     } finally {
       chmodSync(out, 0o700);
     }
@@ -384,7 +399,7 @@ describe("tracker db snapshot", () => {
     const r = await run(empty);
     expect(r.code).toBe(1);
     expect(r.err).toMatch(/No database/);
-    expect(existsSync(join(empty.DATA_DIR, "tracker.db"))).toBe(false);
+    expect(existsSync(join(empty.DATA_DIR, "traccia.db"))).toBe(false);
   });
 
   it("help needs no database", async () => {
@@ -394,7 +409,7 @@ describe("tracker db snapshot", () => {
   });
 });
 
-describe("tracker db reindex", () => {
+describe("traccia db reindex", () => {
   it("rebuilds the search index and is idempotent", async () => {
     const e = env();
     const out: string[] = [];

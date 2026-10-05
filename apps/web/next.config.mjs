@@ -6,7 +6,7 @@ const nextConfig = {
   // Trace files from the monorepo root so standalone output includes workspace deps.
   outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
   // packages/shared ships TypeScript source.
-  transpilePackages: ["@linear-matti/shared"],
+  transpilePackages: ["@traccia/shared"],
   poweredByHeader: false,
   agentRules: false,
   // proxy.ts runs on every request and Next buffers (and truncates) request bodies it sees at 10 MB,

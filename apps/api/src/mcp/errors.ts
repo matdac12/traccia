@@ -1,4 +1,4 @@
-import { ServiceError as SharedServiceError } from "@linear-matti/shared";
+import { ServiceError as SharedServiceError } from "@traccia/shared";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 import { ServiceError } from "../service/errors.js";

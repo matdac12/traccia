@@ -1,4 +1,4 @@
-import { ServiceError as SharedServiceError } from "@linear-matti/shared";
+import { ServiceError as SharedServiceError } from "@traccia/shared";
 import type { Context, ErrorHandler, NotFoundHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";

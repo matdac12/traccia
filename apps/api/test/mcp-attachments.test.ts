@@ -256,6 +256,7 @@ describe("MCP attachment tools", () => {
       });
       expect(mismatch.isError).toBe(true);
       expect(errText(mismatch)).toMatch(/does not match declared type/);
+      expect(errText(mismatch)).toContain("detected application/pdf");
       const html = await s.call(c, "create_attachment", {
         issueId: s.issue.identifier,
         filename: "a.txt",
@@ -481,7 +482,7 @@ describe("MCP attachment tools", () => {
       await s.call(c, "delete_attachment", { id });
       const r = await s.call(c, "delete_attachment", { id, purge: true });
       expect(r.isError).toBe(true);
-      expect(errText(r)).toMatch(/not allowed to purge/);
+      expect(errText(r)).toMatch(/Agents cannot purge by default/);
     });
 
     it("purges a deleted attachment and its file for 'you'", async () => {
