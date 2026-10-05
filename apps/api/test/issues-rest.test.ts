@@ -575,3 +575,27 @@ describe("full scenario over HTTP", () => {
     ).toBe(409);
   });
 });
+
+describe("PATCH blocker cycles", () => {
+  it("rejects a transitive cycle and leaves the other fields unchanged", async () => {
+    const t = setup();
+    const a = await t.mk("A");
+    const b = await t.mk("B");
+    const c = await t.mk("C");
+    await t.call("PATCH", `/issues/${b.identifier}`, {
+      body: { blockedBy: [a.identifier] },
+    });
+    await t.call("PATCH", `/issues/${c.identifier}`, {
+      body: { blockedBy: [b.identifier] },
+    });
+    const res = await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { title: "Renamed", blockedBy: [c.identifier] },
+    });
+    expect(res.status).toBe(400);
+    expect(res.json.error.message).toContain(
+      `${c.identifier} -> ${a.identifier} -> ${b.identifier} -> ${c.identifier}`,
+    );
+    const after = await t.call("GET", `/issues/${a.identifier}`);
+    expect(after.json.title).toBe("A");
+  });
+});

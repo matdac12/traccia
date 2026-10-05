@@ -7,6 +7,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { issueRelations, issues } from "../db/schema.js";
 import { nowIso } from "../time.js";
 import type { DbHandle, ServiceContext, Tx } from "./context.js";
+import { findBlockerPath, identifiersFor } from "./blocker-cycles.js";
 import { recordActivity, resolveIssue } from "./issues.js";
 
 /** The other end of a blocker relation. */
@@ -83,11 +84,15 @@ export function addBlockerTx(
     throw new ServiceError("validation_error", "An issue cannot block itself");
   }
   if (relationExists(tx, blocker.id, blocked.id)) return false;
-  if (relationExists(tx, blocked.id, blocker.id)) {
+  // Adding "blocker blocks blocked" closes a cycle if blocked already
+  // (transitively) blocks blocker.
+  const back = findBlockerPath(tx, blocked.id, blocker.id);
+  if (back) {
+    const cycle = identifiersFor(tx, [blocker.id, ...back]);
     throw new ServiceError(
       "validation_error",
-      `${blocked.identifier} already blocks ${blocker.identifier}`,
-      { blocker: blocker.identifier, blocked: blocked.identifier },
+      `Blocker cycle: ${cycle.join(" -> ")} (each issue blocks the next). Remove one of these relations first.`,
+      { blocker: blocker.identifier, blocked: blocked.identifier, cycle },
     );
   }
   const now = nowIso();
@@ -171,8 +176,8 @@ export function createRelationsService(ctx: ServiceContext) {
   return {
     /**
      * Records that `blockerRef` blocks `blockedRef`. Idempotent: an existing
-     * relation is a no-op with no activity. Self-relations and direct cycles
-     * (B already blocks A) are a `validation_error`. Returns whether anything
+     * relation is a no-op with no activity. Self-relations and cycles (direct or
+     * transitive, e.g. A→B→C→A) are a `validation_error`. Returns whether anything
      * changed.
      */
     addBlocker(actor: Actor, blockerRef: string, blockedRef: string): boolean {

@@ -99,6 +99,43 @@ describe("blockers", () => {
     );
   });
 
+  it("rejects transitive cycles naming the path", () => {
+    const { create, relations } = setup();
+    const a = create();
+    const b = create();
+    const c = create();
+    relations.addBlocker("you", a.id, b.id);
+    relations.addBlocker("you", b.id, c.id);
+    let message = "";
+    try {
+      relations.addBlocker("you", c.id, a.id);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain(
+      `${c.identifier} -> ${a.identifier} -> ${b.identifier} -> ${c.identifier}`,
+    );
+    expect(code(() => relations.addBlocker("you", c.id, a.id))).toBe(
+      "validation_error",
+    );
+  });
+
+  it("accepts a valid DAG and cross-project chains", () => {
+    const { create, issues, relations, p2 } = setup();
+    const a = create();
+    const b = issues.create("you", { project: p2.id, title: "B" });
+    const c = create();
+    const d = issues.create("you", { project: p2.id, title: "D" });
+    expect(relations.addBlocker("you", a.id, b.id)).toBe(true);
+    expect(relations.addBlocker("you", b.id, c.id)).toBe(true);
+    expect(relations.addBlocker("you", a.id, c.id)).toBe(true);
+    expect(relations.addBlocker("you", c.id, d.id)).toBe(true);
+    expect(relations.addBlocker("you", a.id, d.id)).toBe(true);
+    expect(code(() => relations.addBlocker("you", d.id, a.id))).toBe(
+      "validation_error",
+    );
+  });
+
   it("accepts cross-project blockers and reads both directions", () => {
     const { create, issues, relations, p2 } = setup();
     const a = create({ title: "A" });
