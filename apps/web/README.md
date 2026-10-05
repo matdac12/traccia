@@ -92,9 +92,10 @@ names and the token value; run it before changing anything around the client.
   the agent mark.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
-  them. A selectable accent (TRC-57) only has to override those three on `<html>`. Status colors (`--st-*`)
+  them. The selectable accent (TRC-57) overrides just those three. Status colors (`--st-*`)
   and the agent color (`--agent`, cyan) are fixed and must not follow the accent.
 - **Collapsible sidebar (TRC-98).** On desktop (>= 768 px) the sidebar in `components/traccia/app-shell.tsx` collapses to a 48 px icon rail (button in its header, or Cmd/Ctrl+B outside text fields and open dialogs/menus) and expands again. The choice is the `traccia_sidebar` cookie (`lib/sidebar-state.ts`); the `(app)` layout reads it and passes `defaultCollapsed`, so the first paint already has the right width. The rail keeps every control and its accessible name (labels become `sr-only`) and shows a tooltip per icon. The mobile drawer always renders the full list and ignores the choice. It is a small extension of the existing shell, not a port of the prototype's shadcn `Sidebar`.
+- **Appearance settings (TRC-57).** `/settings` picks the accent (10 curated colors or a free hex) and the UI font (Geist Mono default, Geist Sans, System). Choices are the `traccia_accent` and `traccia_font` cookies (`lib/appearance.ts`, pure and unit-tested); the root layout reads them, so the first paint has no flash. `AppearanceProvider` renders a `<style>` overriding the three brand variables in `:root` and `.dark`, and sets `data-font` on `<html>`; `globals.css` maps `font-sans` to `--app-font-sans`, which `data-font` switches (`font-mono` for code stays Geist Mono). A hex with under 2:1 contrast against a theme's background is moved toward black (light) or white (dark) in that theme only, and the page warns. Text on the accent is chosen for 4.5:1.
 - Theme: `next-themes`, system by default, toggle in the sidebar footer (System / Light / Dark).
 - Every route group has `loading.tsx`, `error.tsx` and `not-found.tsx`; add them for new groups. Show an empty
   state (`EmptyState`) for empty lists, never a blank page.

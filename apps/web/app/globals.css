@@ -9,7 +9,7 @@
  *
  * ACCENT: the accent is driven by three variables only (--brand, --brand-foreground,
  * --brand-ring). Everything accent-colored (primary, ring, sidebar-primary) derives from
- * them, so a selectable accent (TRC-57) overrides just these on <html>. Status and
+ * them, so the selectable accent (TRC-57, lib/appearance.ts) overrides just these. Status and
  * agent colors (--st-*, --agent) stay fixed so they never clash with the accent.
  */
 :root {
@@ -93,8 +93,13 @@
   --st-canceled: #6b6f79;
 }
 
+/* UI font (TRC-57): `data-font` on <html> picks what `font-sans` means. Code stays Geist Mono. */
+:root { --app-font-sans: var(--font-geist-mono); }
+html[data-font="sans"] { --app-font-sans: var(--font-geist-sans); }
+html[data-font="system"] { --app-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--app-font-sans);
   --font-mono: var(--font-geist-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
