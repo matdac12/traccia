@@ -1,5 +1,5 @@
 import { apiClient, PNG } from "./support/api";
-import { E2E_LOGIN, PROJECT_NAME } from "./support/ports";
+import { E2E_LOGIN, LOGIN_HEADER, PROJECT_NAME } from "./support/ports";
 import { type Stack, startStack } from "./support/stack";
 
 /** Boots the API + dashboard on a throwaway database, seeds one project, warms the routes. */
@@ -20,7 +20,7 @@ async function seed(stack: Stack) {
   await api.post("/issues", { project: project.id, title: "Seeded todo issue", status: "todo" });
 
   // `next dev` compiles each route on first hit; do it here so no test pays for it.
-  const headers = { "tailscale-user-login": E2E_LOGIN };
+  const headers = { [LOGIN_HEADER]: E2E_LOGIN };
   for (const path of ["/issues", "/issues?view=kanban", "/projects", `/projects/${project.id}`, `/projects/${project.id}/issues`, `/projects/${project.id}/activity`, "/trash", "/issues/SMK-1"]) {
     const res = await fetch(`${stack.webUrl}${path}`, { headers });
     if (!res.ok) throw new Error(`warm-up GET ${path} -> ${res.status}`);
