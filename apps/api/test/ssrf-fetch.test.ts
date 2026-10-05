@@ -319,6 +319,21 @@ describe("source fetcher: all vetted DNS records", () => {
     expect(await body(got.stream)).toBe("hello");
   });
 
+  it("falls back when the first record hangs instead of connecting", async () => {
+    const port = await serve((_req, res) => res.end("hello"));
+    // 192.0.2.1 (TEST-NET-1) is unroutable: the connect attempt hangs.
+    const resolve: Resolver = async () => [
+      { address: "192.0.2.1", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+    ];
+    const got = await fetcher({
+      allowedAddresses: ["192.0.2.1", "127.0.0.1"],
+      resolve,
+      timeoutMs: 2000,
+    })(`https://files.example.test:${port}/`);
+    expect(await body(got.stream)).toBe("hello");
+  });
+
   it("fails with the connection error when no record connects", async () => {
     const resolve: Resolver = async () => [
       { address: "::1", family: 6 },
