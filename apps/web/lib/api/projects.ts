@@ -1,5 +1,5 @@
 import "server-only";
-import type { UpdateProjectInput } from "@traccia/shared";
+import type { CreateProjectInput, UpdateProjectInput } from "@traccia/shared";
 import { api } from "./client";
 import { pageOf, projectSchema } from "./schemas";
 
@@ -24,4 +24,8 @@ export function getProject(idOrKey: string) {
 
 export function updateProject(id: string, body: UpdateProjectInput) {
   return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", body });
+}
+
+export function createProject(body: CreateProjectInput) {
+  return api().request("/projects", { schema: projectSchema, method: "POST", body });
 }

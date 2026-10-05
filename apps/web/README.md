@@ -121,6 +121,7 @@ test/                  vitest
   `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project
   through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only
   that step fails the issue still exists and the dialog says so instead of failing the whole create.
+- `components/project/new-project-button.tsx` is the "New project" dialog (projects page header and the sidebar's Projects "+"). `createProjectAction` (`app/(app)/projects/actions.ts`) omits the key (shared, ADR 0002), revalidates the layout so the sidebar updates, and the dialog navigates to the new project.
 - Labels are managed on the project page (project-scoped or global). Deleting a label is permanent and dashboard-only.
 
 ## Issue detail (`/issues/[identifier]`, MAT-1721)
