@@ -78,6 +78,26 @@ export async function createSubIssueAction(parentIdentifier: string, title: stri
   }
 }
 
+/**
+ * Makes an existing issue a child of `parentIdentifier`. The parent's id comes from the API; the
+ * API refuses a different project, a cycle, or an issue that is itself a sub-issue's ancestor.
+ */
+export async function linkSubIssueAction(parentIdentifier: string, childIdentifier: string): Promise<ActionResult<{ issue: Issue }>> {
+  const parentRef = refSchema.safeParse(parentIdentifier);
+  const childRef = refSchema.safeParse(childIdentifier);
+  if (!parentRef.success) return invalid(parentRef.error.issues[0]!.message);
+  if (!childRef.success) return invalid(childRef.error.issues[0]!.message);
+  try {
+    const parent = await getIssue(parentRef.data);
+    const issue = await patchIssue(childRef.data, { parentId: parent.id });
+    refresh(parent.identifier);
+    refresh(issue.identifier);
+    return { ok: true, issue };
+  } catch (err) {
+    return toFailure(err);
+  }
+}
+
 export async function createCommentAction(
   identifier: string,
   body: string,

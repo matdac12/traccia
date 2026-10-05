@@ -3,7 +3,7 @@
 import { Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { createSubIssueAction } from "@/app/(app)/issues/[identifier]/actions";
+import { createSubIssueAction, linkSubIssueAction } from "@/app/(app)/issues/[identifier]/actions";
 import { ActorAvatar, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { IssuePicker } from "./issue-picker";
 const row = "flex h-9 items-center gap-2 border-b px-3 text-[13px] last:border-0 hover:bg-accent/50";
 
 export function SubIssues({ parentIdentifier, items }: { parentIdentifier: string; items: Issue[] }) {
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<null | "create" | "link">(null);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,15 +27,25 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
     setBusy(false);
     if (res.ok) {
       setTitle("");
-      setAdding(false);
+      setAdding(null);
     } else setError(res.message);
+  };
+
+  const link = async (child: IssueRef) => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const res = await linkSubIssueAction(parentIdentifier, child.identifier);
+    setBusy(false);
+    if (res.ok) setAdding(null);
+    else setError(res.message);
   };
 
   return (
     <section className="mt-8" aria-label="Sub-issues">
       <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium">
         Sub-issues <span className="text-xs font-normal text-muted-foreground">{done}/{items.length}</span>
-        <Button variant="ghost" size="sm" className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding(true)}><Plus className="size-3" />Add</Button>
+        <Button variant="ghost" size="sm" className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => (a ? null : "create"))}><Plus className="size-3" />Add</Button>
       </h3>
       {items.length === 0 && !adding && <p className="text-xs text-muted-foreground">No sub-issues.</p>}
       {items.length > 0 && (
@@ -52,11 +62,19 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
       )}
       {adding && (
         <div className="mt-2 space-y-1">
-          <div className="flex gap-2">
-            <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") setAdding(false); }} placeholder="Sub-issue title" aria-label="Sub-issue title" className="h-8 text-[13px] md:text-[13px]" />
-            <Button size="sm" disabled={!title.trim() || busy} onClick={add}>Create</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setError(null); }}>Cancel</Button>
+          <div className="flex gap-1 text-xs" role="tablist" aria-label="Add sub-issue">
+            <Button size="xs" variant={adding === "create" ? "secondary" : "ghost"} role="tab" aria-selected={adding === "create"} onClick={() => { setAdding("create"); setError(null); }}>Create new</Button>
+            <Button size="xs" variant={adding === "link" ? "secondary" : "ghost"} role="tab" aria-selected={adding === "link"} onClick={() => { setAdding("link"); setError(null); }}>Link existing</Button>
           </div>
+          {adding === "create" ? (
+            <div className="flex gap-2">
+              <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") setAdding(null); }} placeholder="Sub-issue title" aria-label="Sub-issue title" className="h-8 text-[13px] md:text-[13px]" />
+              <Button size="sm" disabled={!title.trim() || busy} onClick={add}>Create</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAdding(null); setError(null); }}>Cancel</Button>
+            </div>
+          ) : (
+            <IssuePicker autoFocus exclude={[parentIdentifier, ...items.map((c) => c.identifier)]} placeholder="Issue to link as a sub-issue…" onPick={link} />
+          )}
           {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
         </div>
       )}
