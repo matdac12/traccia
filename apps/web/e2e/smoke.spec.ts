@@ -91,7 +91,8 @@ test("dragging a card across Kanban columns persists after reload", async ({ pag
   const card = page.getByRole("link", { name: issue.title });
   await expect(card).toBeVisible();
   const target = page.getByRole("region", { name: "In Progress" });
-  const from = await card.boundingBox();
+  // Grab the identifier label: it is plain text, while the title is a link and the rest are inline-edit buttons.
+  const from = await page.getByRole("region", { name: "Todo" }).getByText(issue.identifier, { exact: true }).boundingBox();
   const to = await target.boundingBox();
   if (!from || !to) throw new Error("card or column not laid out");
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -113,10 +114,10 @@ test("uploading an image attachment shows a card and a preview", async ({ page }
   await visit(page, `/issues/${issue.identifier}`);
   await page.getByLabel("Attach files").setInputFiles({ name: "pixel.png", mimeType: "image/png", buffer: PNG });
   const preview = page.getByRole("button", { name: "Preview pixel.png" });
-  await expect(preview).toBeVisible();
+  await expect(preview).toBeVisible({ timeout: 30_000 }); // upload goes through a route the dev server may still be compiling
   await preview.click();
   const image = page.getByRole("dialog").getByRole("img", { name: "pixel.png" });
-  await expect(image).toBeVisible();
+  await expect(image).toBeVisible({ timeout: 30_000 }); // first image load can wait on a dev-server compile
   // The browser really decoded the bytes served through /api/files/<id>.
   await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1);
 });
