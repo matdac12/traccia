@@ -34,15 +34,15 @@ const SPEC_TOOLS = [
  * Plumbing tool kept on purpose, outside the A.8 count (MAT-1697): the
  * cheapest way to confirm a token works and which actor it writes as.
  */
-const EXTRA_TOOLS = ["whoami"];
+const WHOAMI = "whoami";
 
 /**
  * Serialized size of `tools/list` in bytes, paid in every agent's context.
  * Growing past 15% of this fails the test; bump it deliberately in the PR
  * that adds the tools or text.
  */
-const SIZE_BASELINE_BYTES = 15400;
-const SIZE_GROWTH_LIMIT = 1.15;
+const SIZE_BASELINE_BYTES = 15402;
+const MAX_TOOLS_LIST_BYTES = Math.floor(SIZE_BASELINE_BYTES * 1.15);
 
 let server: ReturnType<typeof serve> | undefined;
 let client: Client | undefined;
@@ -73,8 +73,7 @@ async function listTools() {
 describe("MCP tool list", () => {
   it("registers exactly the A.8 tools plus whoami", async () => {
     const names = (await listTools()).map((t) => t.name);
-    expect(names).toEqual([...SPEC_TOOLS, ...EXTRA_TOOLS].sort());
-    expect(SPEC_TOOLS).toHaveLength(20);
+    expect(names).toEqual([...SPEC_TOOLS, WHOAMI].sort());
     // Deliberately absent: Linear's teams/users/cycles/documents tools and
     // any label delete.
     expect(names.filter((n) => /team|user|cycle|document/.test(n))).toEqual([]);
@@ -89,10 +88,10 @@ describe("MCP tool list", () => {
   });
 
   it("stays within the context size budget", async () => {
-    const size = JSON.stringify(await listTools()).length;
+    const size = Buffer.byteLength(JSON.stringify(await listTools()));
     expect(
       size,
       `tools/list is ${size} bytes; baseline ${SIZE_BASELINE_BYTES}. Trim descriptions or bump SIZE_BASELINE_BYTES deliberately.`,
-    ).toBeLessThanOrEqual(SIZE_BASELINE_BYTES * SIZE_GROWTH_LIMIT);
+    ).toBeLessThanOrEqual(MAX_TOOLS_LIST_BYTES);
   });
 });

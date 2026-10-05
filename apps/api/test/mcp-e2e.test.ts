@@ -145,6 +145,9 @@ describe("MCP end-to-end scenario", () => {
     ]);
     expect(await ids({ milestone: "M1" })).toEqual([issue.identifier]);
     expect(await ids({ priority: "high" })).toEqual([issue.identifier]);
+    expect(await ids({ createdBy: "agent", project: "PLT" })).toHaveLength(3);
+    expect(await ids({ createdBy: "you" })).toEqual([]);
+    expect(await ids({ assignee: "none", project: "PLT" })).toHaveLength(3);
     expect(await ids({ query: "needle-in-description" })).toEqual([
       issue.identifier,
     ]);
@@ -181,7 +184,7 @@ describe("MCP end-to-end scenario", () => {
       purge: true,
     });
     expect(denied.isError).toBe(true);
-    expect(denied.text).toMatch(/purge/i);
+    expect(denied.text).toMatch(/Actor 'agent' may not purge/);
     await ok(you, "delete_issue", { id: issue.identifier, purge: true });
     expect((await agent("get_issue", { id: issue.identifier })).isError).toBe(
       true,
@@ -216,8 +219,8 @@ describe("MCP end-to-end scenario", () => {
     });
     expect(a.createdBy).toBe("agent");
     expect(y.createdBy).toBe("you");
-    expect(a.comments.map((c: any) => c.author ?? c.actor)).toEqual(["you"]);
-    expect(y.comments.map((c: any) => c.author ?? c.actor)).toEqual(["agent"]);
+    expect(a.comments.map((c: any) => c.actor)).toEqual(["you"]);
+    expect(y.comments.map((c: any) => c.actor)).toEqual(["agent"]);
     const trail = (x: any) => x.activity.map((e: any) => [e.type, e.actor]);
     expect(trail(a)).toEqual([
       ["issue_created", "agent"],
