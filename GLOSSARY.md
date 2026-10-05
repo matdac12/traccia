@@ -1,18 +1,18 @@
-# Tracker
+# Traccia
 
 A minimal self-hosted issue tracker for one human and their AI agents, replacing a mostly unused Linear plan. Agents reach it over MCP; the human uses a dashboard.
 
 ## Language
 
-**Tracker**:
-The system this repo builds. "Tracker" is a working name.
-_Avoid_: Linear clone, linear-matti
+**Traccia**:
+The system this repo builds (Italian for "trace" or "track").
+_Avoid_: Tracker, Linear clone, linear-matti
 
 **Linear**:
-The legacy SaaS the Tracker replaces. Its workspace still hosts the build backlog until cutover.
+The legacy SaaS Traccia replaces. Its workspace still hosts the build backlog until cutover.
 
 **Pilot**:
-The 1-2 week trial of the Tracker on one new project before importing from Linear and cutting over.
+The 1-2 week trial of Traccia on one new project before importing from Linear and cutting over.
 
 ### Actors
 
@@ -122,7 +122,7 @@ The dashboard view listing deleted items, where `you` can restore or purge them.
 ### Access
 
 **Tailnet**:
-The private Tailscale network. The Tracker is reachable only from devices on it.
+The private Tailscale network. Traccia is reachable only from devices on it.
 
 **Dashboard**:
 The web interface for `you`: a table grouped by status and a Kanban board. It reaches the data only through the API.
