@@ -22,9 +22,13 @@ Revision: the gap at the closest approach was widened from ~2 units to 36 units 
 
 - `lockups/traccia-lockup-light.png` / `lockups/traccia-lockup-dark.png` — the mark and the `Traccia` monospace wordmark, 1600x500.
 
+## Social preview
+
+- `social-preview.png` — 1280x640 card for GitHub. Upload it in the repository settings (Settings, General, Social preview); the API cannot set it.
+
 ## Where it is used
 
-- Favicon and app icon: `apps/web/app/icon.png`, `apps/web/app/apple-icon.png`.
+- Favicon and app icons: `apps/web/app/icon1.png` (16), `icon2.png` (32), `icon3.png` (256) and `apple-icon.png` (180).
 - Dashboard sidebar and mobile header: `apps/web/components/traccia/traccia-mark.tsx`.
-- README banner: the lockups above.
+- README hero and screenshot: `mark/traccia-mark.png`, `../screenshots/list-menu.png`.
 - Dashboard tokens: `--brand` is `#FF9E0B` and `--agent` is `#06B6D4` in `apps/web/app/globals.css`.
