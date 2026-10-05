@@ -5,6 +5,7 @@ import { canPurge } from "../../auth/permissions.js";
 import { decodeCursor, encodeCursor } from "../../rest/pagination.js";
 import { resolveIssue } from "../../service/issues.js";
 import { toolError, toolResult } from "../errors.js";
+import { PURGE_DENIED_MESSAGE } from "./helpers.js";
 import type { McpContext } from "../server.js";
 import { attachmentsByComment, presentComment } from "./present.js";
 import { runLogged } from "./run.js";
@@ -129,9 +130,7 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
     ({ id, purge }) =>
       runLogged(ctx, "delete_comment", async () => {
         if (purge && !canPurge(ctx.actor, ctx.container.config)) {
-          return toolError(
-            `Actor '${ctx.actor}' may not purge. Soft-delete instead (purge=false; restorable), or ask 'you' to purge.`,
-          );
+          return toolError(PURGE_DENIED_MESSAGE);
         }
         const result = await services.trash.delete(ctx.actor, "comment", id, {
           purge: purge ?? false,

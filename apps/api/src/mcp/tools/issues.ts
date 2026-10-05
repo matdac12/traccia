@@ -10,6 +10,7 @@ import { resolveProject } from "../../service/projects.js";
 import { loadRelations, setBlockersTx } from "../../service/relations.js";
 import { resolveUpdatedAfter } from "../duration.js";
 import { toolError, toolResult } from "../errors.js";
+import { PURGE_DENIED_MESSAGE } from "./helpers.js";
 import type { McpContext } from "../server.js";
 import {
   attachmentsByComment,
@@ -447,9 +448,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     ({ id, purge }) =>
       runLogged(ctx, "delete_issue", async () => {
         if (purge && !canPurge(actor, ctx.container.config)) {
-          return toolError(
-            `Actor '${actor}' may not purge. Soft-delete instead (purge=false; restorable), or ask 'you' to purge.`,
-          );
+          return toolError(PURGE_DENIED_MESSAGE);
         }
         const result = await services.trash.delete(actor, "issue", id, {
           purge: purge ?? false,

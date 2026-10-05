@@ -81,6 +81,10 @@ export type DeleteResult = {
   /** Shared by everything this delete hid; pass any member to `restore`. */
   batch: string;
   counts: Counts;
+  /** Human identifier (`MAT-3`); issues only. */
+  identifier?: string;
+  /** Issue title, project/milestone name, comment snippet or attachment filename. */
+  title: string;
 };
 export type RestoreResult = Omit<DeleteResult, "id"> & { id: string };
 export type PurgeResult = {
@@ -333,6 +337,26 @@ export function softDeleteAttachment(
   return softDelete(tx, actor, "attachment", attachmentId);
 }
 
+/** Human-facing name of a loaded row, so callers can confirm what they acted on. */
+function describeRow(
+  type: TrashType,
+  row: Record<string, unknown>,
+): { identifier?: string; title: string } {
+  switch (type) {
+    case "issue":
+      return {
+        identifier: String(row.identifier),
+        title: String(row.title),
+      };
+    case "comment":
+      return { title: String(row.body).slice(0, 80) };
+    case "attachment":
+      return { title: String(row.filename) };
+    default:
+      return { title: String(row.name) };
+  }
+}
+
 function softDelete(
   tx: Tx,
   actor: Actor,
@@ -422,7 +446,13 @@ function softDelete(
     refIds: sets.commentIds,
     issueIds: sets.issueIds,
   });
-  return { type, id, batch, counts: countsOf(sets) };
+  return {
+    type,
+    id,
+    batch,
+    counts: countsOf(sets),
+    ...describeRow(type, row),
+  };
 }
 
 function restoreBatch(
@@ -539,7 +569,13 @@ function restoreBatch(
         .map((c) => c.issueId)
     : [];
   reindexIssues(tx, [...new Set([...sets.issueIds, ...commentOwners])]);
-  return { type, id: row.id, batch: batch ?? "", counts: countsOf(sets) };
+  return {
+    type,
+    id: row.id,
+    batch: batch ?? "",
+    counts: countsOf(sets),
+    ...describeRow(type, row),
+  };
 }
 
 /**

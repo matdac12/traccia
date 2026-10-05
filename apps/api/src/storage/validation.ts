@@ -187,7 +187,7 @@ export function createUploadInspector(opts: {
     if (sniffed !== expected) {
       throw new AttachmentValidationError(
         "type_mismatch",
-        `Content does not match declared type ${mimeType}`,
+        `Content does not match declared type ${mimeType} (detected ${sniffed === "text" ? "plain text" : sniffed === "binary" ? "an unsupported binary or HTML/script format" : sniffed})`,
       );
     }
     classified = true;

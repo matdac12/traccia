@@ -119,7 +119,7 @@ export const issueStatusSchema = z.preprocess(
           .replace(/[\s_-]+/g, "_")
       : v,
   z.enum(ISSUE_STATUSES, {
-    message: `must be one of: ${ISSUE_STATUSES.join(", ")}`,
+    message: `must be one of: ${ISSUE_STATUSES.join(", ")} (case-insensitive; display names like "In Progress" are also accepted)`,
   }),
 );
 
