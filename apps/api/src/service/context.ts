@@ -68,3 +68,12 @@ export function parseInput<S extends z.ZodType>(
     .join("; ");
   throw new ServiceError("validation_error", message, result.error.issues);
 }
+
+/** Drops `undefined` values so a partial patch never overwrites columns. */
+export function definedOnly<T extends Record<string, unknown>>(
+  patch: T,
+): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, v]) => v !== undefined),
+  ) as Partial<T>;
+}

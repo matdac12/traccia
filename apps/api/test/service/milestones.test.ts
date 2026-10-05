@@ -1,22 +1,12 @@
 import { ServiceError } from "@linear-matti/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupServices } from "./helpers.js";
+import { code, setupServices } from "./helpers.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-04T10:00:00.000Z"));
 });
 afterEach(() => vi.useRealTimers());
-
-function code(fn: () => unknown) {
-  try {
-    fn();
-  } catch (e) {
-    if (e instanceof ServiceError) return e.code;
-    throw e;
-  }
-  return undefined;
-}
 
 function setup() {
   const s = setupServices();
@@ -167,5 +157,19 @@ describe("milestones", () => {
       .prepare("UPDATE milestones SET deleted_at = 'x' WHERE id = ?")
       .run(m.id);
     expect(code(() => services.milestones.get(m.id))).toBe("not_found");
+  });
+});
+
+describe("milestones of a deleted project", () => {
+  it("are not gettable or updatable", () => {
+    const { services, sqlite, project } = setup();
+    const m = services.milestones.create("you", project.id, { name: "M" });
+    sqlite
+      .prepare("UPDATE projects SET deleted_at = 'x' WHERE id = ?")
+      .run(project.id);
+    expect(code(() => services.milestones.get(m.id))).toBe("not_found");
+    expect(code(() => services.milestones.update(m.id, { name: "n" }))).toBe(
+      "not_found",
+    );
   });
 });

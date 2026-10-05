@@ -7,11 +7,16 @@ import {
   updateMilestoneInputSchema,
 } from "@linear-matti/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { milestones } from "../db/schema.js";
+import { milestones, projects } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
-import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
-import { definedOnly, resolveProject } from "./projects.js";
+import {
+  type DbHandle,
+  definedOnly,
+  parseInput,
+  type ServiceContext,
+} from "./context.js";
+import { resolveProject } from "./projects.js";
 
 export type Milestone = typeof milestones.$inferSelect;
 
@@ -21,7 +26,13 @@ function getMilestone(db: DbHandle, id: string): Milestone {
     .from(milestones)
     .where(and(eq(milestones.id, id), isNull(milestones.deletedAt)))
     .get();
-  if (!row) throw new ServiceError("not_found", `Milestone "${id}" not found`);
+  // A milestone of a soft-deleted project is treated as deleted too.
+  const project = row
+    ? db.select().from(projects).where(eq(projects.id, row.projectId)).get()
+    : undefined;
+  if (!row || project?.deletedAt) {
+    throw new ServiceError("not_found", `Milestone "${id}" not found`);
+  }
   return row;
 }
 

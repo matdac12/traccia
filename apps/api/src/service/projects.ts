@@ -12,7 +12,12 @@ import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
 import { projects } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
-import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
+import {
+  type DbHandle,
+  definedOnly,
+  parseInput,
+  type ServiceContext,
+} from "./context.js";
 import { ensureIssueKey } from "./issue-keys.js";
 
 export type Project = typeof projects.$inferSelect;
@@ -127,12 +132,3 @@ export function createProjectsService(ctx: ServiceContext) {
 }
 
 export type ProjectsService = ReturnType<typeof createProjectsService>;
-
-/** Drops `undefined` values so a partial patch never overwrites columns. */
-export function definedOnly<T extends Record<string, unknown>>(
-  patch: T,
-): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(patch).filter(([, v]) => v !== undefined),
-  ) as Partial<T>;
-}

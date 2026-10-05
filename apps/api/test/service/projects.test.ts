@@ -2,23 +2,13 @@ import { ServiceError } from "@linear-matti/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServiceContext } from "../../src/service/context.js";
 import { allocateIssueNumber } from "../../src/service/index.js";
-import { setupServices } from "./helpers.js";
+import { code, setupServices } from "./helpers.js";
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-04T10:00:00.000Z"));
 });
 afterEach(() => vi.useRealTimers());
-
-function code(fn: () => unknown) {
-  try {
-    fn();
-  } catch (e) {
-    if (e instanceof ServiceError) return e.code;
-    throw e;
-  }
-  return undefined;
-}
 
 describe("projects.create", () => {
   it("uses the default key and creates its row on first use", () => {
