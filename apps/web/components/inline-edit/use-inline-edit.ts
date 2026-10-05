@@ -2,7 +2,7 @@
 import { useCallback, useRef, useState } from "react";
 import { updateIssueAction } from "@/app/(app)/issues/[identifier]/actions";
 import type { ActionResult } from "@/lib/issue-detail/result";
-import type { Issue, IssueRow } from "@/lib/api/schemas";
+import { type Issue, type IssueRow, issueSchema } from "@/lib/api/schemas";
 
 /** Builds the patch from the issue as it is NOW, so a re-apply after a conflict does not overwrite what changed. */
 export type Build = (current: IssueRow) => Record<string, unknown>;
@@ -33,10 +33,10 @@ export function useInlineEdit({ onRow, update = updateIssueAction }: { onRow: (r
         const res = await update(issue.identifier, build(issue), issue.updatedAt);
         if (res.ok) return onRow(res.issue);
         if (res.code === "conflict") {
-          const current = res.current ?? issue;
-          if (res.current) onRow(res.current as IssueRow);
-          else onRow(issue);
-          setNotice({ identifier: issue.identifier, label, message: res.message, conflict: true, reapply: () => edit(current as IssueRow, label, build, optimistic) });
+          // The conflict carries the whole issue detail; a list row keeps only the row fields (the live refresh compares them).
+          const current = res.current ? issueSchema.parse(res.current) : issue;
+          onRow(current);
+          setNotice({ identifier: issue.identifier, label, message: res.message, conflict: true, reapply: () => edit(current, label, build, optimistic) });
         } else {
           onRow(issue);
           setNotice({ identifier: issue.identifier, label, message: res.message, conflict: false });

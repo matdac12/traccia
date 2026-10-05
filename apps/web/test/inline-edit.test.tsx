@@ -17,7 +17,7 @@ const ux = { id: "l2", name: "ux", color: "#0f0", projectId: "p1" };
 const other = { id: "l3", name: "other-project", color: "#00f", projectId: "p2" };
 const T0 = "2026-01-01T00:00:00.000Z";
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: 3, assignee: "you" as const,
+  id: `i${n}`, projectId: "p1", key: "TRK", number: n, description: "", parentId: null, createdAt: T0, identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: 3, assignee: "you" as const,
   milestoneId: null, createdBy: "you" as const, updatedAt: T0, labels: [bug], ...over,
 });
 const data = (): IssuesData => ({

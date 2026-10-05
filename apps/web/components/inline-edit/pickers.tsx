@@ -22,7 +22,7 @@ const Tick = ({ on }: { on: boolean }) => (on ? <Check className="ml-auto size-3
  * the sortable wrapper would otherwise start a keyboard drag from Space/Enter.
  */
 function Isolated({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cn("relative z-10 inline-flex", className)} onKeyDown={(e) => e.stopPropagation()}>{children}</span>;
+  return <span className={cn("relative z-[1] inline-flex", className)} onKeyDown={(e) => e.stopPropagation()}>{children}</span>;
 }
 
 function Picker({ label, triggerClass, trigger: shown, children, className }: { label: string; triggerClass?: string; trigger: ReactNode; children: ReactNode; className?: string }) {
