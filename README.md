@@ -48,7 +48,11 @@ It is deliberately not a team tool, not SaaS, and not a general project manager.
 
 ![The Traccia issues table, with a row menu open](assets/screenshots/list-menu.png)
 
-The issues table, grouped by status, with inline editing and the row menu. The same view has a Kanban board.
+The issues table, grouped by status, with inline editing and the row menu.
+
+![The Traccia Kanban board](assets/screenshots/dashboard.png)
+
+The same issues as a Kanban board, one column per status.
 
 ## Architecture
 
