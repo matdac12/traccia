@@ -17,6 +17,9 @@ const envSchema = z.object({
   TRUST_PROXY: bool.default(true),
 });
 
+/** Every environment variable the api reads; the README config table is checked against this. */
+export const CONFIG_ENV_VARS = Object.keys(envSchema.shape);
+
 export type Config = {
   port: number;
   dataDir: string;
