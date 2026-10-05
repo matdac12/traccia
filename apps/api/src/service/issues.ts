@@ -20,6 +20,7 @@ import {
   type Tx,
 } from "./context.js";
 import { allocateIssueNumber } from "./issue-keys.js";
+import { setIssueLabels } from "./labels.js";
 import { resolveProject } from "./projects.js";
 
 export type Issue = typeof issues.$inferSelect;
@@ -284,7 +285,19 @@ export function createIssuesService(ctx: ServiceContext) {
           set.sortOrder = patch.sortOrder;
         }
 
-        const extraChanged = hook?.(tx, issue, actor) ?? false;
+        // Same transaction: an unknown label name rolls back the whole update.
+        let labelsChanged = false;
+        if (patch.labels !== undefined) {
+          const { added, removed } = setIssueLabels(
+            tx,
+            actor,
+            issue.id,
+            patch.labels,
+          );
+          labelsChanged = added.length + removed.length > 0;
+        }
+        const extraChanged =
+          (hook?.(tx, issue, actor) ?? false) || labelsChanged;
         if (Object.keys(set).length === 0 && !extraChanged) return issue;
         return tx
           .update(issues)

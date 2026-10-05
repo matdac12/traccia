@@ -453,3 +453,46 @@ describe("update hook", () => {
     expect(services.issues.get(i.id).title).toBe("A");
   });
 });
+
+describe("update labels", () => {
+  it("writes label activity in the same transaction as the update", () => {
+    const { services, create, rows, tick } = setup();
+    services.labels.create({ name: "bug" });
+    services.labels.create({ name: "chore" });
+    const i = create();
+    tick();
+    const u = services.issues.update("you", i.id, {
+      title: "New",
+      labels: ["Bug", "chore"],
+    });
+    expect(u.updatedAt).not.toBe(i.updatedAt);
+    expect(rows(i.id).map((a) => a.type)).toEqual([
+      "issue_created",
+      "title_changed",
+      "label_added",
+      "label_added",
+    ]);
+    // Unchanged set: no rows, no updatedAt bump.
+    tick();
+    const same = services.issues.update("you", i.id, {
+      labels: ["bug", "chore"],
+    });
+    expect(same.updatedAt).toBe(u.updatedAt);
+    expect(rows(i.id)).toHaveLength(4);
+    services.issues.update("you", i.id, { labels: ["bug"] });
+    expect(rows(i.id).at(-1)?.type).toBe("label_removed");
+  });
+
+  it("rolls back the whole update when a label is unknown", () => {
+    const { services, create, rows } = setup();
+    services.labels.create({ name: "bug" });
+    const i = create();
+    expect(
+      code(() =>
+        services.issues.update("you", i.id, { title: "X", labels: ["bugg"] }),
+      ),
+    ).toBe("validation_error");
+    expect(services.issues.get(i.id).title).toBe("T");
+    expect(rows(i.id).map((a) => a.type)).toEqual(["issue_created"]);
+  });
+});
