@@ -3,6 +3,7 @@ import { createServiceContext } from "./context.js";
 import { createIssuesService } from "./issues.js";
 import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
+import { createRelationsService } from "./relations.js";
 
 export { ServiceError } from "@linear-matti/shared";
 export type { DbHandle, ServiceContext, Tx } from "./context.js";
@@ -11,6 +12,7 @@ export type { Issue, IssueDetail, IssueUpdateHook } from "./issues.js";
 export { recordActivity, resolveIssue } from "./issues.js";
 export type { Milestone } from "./milestones.js";
 export type { Project } from "./projects.js";
+export type { IssueRelations, RelatedIssue } from "./relations.js";
 
 /**
  * Builds the service container shared by REST and MCP. See context.ts for the
@@ -22,6 +24,7 @@ export function createServices(options: { db: Db; defaultIssueKey: string }) {
     projects: createProjectsService(ctx),
     issues: createIssuesService(ctx),
     milestones: createMilestonesService(ctx),
+    relations: createRelationsService(ctx),
   };
 }
 
