@@ -4,6 +4,8 @@ import pkg from "../../package.json" with { type: "json" };
 import { errorFields } from "../logger.js";
 import type { AppContainer } from "../rest/env.js";
 import { runTool, toolResult } from "./errors.js";
+import { registerCommentTools } from "./tools/comments.js";
+import { registerIssueTools } from "./tools/issues.js";
 import {
   type AttachmentToolDeps,
   registerAttachmentTools,
@@ -46,6 +48,8 @@ export function createMcpServer(
       ),
   );
 
+  registerIssueTools(server, ctx);
+  registerCommentTools(server, ctx);
   registerAttachmentTools(server, ctx, deps.attachments);
 
   return server;
