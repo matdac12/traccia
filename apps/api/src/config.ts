@@ -15,6 +15,25 @@ const envSchema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
   TRUST_PROXY: bool.default(true),
+  SOURCE_URL_EXTRA_PORTS: z
+    .string()
+    .default("")
+    .transform((v, ctx) => {
+      const ports: number[] = [];
+      for (const part of v.split(",").map((p) => p.trim())) {
+        if (part === "") continue;
+        const n = Number(part);
+        if (!/^\d+$/.test(part) || n < 1 || n > 65535) {
+          ctx.addIssue({
+            code: "custom",
+            message: `"${part}" is not a port (expected a comma-separated list of 1-65535)`,
+          });
+          return z.NEVER;
+        }
+        ports.push(n);
+      }
+      return ports;
+    }),
 });
 
 /** Every environment variable the api reads; the README config table is checked against this. */
@@ -31,6 +50,7 @@ export type Config = {
   rateLimitPerMin: number;
   logLevel: string;
   trustProxy: boolean;
+  sourceUrlExtraPorts: number[];
 };
 
 export class ConfigError extends Error {
@@ -64,6 +84,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     rateLimitPerMin: e.RATE_LIMIT_PER_MIN,
     logLevel: e.LOG_LEVEL,
     trustProxy: e.TRUST_PROXY,
+    sourceUrlExtraPorts: e.SOURCE_URL_EXTRA_PORTS,
   };
 }
 

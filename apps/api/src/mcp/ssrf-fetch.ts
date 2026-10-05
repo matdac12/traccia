@@ -10,6 +10,10 @@ export type Resolver = (hostname: string) => Promise<ResolvedAddress[]>;
 export type SourceFetcherOptions = {
   /** Test-only escape hatch: exact IPs exempt from the blocklist. Production leaves this empty. */
   allowedAddresses?: string[];
+  /** Ports allowed besides 443. Production leaves this empty unless configured. */
+  extraPorts?: number[];
+  /** Test-only escape hatch: skip the port restriction (test servers listen on random ports). */
+  allowAnyPort?: boolean;
   resolve?: Resolver;
   /** Extra TLS options for `https.request` (tests pass a `ca`). */
   tls?: Pick<https.RequestOptions, "ca">;
@@ -166,12 +170,13 @@ const blocked = (what: string) =>
     `sourceUrl rejected: ${what} resolves to a private, loopback, link-local or metadata address. Use a publicly reachable HTTPS URL or send contentBase64 instead.`,
   );
 
-/** Resolves and vets `url`'s host, returning the single address to pin the connection to. */
+/** Resolves and vets `url`'s host, returning every address the connection may be pinned to, in order. */
 async function vetTarget(
   url: URL,
   resolve: Resolver,
   isBlocked: (address: string) => boolean,
-): Promise<ResolvedAddress> {
+  isPortAllowed: (port: number) => boolean,
+): Promise<ResolvedAddress[]> {
   if (url.protocol !== "https:") {
     throw new ValidationError(
       "sourceUrl must use https:// (http and other schemes are not allowed)",
@@ -180,13 +185,19 @@ async function vetTarget(
   if (url.username || url.password) {
     throw new ValidationError("sourceUrl must not contain credentials");
   }
+  const port = Number(url.port || 443);
+  if (!isPortAllowed(port)) {
+    throw new ValidationError(
+      `sourceUrl port ${port} is not allowed. Use a URL on the default HTTPS port (443), or ask the operator to list the port in SOURCE_URL_EXTRA_PORTS.`,
+    );
+  }
   const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "");
   if (!host) throw new ValidationError("sourceUrl has no host");
 
   const literal = isIP(host);
   if (literal) {
     if (isBlocked(host)) throw blocked(host);
-    return { address: host, family: literal as 4 | 6 };
+    return [{ address: host, family: literal as 4 | 6 }];
   }
   const lower = host.toLowerCase();
   if (BLOCKED_HOSTNAMES.some((h) => lower === h || lower.endsWith(`.${h}`))) {
@@ -205,14 +216,15 @@ async function vetTarget(
   if (addresses.some((a) => isBlocked(a.address))) {
     throw blocked(host);
   }
-  return addresses[0]!;
+  return addresses;
 }
 
 function request(
   url: URL,
   target: ResolvedAddress,
   opts: SourceFetcherOptions,
-  timeoutMs: number,
+  connectMs: number,
+  deadlineAt: number,
 ): Promise<{ res: import("node:http").IncomingMessage; cleanup: () => void }> {
   return new Promise((resolve, reject) => {
     const host = url.hostname.replace(/^\[|\]$/g, "");
@@ -232,19 +244,25 @@ function request(
         ...opts.tls,
       },
       (res) => {
-        response = res;
+        clearTimeout(connectTimer);
+        timer = setTimeout(
+          () => res.destroy(new ValidationError("sourceUrl timed out")),
+          Math.max(1, deadlineAt - Date.now()),
+        );
         resolve({ res, cleanup: () => clearTimeout(timer) });
       },
     );
-    // One deadline for connect, headers and the whole body. Once the response
-    // exists, destroying it surfaces a readable error to whoever consumes it.
-    let response: import("node:http").IncomingMessage | undefined;
-    const timer = setTimeout(() => {
-      const err = new ValidationError("sourceUrl timed out");
-      if (response) response.destroy(err);
-      else req.destroy(err);
-    }, timeoutMs);
+    // Connecting gets only this record's share of the time, so a record that
+    // hangs does not stop the next one being tried (plain error, not a
+    // ValidationError). Once the response exists, one deadline covers headers
+    // and the whole body; destroying it surfaces a readable error to the consumer.
+    let timer: NodeJS.Timeout | undefined;
+    const connectTimer = setTimeout(
+      () => req.destroy(new Error("connect timeout")),
+      connectMs,
+    );
     req.on("error", (err) => {
+      clearTimeout(connectTimer);
       clearTimeout(timer);
       reject(err);
     });
@@ -253,7 +271,7 @@ function request(
 }
 
 /**
- * Builds the `sourceUrl` fetcher: HTTPS only, DNS resolved and vetted by us,
+ * Builds the `sourceUrl` fetcher: HTTPS on port 443 (plus configured extras), DNS resolved and vetted by us,
  * the connection pinned to the vetted IP (defeats DNS rebinding), every
  * redirect vetted again, redirects capped, one overall timeout.
  */
@@ -264,6 +282,9 @@ export function createSourceFetcher(
   const allowed = new Set(options.allowedAddresses ?? []);
   const isBlocked = (address: string) =>
     isBlockedAddress(address) && !allowed.has(address);
+  const extraPorts = new Set(options.extraPorts ?? []);
+  const isPortAllowed = (port: number) =>
+    options.allowAnyPort === true || port === 443 || extraPorts.has(port);
   const timeoutMs = options.timeoutMs ?? 30_000;
   const maxRedirects = options.maxRedirects ?? 3;
 
@@ -276,17 +297,28 @@ export function createSourceFetcher(
     }
     const deadline = Date.now() + timeoutMs;
     for (let hops = 0; ; hops++) {
-      const target = await vetTarget(url, resolve, isBlocked);
-      let got: Awaited<ReturnType<typeof request>>;
-      try {
-        got = await request(
-          url,
-          target,
-          options,
-          Math.max(1, deadline - Date.now()),
-        );
-      } catch (err) {
-        if (err instanceof ValidationError) throw err;
+      const targets = await vetTarget(url, resolve, isBlocked, isPortAllowed);
+      let got: Awaited<ReturnType<typeof request>> | undefined;
+      // Every record is vetted; try them in order until one connects.
+      for (const [i, target] of targets.entries()) {
+        const remaining = Math.max(1, deadline - Date.now());
+        try {
+          got = await request(
+            url,
+            target,
+            options,
+            Math.ceil(remaining / (targets.length - i)),
+            deadline,
+          );
+          break;
+        } catch (err) {
+          if (err instanceof ValidationError) throw err;
+        }
+      }
+      if (!got) {
+        if (Date.now() >= deadline) {
+          throw new ValidationError("sourceUrl timed out");
+        }
         throw new ValidationError(
           "sourceUrl could not be fetched (connection or TLS failure)",
         );

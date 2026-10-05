@@ -84,7 +84,11 @@ const fetcher = (
   extra: Parameters<typeof createSourceFetcher>[0] = {},
   maxBytes = 1024,
 ) => {
-  const f = createSourceFetcher({ tls: { ca: cert }, ...extra });
+  const f = createSourceFetcher({
+    tls: { ca: cert },
+    allowAnyPort: true,
+    ...extra,
+  });
   return (url: string) => f(url, { maxBytes });
 };
 
@@ -293,9 +297,105 @@ describe("source fetcher: against a local HTTPS server", () => {
 
   it("fails on an untrusted certificate", async () => {
     const port = await serve((_req, res) => res.end("x"));
-    const f = createSourceFetcher(allowed); // no ca: self-signed is untrusted
+    const f = createSourceFetcher({ ...allowed, allowAnyPort: true }); // no ca: self-signed is untrusted
     await expect(
       f(`https://127.0.0.1:${port}/`, { maxBytes: 10 }),
     ).rejects.toThrow(/connection or TLS failure/);
+  });
+});
+
+describe("source fetcher: all vetted DNS records", () => {
+  const allowed = { allowedAddresses: ["127.0.0.1", "::1"] };
+
+  it("falls back to the next vetted record when the first does not connect", async () => {
+    const port = await serve((_req, res) => res.end("hello"));
+    const resolve: Resolver = async () => [
+      { address: "::1", family: 6 }, // the server listens on IPv4 only: refused
+      { address: "127.0.0.1", family: 4 },
+    ];
+    const got = await fetcher({ ...allowed, resolve })(
+      `https://files.example.test:${port}/`,
+    );
+    expect(await body(got.stream)).toBe("hello");
+  });
+
+  it("falls back when the first record hangs instead of connecting", async () => {
+    const port = await serve((_req, res) => res.end("hello"));
+    // 192.0.2.1 (TEST-NET-1) is unroutable: the connect attempt hangs.
+    const resolve: Resolver = async () => [
+      { address: "192.0.2.1", family: 4 },
+      { address: "127.0.0.1", family: 4 },
+    ];
+    const got = await fetcher({
+      allowedAddresses: ["192.0.2.1", "127.0.0.1"],
+      resolve,
+      timeoutMs: 2000,
+    })(`https://files.example.test:${port}/`);
+    expect(await body(got.stream)).toBe("hello");
+  });
+
+  it("fails with the connection error when no record connects", async () => {
+    const resolve: Resolver = async () => [
+      { address: "::1", family: 6 },
+      { address: "127.0.0.1", family: 4 },
+    ];
+    await expect(
+      fetcher({ ...allowed, resolve })("https://files.example.test:1/"),
+    ).rejects.toThrow(/could not be fetched/);
+  });
+
+  it("still rejects the whole answer when any record is blocked", async () => {
+    const resolve: Resolver = async () => [
+      { address: "8.8.8.8", family: 4 },
+      { address: "10.0.0.1", family: 4 },
+    ];
+    await expect(
+      fetcher({ resolve })("https://files.example.test/"),
+    ).rejects.toThrow(/private, loopback/);
+  });
+});
+
+describe("source fetcher: port restriction", () => {
+  const strict = (extra: Parameters<typeof createSourceFetcher>[0] = {}) =>
+    fetcher({ allowAnyPort: false, ...extra });
+
+  it.each([
+    "https://8.8.8.8:8443/x",
+    "https://8.8.8.8:22/x",
+    "https://files.example.test:6379/x",
+  ])("rejects %s with an actionable error", async (url) => {
+    const resolve: Resolver = async () => [{ address: "8.8.8.8", family: 4 }];
+    await expect(strict({ resolve })(url)).rejects.toThrow(
+      /port \d+ is not allowed.*443.*SOURCE_URL_EXTRA_PORTS/,
+    );
+  });
+
+  it("accepts an explicit :443 (reaches the connection step)", async () => {
+    const resolve: Resolver = async () => [{ address: "8.8.8.8", family: 4 }];
+    await expect(
+      strict({ resolve, timeoutMs: 50 })("https://files.example.test:443/"),
+    ).rejects.not.toThrow(/not allowed/);
+  });
+
+  it("allows configured extra ports", async () => {
+    const port = await serve((_req, res) => res.end("ok"));
+    const f = strict({
+      allowedAddresses: ["127.0.0.1"],
+      extraPorts: [port],
+    });
+    expect(await body((await f(`https://127.0.0.1:${port}/`)).stream)).toBe(
+      "ok",
+    );
+  });
+
+  it("re-checks the port on redirects", async () => {
+    const port = await serve((_req, res) => {
+      res.writeHead(302, { Location: "https://8.8.8.8:8443/x" }).end();
+    });
+    await expect(
+      strict({ allowedAddresses: ["127.0.0.1"], extraPorts: [port] })(
+        `https://127.0.0.1:${port}/`,
+      ),
+    ).rejects.toThrow(/port 8443 is not allowed/);
   });
 });

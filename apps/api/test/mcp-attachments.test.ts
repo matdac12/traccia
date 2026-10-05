@@ -44,7 +44,11 @@ async function start(
   const t = createTestApp(
     { DATA_DIR: dataDir, ...env },
     {
-      fetchSource: createSourceFetcher({ tls: { ca: cert }, ...fetcherOpts }),
+      fetchSource: createSourceFetcher({
+        tls: { ca: cert },
+        allowAnyPort: true,
+        ...fetcherOpts,
+      }),
     },
   );
   const services = createServices({ db: t.db, defaultIssueKey: "MAT" });
