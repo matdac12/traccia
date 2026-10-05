@@ -4,10 +4,10 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  generateStorageKey,
   InvalidStorageKeyError,
   LocalDiskStorage,
   StorageNotFoundError,
+  generateStorageKey,
 } from "../src/storage/index.js";
 
 async function readAll(stream: Readable): Promise<Buffer> {
