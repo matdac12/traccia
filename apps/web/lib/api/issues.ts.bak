@@ -62,6 +62,7 @@ export async function createIssue(body: CreateIssueInput, labels: string[]) {
   }
 }
 
+<<<<<<< HEAD
 // ---- Issue detail (MAT-1721) ----
 
 const DETAIL_INCLUDES = ["comments", "activity", "attachments", "children", "relations"];
@@ -129,8 +130,7 @@ export function toFtsQuery(q: string) {
     .filter(Boolean)
     .map((w) => `"${w}"`)
     .join(" ");
-}
-
+=======
 /** The board shows each column in `sortOrder` (Kanban position), whatever sort the table uses. */
 const boardFilters = (f: IssueFilters): IssueFilters => ({ ...f, orderBy: "sortOrder", order: "asc" });
 
@@ -142,4 +142,5 @@ export const listBoardColumns = (filters: IssueFilters) => listIssueGroups(board
 /** `PATCH /issues/:identifier/position`: neighbour ids only, the service computes the position. */
 export function moveIssue(identifier: string, body: { status: IssueStatus; beforeId?: string; afterId?: string }) {
   return api().request(`/issues/${encodeURIComponent(identifier)}/position`, { method: "PATCH", schema: issueSchema, body });
+>>>>>>> origin/main
 }

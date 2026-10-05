@@ -3,7 +3,7 @@ import { applyServerIssue, emptyColumns, findCard, moveCard, moveErrorMessage, p
 import type { IssueRow } from "../lib/api/schemas";
 
 const card = (n: number, status: IssueRow["status"], projectId = "p1"): IssueRow => ({
-  id: `i${n}`, projectId, identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 0, estimate: null, assignee: null,
+  id: `i${n}`, projectId, key: "TRK", number: n, identifier: `TRK-${n}`, title: `Issue ${n}`, description: "", parentId: null, createdAt: "2026-01-01T00:00:00.000Z", status, priority: 0, estimate: null, assignee: null,
   milestoneId: null, createdBy: "you", updatedAt: "2026-01-01T00:00:00.000Z", labels: [],
 });
 const board = (by: Partial<Record<IssueRow["status"], IssueRow[]>>): BoardColumn[] =>

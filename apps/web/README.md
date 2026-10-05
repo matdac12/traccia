@@ -105,6 +105,7 @@ lib/session.ts         current login for display
 app/(app)/             shell layout + pages (issues, projects, trash)
 components/ui/         shadcn primitives
 components/traccia/    app components
+components/issue-detail/  issue page (MAT-1721); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
 ```
@@ -121,6 +122,16 @@ test/                  vitest
   through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only
   that step fails the issue still exists and the dialog says so instead of failing the whole create.
 - Labels are managed on the project page (project-scoped or global). Deleting a label is permanent and dashboard-only.
+
+## Issue detail (`/issues/[identifier]`, MAT-1721)
+
+`app/(app)/issues/[identifier]/` (page + `actions.ts`) and `components/issue-detail/`. The page fetches the issue with
+`?include=comments,activity,attachments,children,relations`. Every edit is a server action that sends the issue's
+`updatedAt` as `If-Match`; a `conflict` returns the current issue, nothing is saved, and the UI offers "Re-apply my
+change" (patches are rebuilt against the fresh issue, and title/description are refused if the same field moved).
+Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
+agent-written text. The attachments slot is `AttachmentsSlot` in `issue-detail.tsx` (MAT-1725).
+The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
 
 ## Docker
 
