@@ -68,6 +68,30 @@ describe("MCP issue tools", () => {
     expect(call).toBeTypeOf("function");
   });
 
+  it("save_issue update is atomic: a blocker cycle leaves fields unchanged", async () => {
+    const { connect, services } = await start();
+    const call = await connect("agent");
+    await call("save_issue", { title: "A", project: "Alpha" });
+    await call("save_issue", { title: "B", project: "Alpha" });
+    await call("save_issue", { title: "C", project: "Alpha" });
+    await call("save_issue", { id: "ALP-2", blockedBy: ["ALP-1"] });
+    await call("save_issue", { id: "ALP-3", blockedBy: ["ALP-2"] });
+    const before = services.issues.get("ALP-1", ["relations"]);
+
+    const res = await call("save_issue", {
+      id: "ALP-1",
+      title: "Renamed",
+      status: "Done",
+      labels: ["Bug"],
+      blockedBy: ["ALP-3"],
+    });
+    expect(res.isError).toBe(true);
+    expect(res.text).toContain("ALP-3 -> ALP-1 -> ALP-2 -> ALP-3");
+    const after = services.issues.get("ALP-1", ["relations"]);
+    expect(after).toEqual(before);
+    expect(after.title).toBe("A");
+  });
+
   it("creates, gets and updates an issue with human-friendly refs", async () => {
     const { connect, services } = await start();
     const call = await connect("agent");
