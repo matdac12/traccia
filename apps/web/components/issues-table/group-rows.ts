@@ -7,6 +7,9 @@ export type Section = { key: string; raw?: string; status?: IssueStatus; title: 
 
 type Lookups = { projects: Project[]; milestones: Milestone[] };
 
+/** Top-to-bottom order of the status groups in the table (Linear's default). The API and the board keep workflow order. */
+export const STATUS_DISPLAY_ORDER: readonly IssueStatus[] = ["in_progress", "in_review", "todo", "backlog", "done", "canceled"];
+
 const PRIORITY_TITLE: Record<number, string> = { 0: "No priority", 1: "Urgent", 2: "High", 3: "Medium", 4: "Low" };
 const PRIORITY_ORDER = [1, 2, 3, 4, 0];
 const ASSIGNEE_TITLE: Record<string, string> = { you: "You", agent: "Agent", none: "Unassigned" };
@@ -24,10 +27,13 @@ export function compareRows({ orderBy, order }: Pick<IssueFilters, "orderBy" | "
 
 /**
  * Splits the loaded rows into the table's sections. Grouped by status the API's own pages are kept as they
- * are (empty ones dropped); any other grouping pools the loaded rows of every status and re-sorts them.
+ * are (empty ones dropped) in `STATUS_DISPLAY_ORDER`; any other grouping pools the loaded rows of every status and re-sorts them.
  */
 export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }[], groupBy: GroupBy, filters: IssueFilters, lookups: Lookups): Section[] {
-  if (groupBy === "status") return groups.filter((g) => g.items.length).map((g) => ({ key: g.status, status: g.status, title: g.status, items: g.items }));
+  if (groupBy === "status") {
+    const rank = (s: IssueStatus) => STATUS_DISPLAY_ORDER.indexOf(s);
+    return groups.filter((g) => g.items.length).sort((a, b) => rank(a.status) - rank(b.status)).map((g) => ({ key: g.status, status: g.status, title: g.status, items: g.items }));
+  }
   const rows = groups.flatMap((g) => g.items).sort(compareRows(filters));
   if (groupBy === "none") return rows.length ? [{ key: "none:all", title: "All issues", items: rows }] : [];
   const keyOf = (i: IssueRow) =>
