@@ -23,6 +23,52 @@ export async function listIssueGroups(filters: IssueFilters) {
   );
 }
 
+/** Pages fetched at most per group on a refresh: 5 x 50 covers everything "load more" can reasonably have opened. */
+const MAX_REFRESH_PAGES = 5;
+
+/**
+ * A refresh of the groups already on screen: for every status it re-reads as many pages as the client had
+ * loaded (`counts`), so a poll never drops what "load more" opened. `board` lists by Kanban position.
+ */
+export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<Record<IssueStatus, number>>, board: boolean) {
+  const page = board ? listBoardPage : listIssuePage;
+  return Promise.all(
+    ISSUE_STATUSES.map(async (status) => {
+      const items: z.output<typeof issueSchema>[] = [];
+      let cursor: string | undefined;
+      let nextCursor: string | null = null;
+      for (let i = 0; i < MAX_REFRESH_PAGES; i++) {
+        const res = await page(filters, status, cursor);
+        items.push(...res.items);
+        nextCursor = res.nextCursor;
+        cursor = res.nextCursor ?? undefined;
+        if (!cursor || items.length >= (counts[status] ?? 0)) break;
+      }
+      return { status, items, nextCursor };
+    }),
+  );
+}
+
+/**
+ * Where a page's live refresh starts: the newest change now, or the epoch on an empty database (so the very
+ * first issue created is noticed). Null only when the probe itself failed; the poll then starts from a baseline.
+ */
+export const initialSyncToken = () => latestIssueChange().then((t) => t ?? "1970-01-01T00:00:00.000Z", () => null);
+
+/**
+ * The cheap change probe behind polling: the newest `updatedAt` among issues changed after `since`
+ * (soft-deleted ones included, so a delete is noticed too), or null when nothing changed. One row,
+ * whatever the board holds. Deliberately unfiltered: a card that moved OUT of a filtered view would
+ * otherwise never show up in a filtered probe.
+ */
+export async function latestIssueChange(since?: string): Promise<string | null> {
+  const page = await api().request("/issues", {
+    schema: pageOf(issueSchema),
+    query: { updatedAfter: since, includeDeleted: true, orderBy: "updatedAt", order: "desc", limit: 1 },
+  });
+  return page.items[0]?.updatedAt ?? null;
+}
+
 async function listAll<T extends z.ZodType>(path: string, item: T, query: Record<string, string | undefined> = {}) {
   const items: z.output<T>[] = [];
   let cursor: string | undefined;

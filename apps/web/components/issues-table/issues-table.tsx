@@ -2,7 +2,7 @@
 import type { IssueStatus, Priority } from "@linear-matti/shared";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreIssues } from "@/app/(app)/issues/actions";
 import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import type { IssueFilters } from "@/lib/issue-filters";
 import { timeAgo } from "./format";
 import { LabelChip } from "./label-chip";
 import { PriorityIcon } from "./priority";
+import { countsOf, sameGroups, type GroupsApplier } from "./use-list-sync";
 
 export type IssueGroup = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
@@ -20,13 +21,26 @@ const VISIBLE_LABELS = 2;
 type GroupState = IssueGroup & { error?: string };
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, collapsed, onToggle, onSort,
+  groups: initial, query, filters, milestones, collapsed, onToggle, onSort, register,
 }: {
-  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; collapsed: Set<IssueStatus>; onToggle: (s: IssueStatus) => void; onSort: (by: IssueFilters["orderBy"]) => void;
+  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; collapsed: Set<IssueStatus>; onToggle: (s: IssueStatus) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
   const [loading, setLoading] = useState<Set<IssueStatus>>(new Set());
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
+  // Live refresh (MAT-1726): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
+  useEffect(() => {
+    register?.({
+      counts: () => countsOf(groupsRef.current),
+      apply: (fresh) => {
+        if (!sameGroups(groupsRef.current, fresh)) setGroups(fresh);
+        return true;
+      },
+    });
+    return () => register?.(null);
+  }, [register]);
   const milestoneName = new Map(milestones.map((m) => [m.id, m.name]));
 
   const more = (group: GroupState) => {
