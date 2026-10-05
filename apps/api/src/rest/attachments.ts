@@ -3,20 +3,19 @@ import { Readable } from "node:stream";
 import Busboy from "busboy";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
-import { canPurge } from "../auth/permissions.js";
-import { createServices } from "../service/index.js";
 import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "../service/errors.js";
+import { createServices } from "../service/index.js";
 import {
   type AttachmentStorage,
   AttachmentValidationError,
-  LocalDiskStorage,
-  StorageNotFoundError,
   contentDisposition,
   generateStorageKey,
+  LocalDiskStorage,
+  StorageNotFoundError,
   sanitizeFilename,
   storeUpload,
 } from "../storage/index.js";
@@ -146,9 +145,11 @@ export function mountAttachmentRoutes(
   ),
 ) {
   const { config, db } = container;
-  const { attachments } = createServices({
+  const { attachments, trash } = createServices({
     db,
     defaultIssueKey: config.defaultIssueKey,
+    allowAgentPurge: config.allowAgentPurge,
+    storage,
   });
   const withUrl = <T extends { id: string }>(a: T) => ({
     ...a,
@@ -189,21 +190,19 @@ export function mountAttachmentRoutes(
   v1.delete("/attachments/:id", async (c) => {
     const id = c.req.param("id");
     const { purge } = validateQuery(c, deleteQuerySchema);
+    const actor = c.get("actor");
     if (purge === "true") {
-      if (!canPurge(c.get("actor"), config)) {
-        throw new ForbiddenError("This token may not purge attachments");
-      }
-      const record = attachments.purge(id);
-      await storage.delete(record.storageKey).catch((err) => {
+      // Permission, two-step rule and file removal live in trash.purge.
+      const result = await trash.purge(actor, "attachment", id);
+      for (const storageKey of result.failedFiles) {
         c.get("logger").error("purged attachment file not removed", {
           attachmentId: id,
-          storageKey: record.storageKey,
-          error: String(err),
+          storageKey,
         });
-      });
+      }
       return c.json({ id, deleted: true, purged: true });
     }
-    attachments.softDelete(c.get("actor"), id);
+    await trash.delete(actor, "attachment", id);
     return c.json({ id, deleted: true, purged: false });
   });
 
