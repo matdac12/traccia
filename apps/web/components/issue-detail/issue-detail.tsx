@@ -9,6 +9,7 @@ import { LiveStatus } from "@/components/traccia/live-status";
 import { Button } from "@/components/ui/button";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
+import { useMediaQuery } from "@/lib/use-media-query";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { TimeAgo } from "./atoms";
 import { Attachments } from "./attachments";
@@ -156,9 +157,13 @@ export function IssueDetail(props: IssueDetailProps) {
     );
   }
 
+  // Properties sit in a side panel from lg up and inline under the title below it; mount only one copy.
+  const wide = useMediaQuery("(min-width: 1024px)", true);
+  const propertiesPanel = <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />;
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b px-4 text-[13px]">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
         <Link href="/issues" className="text-muted-foreground hover:text-foreground">Issues</Link>
         <ChevronRight className="size-3.5 text-muted-foreground" />
         <Link href={`/projects/${issue.projectId}`} className="text-muted-foreground hover:text-foreground">{project?.name ?? issue.key}</Link>
@@ -218,7 +223,7 @@ export function IssueDetail(props: IssueDetailProps) {
 
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[720px] px-8 py-8">
+          <div className="mx-auto max-w-[720px] px-4 py-5 sm:px-8 sm:py-8">
             {parent && (
               <Link href={`/issues/${parent.identifier}`} className="mb-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                 <GitBranch className="size-3" />{parent.identifier} {parent.title}
@@ -227,6 +232,13 @@ export function IssueDetail(props: IssueDetailProps) {
             <Title key={`${resetKey}:${issue.updatedAt}:${issue.title}`} onDirty={setDirty} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
             {issue.createdBy === "agent" && (
               <div className="mt-2"><AgentMark /> <span className="text-xs text-muted-foreground">created by an agent <TimeAgo iso={issue.createdAt} suffix=" ago" /></span></div>
+            )}
+
+            {!wide && (
+              <section aria-label="Properties" className="mt-4 rounded-lg border bg-surface p-3">
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
+                {propertiesPanel}
+              </section>
             )}
 
             <div className="mt-5">
@@ -264,10 +276,12 @@ export function IssueDetail(props: IssueDetailProps) {
           </div>
         </div>
 
-        <aside className="hidden w-[280px] shrink-0 overflow-y-auto border-l bg-surface p-4 lg:block">
-          <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
-          <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />
-        </aside>
+        {wide && (
+          <aside className="w-[280px] shrink-0 overflow-y-auto border-l bg-surface p-4">
+            <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
+            {propertiesPanel}
+          </aside>
+        )}
       </div>
     </div>
   );
