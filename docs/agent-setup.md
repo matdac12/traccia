@@ -2,7 +2,7 @@
 
 How to connect Claude Code, Codex and OpenCode to the Traccia MCP server from a Mac or a Windows machine. Both must be on the tailnet. Once connected, agents follow the workflow in [agent-snippet.md](agent-snippet.md) and use the tools listed in [mcp-tools.md](mcp-tools.md).
 
-- Endpoint: `https://omni.tail2b3fbf.ts.net/mcp`
+- Endpoint: `https://<your-tailnet-host>/mcp`
 - Auth: `Authorization: Bearer <token>`. Keep the repo free of real tokens. Each tool reads the token its own way: OpenCode from a small file next to its config (`{file:...}`), Codex and Claude Code from a literal header in their own per-machine config, or any of them from a `TRACCIA_TOKEN` environment variable. GUI-launched apps often do not inherit shell variables, so the file or literal header is the reliable default here; see [Section 2](#2-store-the-token-per-tool).
 
 ## 1. Get a token
@@ -44,14 +44,14 @@ Use single quotes so your shell keeps `${TRACCIA_TOKEN}` as text. Claude Code ex
 ### macOS
 
 ```bash
-claude mcp add --transport http --scope user traccia https://omni.tail2b3fbf.ts.net/mcp \
+claude mcp add --transport http --scope user traccia https://<your-tailnet-host>/mcp \
   --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-claude mcp add --transport http --scope user traccia https://omni.tail2b3fbf.ts.net/mcp --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
+claude mcp add --transport http --scope user traccia https://<your-tailnet-host>/mcp --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
 ```
 
 `--scope user` makes the server available in every project. Use `--scope project` to write a `.mcp.json` into one repo instead; that file can be committed because it holds only the `${TRACCIA_TOKEN}` placeholder:
@@ -61,7 +61,7 @@ claude mcp add --transport http --scope user traccia https://omni.tail2b3fbf.ts.
   "mcpServers": {
     "traccia": {
       "type": "http",
-      "url": "https://omni.tail2b3fbf.ts.net/mcp",
+      "url": "https://<your-tailnet-host>/mcp",
       "headers": {
         "Authorization": "Bearer ${TRACCIA_TOKEN}"
       }
@@ -80,7 +80,7 @@ Codex reads `~/.codex/config.toml` (on Windows, `.codex\config.toml` in your use
 
 ```toml
 [mcp_servers.traccia]
-url = "https://omni.tail2b3fbf.ts.net/mcp"
+url = "https://<your-tailnet-host>/mcp"
 
 [mcp_servers.traccia.http_headers]
 Authorization = "Bearer <paste the token>"
@@ -95,7 +95,7 @@ $codex = Join-Path $env:USERPROFILE '.codex\config.toml'
 Add-Content -Path $codex -Value @'
 
 [mcp_servers.traccia]
-url = "https://omni.tail2b3fbf.ts.net/mcp"
+url = "https://<your-tailnet-host>/mcp"
 
 [mcp_servers.traccia.http_headers]
 Authorization = "Bearer <paste the token>"
@@ -116,7 +116,7 @@ OpenCode reads `~/.config/opencode/opencode.json` (or `opencode.jsonc`); on Wind
   "mcp": {
     "traccia": {
       "type": "remote",
-      "url": "https://omni.tail2b3fbf.ts.net/mcp",
+      "url": "https://<your-tailnet-host>/mcp",
       "enabled": true,
       "headers": {
         "Authorization": "Bearer {file:./traccia-token}"

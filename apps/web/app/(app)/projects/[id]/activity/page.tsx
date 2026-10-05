@@ -1,19 +1,14 @@
-import { notFound } from "next/navigation";
 import { ProjectActivity } from "@/components/project/project-activity";
 import { listProjectActivity } from "@/lib/api/activity";
-import { ApiError } from "@/lib/api/client";
 import { listProjectMilestones } from "@/lib/api/issues";
-import { getProject, listProjects } from "@/lib/api/projects";
+import { getProjectOr404, listProjects } from "@/lib/api/projects";
 
 export const metadata = { title: "Project activity" };
 
 /** Activity tab: the API's activity feed filtered to this project (`GET /v1/activity?project=`). */
 export default async function ProjectActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const project = await getProject(id).catch((err) => {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  });
+  const project = await getProjectOr404(id);
   const [page, milestones, projects] = await Promise.all([listProjectActivity(project.id), listProjectMilestones(project.id), listProjects()]);
   return (
     <ProjectActivity

@@ -2,7 +2,7 @@
 
 ### Issue tracker
 
-Issues live in Traccia (project `Traccia`, key `TRC`), accessed via the `traccia` MCP. Linear (`MAT-nnn`, project `MATTI-TRACKER`) is a read-only archive. See `docs/agents/issue-tracker.md`.
+Issues live in Traccia (project `Traccia`, key `TRC`), accessed via the `traccia` MCP. Linear (`MAT-nnn`) is a read-only archive. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

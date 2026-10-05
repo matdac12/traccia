@@ -1,6 +1,6 @@
 # Traccia dashboard (`apps/web`)
 
-Next.js 16 (App Router, React 19, TypeScript strict), Tailwind 4, shadcn/ui, `output: "standalone"`. It runs on `omni`
+Next.js 16 (App Router, React 19, TypeScript strict), Tailwind 4, shadcn/ui, `output: "standalone"`. It runs on `<your-server>`
 behind `tailscale serve` (ADR 0007) and talks to `apps/api` over the compose network. The look is the approved
 "Linear-calm" prototype in `prototypes/dashboard` (MAT-1686): re-implement from it, never import it.
 
@@ -63,7 +63,7 @@ names and the token value; run it before changing anything around the client.
 - Failures throw `ApiError` (`status`, `code`, `details`). `code` is the API's error code (`not_found`, `conflict`,
   `validation_error`, ...) or `unreachable`, `bad_response`. For a stale write, `conflict` carries
   `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft. The project header (`components/project/project-title.tsx`, `project-delete.tsx`) renames inline (the key is read-only, ADR 0002) and soft-deletes with an Undo notice; delete deliberately does not revalidate, because re-rendering the deleted project's page would 404 over the notice (same as issue delete).
-- **Request budget (MAT-1761):** `/issues` loads in three API requests: `GET /issues/groups` (one page per status plus the `syncToken`), `GET /projects?include=milestones` and `GET /labels`. `listProjects` is wrapped in React `cache`, so the layout's sidebar and the page share one fetch per render. The live refresh (`refreshIssueGroups`) is one `/issues/groups` request, plus follow-ups only for groups whose "load more" was opened. "Load more" on a single group still uses `GET /issues`.
+- **Request budget (MAT-1761):** `/issues` loads in three API requests: `GET /issues/groups` (one page per status plus the `syncToken`), `GET /projects?include=milestones` and `GET /labels`. `listProjects` is wrapped in React `cache`, so the layout's sidebar and the page share one fetch per render. The live refresh (`refreshIssueGroups`) is one `/issues/groups` request, plus follow-ups only for groups whose "load more" was opened. "Load more" on a single group still uses `GET /issues`. The project sub-routes (TRC-97) share one `GET /projects/:id` between layout and page (`getProject` is `cache`d); on top of it Overview adds milestones and labels, Activity adds `/activity?project=`, milestones and the project list (for names), Issues adds milestones, labels, the groups (or board columns) and the project list.
 - Lists return `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
 - Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId?, expectedUpdatedAt? }` (the board sends the card's `updatedAt`; a 409 rolls the move back); a column is (project, status).
   `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified

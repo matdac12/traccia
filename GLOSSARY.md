@@ -9,7 +9,7 @@ The system this repo builds (Italian for "trace" or "track").
 _Avoid_: Tracker (the pre-rename working name), Linear clone, linear-matti
 
 **Linear**:
-The legacy SaaS Traccia replaces. Its workspace (`matdac6`, project `MATTI-TRACKER`, identifiers `MAT-nnn`) is now a read-only archive: its 91 issues were imported once into the `TRC` project, and no new work is tracked there.
+The legacy SaaS Traccia replaces. Its workspace (identifiers `MAT-nnn`) is now a read-only archive: its 91 issues were imported once into the `TRC` project, and no new work is tracked there.
 
 **Pilot**:
 The 1-2 week trial of Traccia on real work. It began with the cutover: Traccia tracks its own project (`TRC`), after the one-time import from Linear.

@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { isTyping } from "@/lib/is-typing";
+import { shortcutBlocked } from "@/lib/is-typing";
 import { CreateIssueDialog, type CreateIssueDefaults, type CreateIssueProject } from "./create-issue-dialog";
 
 type Ctx = { open: (defaults?: CreateIssueDefaults) => void };
@@ -31,9 +31,7 @@ export function CreateIssueProvider({ projects, children }: { projects: CreateIs
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "c" || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || isTyping(e.target)) return;
-      // Radix dialogs/menus are modal: do not open another one on top.
-      if (document.querySelector("[role=dialog],[role=menu]")) return;
+      if (e.key.toLowerCase() !== "c" || e.metaKey || e.ctrlKey || e.altKey || shortcutBlocked(e)) return;
       e.preventDefault();
       open();
     };

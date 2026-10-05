@@ -1,7 +1,8 @@
 import "server-only";
 import type { CreateProjectInput, UpdateProjectInput } from "@traccia/shared";
-import { api } from "./client";
+import { notFound } from "next/navigation";
 import { cache } from "react";
+import { api, ApiError } from "./client";
 import { deletedResultSchema, pageOf, projectSchema, projectWithMilestonesSchema } from "./schemas";
 
 /**
@@ -24,6 +25,14 @@ export const listProjects = cache(async () => {
 
 /** `cache` shares one fetch between the project layout and its pages in the same request. */
 export const getProject = cache((idOrKey: string) => api().request(`/projects/${encodeURIComponent(idOrKey)}`, { schema: projectSchema }));
+
+/** `getProject` for a page or layout: an unknown project renders the route'"'"'s not-found page. */
+export function getProjectOr404(idOrKey: string) {
+  return getProject(idOrKey).catch((err) => {
+    if (err instanceof ApiError && err.status === 404) notFound();
+    throw err;
+  });
+}
 
 export function updateProject(id: string, body: UpdateProjectInput) {
   return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", body });

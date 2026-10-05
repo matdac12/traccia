@@ -7,13 +7,12 @@ import { ConflictNotice } from "@/components/traccia/conflict-notice";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-/** Collapsed height in px (about five lines of body text), and how far the text may overshoot before it collapses at all. */
+/** Collapsed height in px (about five lines of body text). It is both the clip height and the toggle threshold, so a clipped text always has a "Show more". */
 export const COLLAPSED_HEIGHT = 120;
-const OVERFLOW_SLACK = 24;
 
-/** True when `contentHeight` is worth hiding behind a "Show more": a text only a line or so over the limit is shown whole. */
+/** True when `contentHeight` is taller than the clip, i.e. exactly when the text would be cut off. */
 export function overflowsCollapsed(contentHeight: number): boolean {
-  return contentHeight > COLLAPSED_HEIGHT + OVERFLOW_SLACK;
+  return contentHeight > COLLAPSED_HEIGHT;
 }
 
 /**

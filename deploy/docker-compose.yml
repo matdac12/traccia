@@ -1,4 +1,4 @@
-# Lives in /opt/tracker on omni (the directory keeps its pre-rename name), next to the .env file (never committed).
+# Lives in /opt/tracker on <your-server> (the directory keeps its pre-rename name), next to the .env file (never committed).
 # Images are built on the Mac and loaded with `docker load`; nothing is pulled or built here.
 # TAG selects the image tag. deploy.sh sets it; rollback = set the previous TAG and `up -d`.
 name: traccia
@@ -38,5 +38,5 @@ services:
 volumes:
   traccia-data:
     # Set TRACCIA_DATA_VOLUME=tracker_tracker-data in .env to keep using the volume the
-    # pre-rename compose project created (omni). Fresh installs leave it unset.
+    # pre-rename compose project created (<your-server>). Fresh installs leave it unset.
     name: ${TRACCIA_DATA_VOLUME:-traccia-data}

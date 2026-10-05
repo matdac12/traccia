@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { CreateIssueProvider } from "@/components/create-issue/provider";
+import { InAppHistoryTracker } from "@/components/traccia/in-app-history-tracker";
 import { AppShell } from "@/components/traccia/app-shell";
 import { listProjects } from "@/lib/api/projects";
 import { currentLogin } from "@/lib/session";
@@ -21,6 +22,9 @@ export default async function Layout({ children }: { children: ReactNode }) {
   const shellProjects = projects?.map(({ id, name }) => ({ id, name })) ?? [];
   return (
     <CreateIssueProvider projects={shellProjects}>
+      <Suspense>
+        <InAppHistoryTracker />
+      </Suspense>
       <AppShell login={login} defaultCollapsed={sidebarCollapsed} projects={shellProjects} projectsUnavailable={projects === null}>
         {children}
       </AppShell>

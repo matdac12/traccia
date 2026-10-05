@@ -75,7 +75,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 |----------|---------|---------|---------|
 | `PORT` | api | `8787` | HTTP port. Fixed to `8787` in the compose file |
 | `DATA_DIR` | api | `/data` | SQLite file and attachments. Fixed to `/data` (the data volume, `traccia-data`) in the compose file |
-| `BASE_URL` | api | required | Externally visible URL, e.g. `https://omni.tail2b3fbf.ts.net`; used to build attachment links |
+| `BASE_URL` | api | required | Externally visible URL, e.g. `https://<your-tailnet-host>`; used to build attachment links |
 | `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap (10 MiB) |
 | `MAX_MCP_UPLOAD_BYTES` | api | `5242880` | Base64 upload cap over MCP (5 MiB) |
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key used when a project is created without one |
@@ -96,7 +96,7 @@ Booleans accept only `true` or `false`. An empty value counts as unset.
 
 ## Deploy
 
-Docker Compose in `/opt/tracker` on the VPS (`omni`). Images are built on the Mac for `linux/amd64` and shipped with `docker save | ssh omni docker load`; there is no registry and no CI, and nothing is built on the VPS ([ADR 0009](docs/adr/0009-docker-compose-images-built-on-mac.md)).
+Docker Compose in `/opt/tracker` on the VPS (`<your-server>`). Images are built on the Mac for `linux/amd64` and shipped with `docker save | ssh <your-server> docker load`; there is no registry and no CI, and nothing is built on the VPS ([ADR 0009](docs/adr/0009-docker-compose-images-built-on-mac.md)).
 
 ```sh
 deploy/deploy.sh --dry-run   # print the steps, touch nothing
@@ -105,7 +105,7 @@ deploy/deploy.sh             # build, ship, restart, wait for /healthz
 
 One-time setup: create `/opt/tracker` on the VPS and put the `.env` there (`cp deploy/.env.example`, fill in `BASE_URL`, `TRACCIA_API_TOKEN` and `DASHBOARD_ALLOWED_LOGINS`, `chmod 600`). Create tokens with the CLI inside the container (`docker compose exec api node dist/traccia.js token create ...`). Rollback is `TAG=<previous tag> docker compose up -d`; tags are listed in `/opt/tracker/deployed-tags`. Full details, rollback and token management: [`deploy/README.md`](deploy/README.md).
 
-Both services bind to `127.0.0.1` only. Publish them to the tailnet with `tailscale serve` on `omni`:
+Both services bind to `127.0.0.1` only. Publish them to the tailnet with `tailscale serve` on `<your-server>`:
 
 ```sh
 sudo tailscale serve --bg --https=443 --set-path=/ http://127.0.0.1:3000
@@ -116,14 +116,14 @@ sudo tailscale serve --bg --https=443 --set-path=/healthz http://127.0.0.1:8787/
 tailscale serve status
 ```
 
-> Verified on `omni` on 2026-10-05 (MAT-1727): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
+> Verified on `<your-server>` on 2026-10-05 (MAT-1727): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
 
 ### Dashboard access check (verified)
 
 Allowlist format: the plain Tailscale login (an email address, e.g. `you@gmail.com`), comma-separated, compared case-insensitively. Checked on the real setup:
 
 - Through serve (443) from the Mac, an allowed login loads the dashboard with data.
-- Direct to `127.0.0.1:3000` on `omni` without the header: 403. With a non-allowed login in the header: 403. With an allowed login: the page is served (this is the accepted forging risk below).
+- Direct to `127.0.0.1:3000` on `<your-server>` without the header: 403. With a non-allowed login in the header: 403. With an allowed login: the page is served (this is the accepted forging risk below).
 
 ## Backup and restore
 
@@ -131,9 +131,9 @@ A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manua
 
 ## Security notes
 
-- **Tailnet only.** Nothing listens on a public interface and Funnel stays off. Tailscale ACLs decide which devices reach `omni`; bearer tokens decide which actor is calling. Both stay on.
+- **Tailnet only.** Nothing listens on a public interface and Funnel stays off. Tailscale ACLs decide which devices reach `<your-server>`; bearer tokens decide which actor is calling. Both stay on.
 - **Tokens.** Create one per machine or agent. A token is bound to one actor, stored hashed (SHA-256), and shown once at creation. Revocation is immediate. There is no public token endpoint; tokens are managed with the CLI on the VPS.
-- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the MAT-1727 check):** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
+- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the MAT-1727 check):** another process on `<your-server>` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
 - **Agent purge** is disabled by default (`ALLOW_AGENT_PURGE=false`); deletes by agents are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
 - Attachment uploads are validated by magic bytes and size, and the MCP `sourceUrl` fetch goes through an SSRF blocklist.
 
@@ -143,6 +143,10 @@ A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manua
 - Full-text search uses Porter stemming, which is English-only; Italian text is matched with accent folding but no stemming.
 - No live updates (SSE); the dashboard is planned to poll every 10-15 s and revalidate on focus (spec 12.2).
 - The off-box backup can be stale, and the dashboard is not built yet.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). Third-party material (vendored agent skills, shadcn/ui components) keeps its own licence: see [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Layout
 

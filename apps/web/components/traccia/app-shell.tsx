@@ -8,7 +8,7 @@ import { NewProjectButton } from "@/components/project/new-project-button";
 import { useCreateIssue } from "@/components/create-issue/provider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { isTyping } from "@/lib/is-typing";
+import { shortcutBlocked } from "@/lib/is-typing";
 import { sidebarCookie } from "@/lib/sidebar-state";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,8 @@ type SidebarProps = {
 function SidebarContent({ projects, projectsUnavailable, login, collapsed = false, onToggle }: SidebarProps) {
   const path = usePathname();
   const createIssue = useCreateIssue();
-  const current = projects.find((p) => path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`));
+  const inProject = (id: string) => path === `/projects/${id}` || path.startsWith(`/projects/${id}/`);
+  const current = projects.find((p) => inProject(p.id));
   const switcherLabel = current?.name ?? "Traccia";
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   return (
@@ -135,7 +136,7 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
           <NavItem
             key={p.id}
             href={`/projects/${p.id}`}
-            active={path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`)}
+            active={inProject(p.id)}
             label={p.name}
             collapsed={collapsed}
             icon={collapsed
@@ -173,8 +174,7 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
   useEffect(() => {
     if (!desktop) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "b" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.defaultPrevented || isTyping(e.target)) return;
-      if (document.querySelector("[role=dialog],[role=menu]")) return;
+      if (e.key.toLowerCase() !== "b" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || shortcutBlocked(e)) return;
       e.preventDefault();
       toggleCollapsed();
     };
