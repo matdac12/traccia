@@ -1,6 +1,7 @@
 import { ServiceError } from "@linear-matti/shared";
 import type { z } from "zod";
 import type { Db } from "../db/connection.js";
+import type { AttachmentStorage } from "../storage/storage.js";
 
 /**
  * Service container pattern
@@ -33,6 +34,10 @@ export type ServiceContext = {
   db: Db;
   /** Value of `DEFAULT_ISSUE_KEY`, used when a project is created without a key. */
   defaultIssueKey: string;
+  /** `ALLOW_AGENT_PURGE`: whether `agent` may purge (see `canPurge`). */
+  allowAgentPurge: boolean;
+  /** Where purge deletes attachment files; absent in tests that don't need files. */
+  storage?: AttachmentStorage;
   /**
    * Runs `fn` in a write transaction and returns its result; throwing rolls
    * back. The transaction is IMMEDIATE (takes the write lock up front) so a
@@ -45,11 +50,15 @@ export type ServiceContext = {
 export function createServiceContext(options: {
   db: Db;
   defaultIssueKey: string;
+  allowAgentPurge?: boolean;
+  storage?: AttachmentStorage;
 }): ServiceContext {
   const { db, defaultIssueKey } = options;
   return {
     db,
     defaultIssueKey,
+    allowAgentPurge: options.allowAgentPurge ?? false,
+    storage: options.storage,
     write: (fn) => db.transaction(fn, { behavior: "immediate" }),
   };
 }

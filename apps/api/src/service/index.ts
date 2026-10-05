@@ -1,21 +1,26 @@
 import type { Db } from "../db/connection.js";
-import { createServiceContext } from "./context.js";
+import type { AttachmentStorage } from "../storage/storage.js";
 import { createAttachmentsService } from "./attachments.js";
 import { createCommentsService } from "./comments.js";
-import { createLabelsService } from "./labels.js";
+import { createServiceContext } from "./context.js";
 import { createIssueListService } from "./issue-list.js";
 import { createIssuePositionService } from "./issue-position.js";
 import { createIssuesService } from "./issues.js";
+import { createLabelsService } from "./labels.js";
 import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
-import { createSearchService } from "./search.js";
 import { createRelationsService } from "./relations.js";
+import { createSearchService } from "./search.js";
+import { createTrashService } from "./trash.js";
 
 export { ServiceError } from "@linear-matti/shared";
-export type { DbHandle, ServiceContext, Tx } from "./context.js";
-export { allocateIssueNumber, ensureIssueKey } from "./issue-keys.js";
 export type { Attachment } from "./attachments.js";
 export type { Comment, CommentThread } from "./comments.js";
+export type { DbHandle, ServiceContext, Tx } from "./context.js";
+export { allocateIssueNumber, ensureIssueKey } from "./issue-keys.js";
+export { buildIssueListQuery } from "./issue-list.js";
+export type { Issue, IssueDetail, IssueUpdateHook } from "./issues.js";
+export { recordActivity, resolveIssue } from "./issues.js";
 export type { Label } from "./labels.js";
 export {
   attachLabels,
@@ -23,8 +28,10 @@ export {
   listIssueLabels,
   setIssueLabels,
 } from "./labels.js";
-export type { Issue, IssueDetail, IssueUpdateHook } from "./issues.js";
-export { buildIssueListQuery } from "./issue-list.js";
+export type { Milestone } from "./milestones.js";
+export type { Project } from "./projects.js";
+export type { IssueRelations, RelatedIssue } from "./relations.js";
+export type { SearchResult } from "./search.js";
 export {
   indexComment,
   indexIssue,
@@ -32,17 +39,25 @@ export {
   reindexIssues,
   removeFromSearchIndex,
 } from "./search-index.js";
-export type { SearchResult } from "./search.js";
-export { recordActivity, resolveIssue } from "./issues.js";
-export type { Milestone } from "./milestones.js";
-export type { Project } from "./projects.js";
-export type { IssueRelations, RelatedIssue } from "./relations.js";
+export type {
+  DeleteResult,
+  PurgeResult,
+  RestoreResult,
+  TrashItem,
+  TrashType,
+} from "./trash.js";
+export { softDeleteAttachment } from "./trash.js";
 
 /**
  * Builds the service container shared by REST and MCP. See context.ts for the
  * pattern and how to add a service.
  */
-export function createServices(options: { db: Db; defaultIssueKey: string }) {
+export function createServices(options: {
+  db: Db;
+  defaultIssueKey: string;
+  allowAgentPurge?: boolean;
+  storage?: AttachmentStorage;
+}) {
   const ctx = createServiceContext(options);
   return {
     projects: createProjectsService(ctx),
@@ -55,6 +70,7 @@ export function createServices(options: { db: Db; defaultIssueKey: string }) {
     relations: createRelationsService(ctx),
     comments: createCommentsService(ctx),
     labels: createLabelsService(ctx),
+    trash: createTrashService(ctx),
     attachments: createAttachmentsService(ctx),
     search: createSearchService(ctx),
   };

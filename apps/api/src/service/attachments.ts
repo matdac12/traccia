@@ -135,51 +135,7 @@ export function createAttachmentsService(ctx: ServiceContext) {
       return listIssueAttachments(ctx.db, resolveIssue(ctx.db, issueRef).id);
     },
 
-    /**
-     * Flags the row deleted and keeps the file. `deleted_batch` is a fresh id
-     * so a batch-aware restore treats this as a batch of one.
-     */
-    softDelete(actor: Actor, id: string): Attachment {
-      return ctx.write((tx) => {
-        const row = findRecord(tx, id);
-        if (!row || row.deletedAt !== null) throw notFound(id);
-        const now = nowIso();
-        const updated = tx
-          .update(attachments)
-          .set({ deletedAt: now, deletedBatch: newId() })
-          .where(eq(attachments.id, id))
-          .returning()
-          .get();
-        recordActivity(
-          tx,
-          row.issueId,
-          actor,
-          "attachment_deleted",
-          { attachmentId: id, filename: row.filename },
-          now,
-        );
-        return toAttachment(updated);
-      });
-    },
-
-    /**
-     * Removes the row of an already deleted attachment and returns its record
-     * so the caller can delete the file. A live attachment is a `conflict`.
-     */
-    purge(id: string): AttachmentRecord {
-      return ctx.write((tx) => {
-        const row = findRecord(tx, id);
-        if (!row) throw notFound(id);
-        if (row.deletedAt === null) {
-          throw new ServiceError(
-            "conflict",
-            "Attachment must be deleted before it can be purged",
-          );
-        }
-        tx.delete(attachments).where(eq(attachments.id, id)).run();
-        return row;
-      });
-    },
+    // Delete and purge live in trash.ts (`trash.delete` / `trash.purge`).
   };
 }
 
