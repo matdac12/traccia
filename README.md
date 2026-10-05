@@ -113,7 +113,14 @@ sudo tailscale serve --bg --https=443 --set-path=/healthz http://127.0.0.1:8787/
 tailscale serve status
 ```
 
-> These commands have not been run against `omni`. The flags match the CLI help of Tailscale 1.102.4, but the path mapping (a path is stripped unless the target repeats it, hence the repeated paths) must be checked on the real node during the deploy phase, as spec 3.1 says. Do not run `tailscale funnel`.
+> Verified on `omni` on 2026-10-05 (MAT-1727): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
+
+### Dashboard access check (verified)
+
+Allowlist format: the plain Tailscale login (an email address, e.g. `you@gmail.com`), comma-separated, compared case-insensitively. Checked on the real setup:
+
+- Through serve (443) from the Mac, an allowed login loads the dashboard with data.
+- Direct to `127.0.0.1:3000` on `omni` without the header: 403. With a non-allowed login in the header: 403. With an allowed login: the page is served (this is the accepted forging risk below).
 
 ## Backup and restore
 
@@ -123,7 +130,7 @@ A daily SQLite snapshot on the VPS (`tracker db snapshot`, last 3 kept), a manua
 
 - **Tailnet only.** Nothing listens on a public interface and Funnel stays off. Tailscale ACLs decide which devices reach `omni`; bearer tokens decide which actor is calling. Both stay on.
 - **Tokens.** Create one per machine or agent. A token is bound to one actor, stored hashed (SHA-256), and shown once at creation. Revocation is immediate. There is no public token endpoint; tokens are managed with the CLI on the VPS.
-- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk:** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
+- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the MAT-1727 check):** another process on `omni` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
 - **Agent purge** is disabled by default (`ALLOW_AGENT_PURGE=false`); deletes by agents are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
 - Attachment uploads are validated by magic bytes and size, and the MCP `sourceUrl` fetch goes through an SSRF blocklist.
 
