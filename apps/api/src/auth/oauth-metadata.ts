@@ -4,7 +4,7 @@ import type { AppEnv } from "../rest/env.js";
 const PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource";
 const AUTHORIZATION_SERVER_PATH = "/.well-known/oauth-authorization-server";
 
-/** Everything advertised here derives from `BASE_URL`; nothing is hard-coded. */
+/** Everything advertised here derives from `OAUTH_PUBLIC_URL`, or `BASE_URL` when that is unset; nothing is hard-coded. */
 export function oauthUrls(baseUrl: string) {
   const base = baseUrl.replace(/\/+$/, "");
   return {

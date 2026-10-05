@@ -48,6 +48,36 @@ describe("OAuth discovery metadata", () => {
     );
   });
 
+  describe("with OAUTH_PUBLIC_URL set", () => {
+    const PUBLIC = "https://traccia.example.ts.net:8443";
+    const env = { BASE_URL: BASE, OAUTH_PUBLIC_URL: `${PUBLIC}/` };
+
+    it("advertises it in both metadata documents", async () => {
+      const { app } = createTestApp(env);
+      const pr = await app.request("/.well-known/oauth-protected-resource");
+      expect(await pr.json()).toEqual({
+        resource: `${PUBLIC}/mcp`,
+        authorization_servers: [PUBLIC],
+        bearer_methods_supported: ["header"],
+      });
+      const as = await app.request("/.well-known/oauth-authorization-server");
+      expect(await as.json()).toMatchObject({
+        issuer: PUBLIC,
+        authorization_endpoint: `${PUBLIC}/authorize`,
+        token_endpoint: `${PUBLIC}/token`,
+        registration_endpoint: `${PUBLIC}/register`,
+      });
+    });
+
+    it("uses it in the /mcp challenge", async () => {
+      const { app } = createTestApp(env);
+      const res = await app.request("/mcp", { method: "POST", body: "{}" });
+      expect(res.headers.get("www-authenticate")).toBe(
+        `Bearer resource_metadata="${PUBLIC}/.well-known/oauth-protected-resource"`,
+      );
+    });
+  });
+
   it("leaves static bearer tokens working on /mcp and /v1", async () => {
     const { app, db } = createTestApp({ BASE_URL: BASE });
     const { token } = createToken(db, { name: "t", actor: "agent" });
