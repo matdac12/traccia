@@ -19,9 +19,12 @@ export function requireAuth(options: {
   verify: VerifyCredential;
   db: Db;
   rateLimitPerMin: number;
+  /** Budget for `you` tokens (the dashboard fans out several requests per page). Defaults to `rateLimitPerMin`. */
+  rateLimitYouPerMin?: number;
 }): MiddlewareHandler<AppEnv> {
   const { verify, db } = options;
   const limiter = new RateLimiter(options.rateLimitPerMin);
+  const youLimiter = new RateLimiter(options.rateLimitYouPerMin ?? options.rateLimitPerMin);
   const lastWrite = new Map<string, number>();
 
   return async (c, next) => {
@@ -29,7 +32,10 @@ export function requireAuth(options: {
     if (!credential) throw new UnauthorizedError();
 
     const now = Date.now();
-    const retryAfter = limiter.hit(credential.tokenId, now);
+    const retryAfter = (credential.actor === "you" ? youLimiter : limiter).hit(
+      credential.tokenId,
+      now,
+    );
     if (retryAfter !== null) {
       c.header("Retry-After", String(retryAfter));
       throw new RateLimitedError("Rate limit exceeded", { retryAfter });

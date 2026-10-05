@@ -90,6 +90,7 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key prefix for new projects |
 | `ALLOW_AGENT_PURGE` | api | `false` | Whether agent tokens may purge |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Per token |
+| `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Per `you` token (dashboard) |
 | `LOG_LEVEL` | api | `info` | |
 | `TRUST_PROXY` | api | `true` | Read client IP from `X-Forwarded-For` |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |

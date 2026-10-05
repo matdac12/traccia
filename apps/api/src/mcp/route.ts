@@ -51,6 +51,7 @@ export function createMcpRoute(
       verify: createBearerVerifier(db),
       db,
       rateLimitPerMin: config.rateLimitPerMin,
+      rateLimitYouPerMin: config.rateLimitYouPerMin,
     }),
     bodyLimit({
       maxSize: maxBytes,

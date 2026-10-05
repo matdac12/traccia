@@ -30,7 +30,12 @@ export type ApiClientConfig = {
   baseUrl: string;
   token: string;
   fetch?: typeof fetch;
+  /** Test seam for the 429 backoff. */
+  sleep?: (ms: number) => Promise<void>;
 };
+
+const MAX_RETRY_WAIT_MS = 5000;
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * Server-side client for the Traccia REST API, authenticated with the dashboard's `you`
@@ -38,7 +43,17 @@ export type ApiClientConfig = {
  * the token cannot reach the browser. Use it from server components, server actions and
  * route handlers only (see README).
  */
-export function createApiClient({ baseUrl, token, fetch: doFetch = fetch }: ApiClientConfig) {
+export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep = defaultSleep }: ApiClientConfig) {
+  /** One retry on a 429, waiting `Retry-After` (capped) so a burst of page loads degrades to a short delay. */
+  const doFetch: typeof fetch = async (input, init) => {
+    const res = await rawFetch(input, init);
+    // Safe for writes too: the API rejects before running the handler.
+    if (res.status !== 429) return res;
+    const seconds = Number(res.headers.get("retry-after"));
+    await sleep(Math.min(Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000, MAX_RETRY_WAIT_MS));
+    return rawFetch(input, init);
+  };
+
   async function request<S extends z.ZodType>(
     path: string,
     { schema, method = "GET", query, body, ifMatch, signal }: RequestOptions<S>,
