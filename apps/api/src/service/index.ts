@@ -7,6 +7,7 @@ import { createIssuePositionService } from "./issue-position.js";
 import { createIssuesService } from "./issues.js";
 import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
+import { createSearchService } from "./search.js";
 import { createRelationsService } from "./relations.js";
 
 export { ServiceError } from "@linear-matti/shared";
@@ -22,6 +23,14 @@ export {
 } from "./labels.js";
 export type { Issue, IssueDetail, IssueUpdateHook } from "./issues.js";
 export { buildIssueListQuery } from "./issue-list.js";
+export {
+  indexComment,
+  indexIssue,
+  rebuildSearchIndex,
+  reindexIssues,
+  removeFromSearchIndex,
+} from "./search-index.js";
+export type { SearchResult } from "./search.js";
 export { recordActivity, resolveIssue } from "./issues.js";
 export type { Milestone } from "./milestones.js";
 export type { Project } from "./projects.js";
@@ -44,6 +53,7 @@ export function createServices(options: { db: Db; defaultIssueKey: string }) {
     relations: createRelationsService(ctx),
     comments: createCommentsService(ctx),
     labels: createLabelsService(ctx),
+    search: createSearchService(ctx),
   };
 }
 

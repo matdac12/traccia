@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { ConfigError, loadConfig, loadConfigFromEnv } from "../config.js";
 import { type Db, databasePath, openDatabase } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
+import { rebuildSearchIndex } from "../service/search-index.js";
 import { SnapshotError, takeSnapshot } from "../db/snapshot.js";
 import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
 
@@ -13,9 +14,12 @@ type Env = Record<string, string | undefined>;
 
 const DB_USAGE = `Usage:
   tracker db migrate
+  tracker db reindex
   tracker db snapshot [--out <dir>] [--keep <n>]
 
 migrate   Applies pending database migrations.
+reindex   Rebuilds the full-text search index from the issues and comments
+          tables (soft-deleted rows excluded). Idempotent.
 snapshot  Writes a consistent online snapshot tracker-<UTC timestamp>.db to
           --out (default: $DATA_DIR/backups), runs PRAGMA integrity_check on it,
           and deletes all but the newest --keep (default 3) snapshots there.
@@ -23,6 +27,7 @@ snapshot  Writes a consistent online snapshot tracker-<UTC timestamp>.db to
 
 const USAGE = `Usage:
   tracker db migrate
+  tracker db reindex
   tracker db snapshot [--out <dir>] [--keep <n>]
   tracker token create --name <name> --actor agent|you
   tracker token list
@@ -54,6 +59,15 @@ export async function runCli(
     if (group === "db" && command === "migrate") {
       withDb(env, (db) => runMigrations(db));
       out("migrations up to date");
+      return 0;
+    }
+    if (group === "db" && command === "reindex") {
+      withDb(env, (db) => {
+        const n = db.transaction((tx) => rebuildSearchIndex(tx), {
+          behavior: "immediate",
+        });
+        out(`search index rebuilt: ${n.issues} issues, ${n.comments} comments`);
+      });
       return 0;
     }
     if (group === "db" && command === "snapshot") {
