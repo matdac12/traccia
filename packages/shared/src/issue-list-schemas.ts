@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ACTORS } from "./enums.js";
 import { actorSchema, issueStatusSchema, prioritySchema } from "./schemas.js";
 
-// Input schemas for issue listing and Kanban position (MAT-1700).
+// Input schemas for issue listing and Kanban position (TRC-26).
 
 export const ISSUE_ORDER_BYS = [
   "updatedAt",

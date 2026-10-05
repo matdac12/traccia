@@ -72,8 +72,8 @@ function Shell({ children }: { children: React.ReactNode }) {
             <span className="truncate">{lastAgentEvent ?? "Agents connected"}</span>
           </div>
           <div className="flex items-center gap-2 px-1">
-            <div className="grid size-5 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">M</div>
-            <span className="text-[12px] text-sidebar-foreground">Mattia</span>
+            <div className="grid size-5 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">Y</div>
+            <span className="text-[12px] text-sidebar-foreground">You</span>
             <Button variant="ghost" size="icon" className="ml-auto size-6" onClick={() => setTheme(theme === "dark" ? "light" : "dark")} aria-label="Toggle theme">
               {mounted && theme === "light" ? <Moon className="size-3.5" /> : <Sun className="size-3.5" />}
             </Button>

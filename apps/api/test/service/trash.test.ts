@@ -286,7 +286,7 @@ describe("restore", () => {
   });
 });
 
-describe("change probe (MAT-1765)", () => {
+describe("change probe (TRC-90)", () => {
   // The dashboard polls `updatedAfter` + `includeDeleted`, newest updatedAt first.
   const probe = (s: Awaited<ReturnType<typeof setup>>, since: string) =>
     s.services.issues.list({

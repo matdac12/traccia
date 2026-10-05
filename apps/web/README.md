@@ -2,7 +2,7 @@
 
 Next.js 16 (App Router, React 19, TypeScript strict), Tailwind 4, shadcn/ui, `output: "standalone"`. It runs on `<your-server>`
 behind `tailscale serve` (ADR 0007) and talks to `apps/api` over the compose network. The look is the approved
-"Linear-calm" prototype in `prototypes/dashboard` (MAT-1686): re-implement from it, never import it.
+"Linear-calm" prototype in `prototypes/dashboard` (TRC-12): re-implement from it, never import it.
 
 ## Run
 
@@ -34,7 +34,7 @@ Scripts: `pnpm dev`, `pnpm build`, `pnpm typecheck`, `pnpm test`, `pnpm test:e2e
 Dev and build use `--webpack` because `packages/shared` imports siblings as `./x.js` (NodeNext style) and Turbopack
 cannot map that to `.ts` yet.
 
-**HMR in headless browsers (MAT-1760):** Next handles the `/_next/webpack-hmr` websocket upgrade in its HTTP server, not
+**HMR in headless browsers (TRC-85):** Next handles the `/_next/webpack-hmr` websocket upgrade in its HTTP server, not
 through `proxy.ts`, so the access check should not see it and no exclusion was added. The QA report
 (`ERR_INVALID_HTTP_RESPONSE`) is unconfirmed; I could not tell whether `DASHBOARD_DEV_LOGIN` was set. For `pnpm dev`
 set it, or test against `next build` + `next start` with the `Tailscale-User-Login` header. Reopen if it still fails
@@ -63,7 +63,7 @@ names and the token value; run it before changing anything around the client.
 - Failures throw `ApiError` (`status`, `code`, `details`). `code` is the API's error code (`not_found`, `conflict`,
   `validation_error`, ...) or `unreachable`, `bad_response`. For a stale write, `conflict` carries
   `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft. The project header (`components/project/project-title.tsx`, `project-delete.tsx`) renames inline (the key is read-only, ADR 0002) and soft-deletes with an Undo notice; delete deliberately does not revalidate, because re-rendering the deleted project's page would 404 over the notice (same as issue delete).
-- **Request budget (MAT-1761):** `/issues` loads in three API requests: `GET /issues/groups` (one page per status plus the `syncToken`), `GET /projects?include=milestones` and `GET /labels`. `listProjects` is wrapped in React `cache`, so the layout's sidebar and the page share one fetch per render. The live refresh (`refreshIssueGroups`) is one `/issues/groups` request, plus follow-ups only for groups whose "load more" was opened. "Load more" on a single group still uses `GET /issues`. The project sub-routes (TRC-97) share one `GET /projects/:id` between layout and page (`getProject` is `cache`d); on top of it Overview adds milestones and labels, Activity adds `/activity?project=`, milestones and the project list (for names), Issues adds milestones, labels, the groups (or board columns) and the project list.
+- **Request budget (TRC-86):** `/issues` loads in three API requests: `GET /issues/groups` (one page per status plus the `syncToken`), `GET /projects?include=milestones` and `GET /labels`. `listProjects` is wrapped in React `cache`, so the layout's sidebar and the page share one fetch per render. The live refresh (`refreshIssueGroups`) is one `/issues/groups` request, plus follow-ups only for groups whose "load more" was opened. "Load more" on a single group still uses `GET /issues`. The project sub-routes (TRC-97) share one `GET /projects/:id` between layout and page (`getProject` is `cache`d); on top of it Overview adds milestones and labels, Activity adds `/activity?project=`, milestones and the project list (for names), Issues adds milestones, labels, the groups (or board columns) and the project list.
 - Lists return `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
 - Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId?, expectedUpdatedAt? }` (the board sends the card's `updatedAt`; a 409 rolls the move back); a column is (project, status).
   `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified
@@ -92,7 +92,7 @@ names and the token value; run it before changing anything around the client.
   the agent mark.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
-  them. A selectable accent (MAT-1731) only has to override those three on `<html>`. Status colors (`--st-*`)
+  them. A selectable accent (TRC-57) only has to override those three on `<html>`. Status colors (`--st-*`)
   and the agent color (`--agent`, cyan) are fixed and must not follow the accent.
 - **Collapsible sidebar (TRC-98).** On desktop (>= 768 px) the sidebar in `components/traccia/app-shell.tsx` collapses to a 48 px icon rail (button in its header, or Cmd/Ctrl+B outside text fields and open dialogs/menus) and expands again. The choice is the `traccia_sidebar` cookie (`lib/sidebar-state.ts`); the `(app)` layout reads it and passes `defaultCollapsed`, so the first paint already has the right width. The rail keeps every control and its accessible name (labels become `sr-only`) and shows a tooltip per icon. The mobile drawer always renders the full list and ignores the choice. It is a small extension of the existing shell, not a port of the prototype's shadcn `Sidebar`.
 - Theme: `next-themes`, system by default, toggle in the sidebar footer (System / Light / Dark).
@@ -113,7 +113,7 @@ lib/session.ts         current login for display
 app/(app)/             shell layout + pages (issues, projects, trash)
 components/ui/         shadcn primitives
 components/traccia/    app components
-components/issue-detail/  issue page (MAT-1721); lib/issue-detail/ holds its pure helpers
+components/issue-detail/  issue page (TRC-47); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
 e2e/                   Playwright smoke tests (support/ boots the API + dashboard)
@@ -134,12 +134,12 @@ Project server actions revalidate `/projects/<id>` with type `"layout"` so the h
   description and target date; the name links to `/projects/<id>/issues?milestone=<id>`; Edit/Delete show on hover or focus and always on touch).
   Dot semantics: not started = nothing done or no issues, in progress = partly done, done = all done (`milestoneState`). Right rail: `ProgressSummary`
   (all milestone issues rolled up; issues outside a milestone are not counted) and labels.
-- **Issues** is the shared `IssuesView` (MAT-1720) locked to the project (`lockProject`), table and board, with filters in this page's URL.
+- **Issues** is the shared `IssuesView` (TRC-46) locked to the project (`lockProject`), table and board, with filters in this page's URL.
 - **Activity** is `GET /v1/activity?project=` (id, name or key), newest first, with "Load more" through `loadMoreActivityAction`. It does not live-refresh.
 - Panels in `components/project/*` are client components that call the server actions in
   `app/(app)/projects/[id]/actions.ts` (validate with the shared Zod schema, call `lib/api`, `revalidatePath`).
   Actions return `ActionResult` (`lib/action-result.ts`): `{ ok, data }` or `{ error, fieldErrors }` for inline errors.
-- **List filters and display (MAT-1758).** `lib/issue-filters.ts` holds all list state in the URL: `status` (repeatable, empty = all; the table and the board only fetch the chosen statuses), `group` (`status` default, `none`, `priority`, `assignee`, `project`, `milestone`; table only) and `sort` (now also `title`). Any grouping other than status pools the rows loaded so far (per-status pages) and re-sorts them client-side (`group-rows.ts`), with one "Load more" per status below. Sub-issue markers (parent identifier, finished/total) are computed from the loaded rows only. Estimate is not sortable yet (nullable cursor in the API).
+- **List filters and display (TRC-83).** `lib/issue-filters.ts` holds all list state in the URL: `status` (repeatable, empty = all; the table and the board only fetch the chosen statuses), `group` (`status` default, `none`, `priority`, `assignee`, `project`, `milestone`; table only) and `sort` (now also `title`). Any grouping other than status pools the rows loaded so far (per-status pages) and re-sorts them client-side (`group-rows.ts`), with one "Load more" per status below. Sub-issue markers (parent identifier, finished/total) are computed from the loaded rows only. Estimate is not sortable yet (nullable cursor in the API).
 - `components/create-issue/` is reusable: `CreateIssueProvider` (mounted in the `(app)` layout) exposes
   `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project
   through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only
@@ -147,7 +147,7 @@ Project server actions revalidate `/projects/<id>` with type `"layout"` so the h
 - `components/project/new-project-button.tsx` is the "New project" dialog (projects page header and the sidebar's Projects "+"). `createProjectAction` (`app/(app)/projects/actions.ts`) omits the key (shared, ADR 0002), revalidates the layout so the sidebar updates, and the dialog navigates to the new project.
 - Labels are managed on the project page (project-scoped or global). Deleting a label is permanent and dashboard-only.
 
-## Issue detail (`/issues/[identifier]`, MAT-1721)
+## Issue detail (`/issues/[identifier]`, TRC-47)
 
 `app/(app)/issues/[identifier]/` (page + `actions.ts`) and `components/issue-detail/`. The page fetches the issue with
 `?include=comments,activity,attachments,children,relations`. Every edit is a server action that sends the issue's
@@ -157,7 +157,7 @@ Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + r
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
 
-## Browser smoke tests (`pnpm test:e2e`, MAT-1736)
+## Browser smoke tests (`pnpm test:e2e`, TRC-61)
 
 Playwright (headless Chromium) clicks through the real dashboard. `pnpm test` stays fast and does not run it.
 
@@ -186,7 +186,7 @@ comparison).
 `next dev` serves HTML before React hydrates, so `visit()` waits for hydration (reloading if the bundle came out
 half-compiled) before a test clicks. Failure traces and screenshots land in `e2e/.results/` (git-ignored).
 
-## Inline edit (table rows and board cards, MAT-1753)
+## Inline edit (table rows and board cards, TRC-78)
 
 `components/inline-edit/`: `StatusPicker`, `PriorityPicker`, `AssigneePicker`, `LabelsPicker` (dropdowns, same options as the detail panel) and
 `useInlineEdit`, which saves through the detail page's `updateIssueAction` with the row's `updatedAt` as `If-Match`. The change shows at once;
@@ -195,7 +195,7 @@ the fresh row). `upsertRow` puts the saved row back into the table groups or boa
 refused while a save is in flight. Table rows are a link overlay with the pickers above it; on cards the pickers stop key events so Space/Enter
 never starts a keyboard drag.
 
-## Issue context menu (table rows and board cards, MAT-1762)
+## Issue context menu (table rows and board cards, TRC-87)
 
 `components/issue-menu/`: `IssueContextMenu` wraps a row or card (it becomes the Radix context-menu trigger, so right-click, touch long-press and
 Shift+F10 / the context-menu key on a focused child work) and `IssueMenuButton` is the "..." button, which dispatches a `contextmenu` event so there is
@@ -205,7 +205,7 @@ Set parent uses `IssuePicker`, Add sub-issue calls `createSubIssueAction`. Delet
 restores it, notice offers Undo). The menu, submenus and dialogs stop key and pointer events from reaching a board card's drag listeners.
 Not done: single-key shortcuts (S/P/A/L) on a focused row.
 
-## Board polish (MAT-1760)
+## Board polish (TRC-85)
 
 A board card opens its issue on a click anywhere on it except its own controls (links, buttons, pickers, the "..." menu, and anything rendered in a portal); a click that ends a drag or selects text is ignored, and Cmd/Ctrl/Shift-click opens a new tab. Each column header has a "+" that opens the create dialog with that status (and the project, on a project page); it uses `useOptionalCreateIssue`, so a board rendered outside the provider simply has no "+". A fade on the right edge shows when columns are scrolled out of view. Trash folds an issue's comments and attachments deleted in the same batch into the issue's row (`groupedRows`), except when the list is filtered to one type.
 
@@ -214,7 +214,7 @@ A board card opens its issue on a click anywhere on it except its own controls (
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t traccia-web:latest .` from the repo
 root; the image runs `node apps/web/server.js` (standalone). Env comes from compose (`deploy/docker-compose.yml`).
 
-## Files (attachments, MAT-1725)
+## Files (attachments, TRC-51)
 
 The browser has no token, so files go through two route handlers (both covered by `proxy.ts`, both streaming, nothing buffered):
 `GET|HEAD /api/files/[id]` (from `GET /v1/files/:id`; passes `Content-Type`, `Content-Disposition`, `Content-Length`,

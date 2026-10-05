@@ -36,7 +36,7 @@ export function IssuesTable({
   const [loading, setLoading] = useState<Set<IssueStatus>>(new Set());
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
-  // Live refresh (MAT-1726): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
+  // Live refresh (TRC-52): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
   const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => upsertRow(gs, row)) });
   const editor = { edit: inline.edit, labels };
   const del = useIssueDelete({ onRemove: (row) => setGroups((gs) => removeRow(gs, row.id)), onRestore: (row) => setGroups((gs) => insertRow(gs, row)) });

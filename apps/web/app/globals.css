@@ -4,12 +4,12 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * "Linear-calm" theme (approved in the MAT-1686 prototype). Neutral base, one accent,
+ * "Linear-calm" theme (approved in the TRC-12 prototype). Neutral base, one accent,
  * color only in status/priority/labels and the agent mark.
  *
  * ACCENT: the accent is driven by three variables only (--brand, --brand-foreground,
  * --brand-ring). Everything accent-colored (primary, ring, sidebar-primary) derives from
- * them, so a selectable accent (MAT-1731) overrides just these on <html>. Status and
+ * them, so a selectable accent (TRC-57) overrides just these on <html>. Status and
  * agent colors (--st-*, --agent) stay fixed so they never clash with the accent.
  */
 :root {

@@ -1,7 +1,7 @@
-# Dashboard prototype (MAT-1686)
+# Dashboard prototype (TRC-12)
 
 **Throwaway, approved design reference.** Clickable Next.js prototype with mock data and in-memory state. It is
-not part of the pnpm workspace and is not wired to `apps/api` or `apps/web`. The build tickets (MAT-1719 to MAT-1726)
+not part of the pnpm workspace and is not wired to `apps/api` or `apps/web`. The build tickets (TRC-45 to TRC-52)
 follow it for layout, components and look and feel; they re-implement it against the real API, they do not import it.
 
 ## Run
@@ -27,7 +27,7 @@ To open the dev server from another machine (for example over a tailnet), set `D
 | sidebar sun/moon | Dark and light themes (dark default) |
 
 A fake agent moves an issue forward every 12 s to show agent attribution and the live-update flash that the real
-polling (MAT-1726) should reproduce.
+polling (TRC-52) should reproduce.
 
 ## Design decisions
 

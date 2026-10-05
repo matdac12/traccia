@@ -1,8 +1,8 @@
 # Traccia (formerly "Tracker"): a minimal self-hosted Linear replacement for solo dev + agents
 
 Status: draft v0.1 (spec phase)
-Owner: Mattia
-Audience: Mattia, and the coding agents that will build it. Written so an agent can build from it phase by phase.
+Owner: the project owner
+Audience: the project owner, and the coding agents that will build it. Written so an agent can build from it phase by phase.
 
 ---
 
@@ -103,9 +103,9 @@ Principles:
 
 ## 4. Prerequisites (do before any build work)
 
-1. **Add a 4 GB swapfile on the VPS** (decided). The box has no swap and about 1.9 GiB available; any spike invokes the OOM killer. This is the one change to the shared VPS and needs Mattia's explicit go-ahead when it is done.
+1. **Add a 4 GB swapfile on the VPS** (decided). The box has no swap and about 1.9 GiB available; any spike invokes the OOM killer. This is the one change to the shared VPS and needs the owner's explicit go-ahead when it is done.
 2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built on the dev Mac (linux/amd64), using Next.js `output: 'standalone'` for the dashboard, and loaded onto the VPS over the tailnet. The VPS only runs `node server.js` inside the containers. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
-3. **VPS inspection (DONE, 2026-10-04).** `<your-server>`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only `postgres-omni`; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
+3. **VPS inspection (DONE, 2026-10-04).** `<your-server>`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only a Postgres container; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
 4. **No Tailscale ACL tag** in v1 (see 3.1).
 
 Expected steady-state memory: backend roughly 80-150 MB; dashboard (`next start`) roughly 200-400 MB. Total about 0.3-0.55 GB, which fits the headroom only with the swapfile in place. If memory gets tight, fall back to serving a static dashboard build from the Hono service (no Next server).
@@ -539,7 +539,7 @@ Linear / Vercel / Resend / shadcn vibes as the baseline: dense but calm, neutral
 
 ### 12.4 Dedicated design phase (before building the real UI)
 The dashboard should be "impeccable and exactly as wanted", so design happens **before** implementation:
-1. Collect reference repos and screenshots (Mattia's picks).
+1. Collect reference repos and screenshots (the owner's picks).
 2. Optional: a survey of existing open-source Linear clones on GitHub (stack, data model, UI patterns worth borrowing, licenses). Run when requested; findings get appended to this spec.
 3. Build clickable prototypes (static or mock-data Next.js pages) for: table grouped by status, Kanban, issue detail, project page, and the toggle behavior.
 4. Review and iterate until approved.
@@ -582,7 +582,7 @@ Hostname: the default is the node's MagicDNS name (`<node>.<tailnet>.ts.net`), s
 ## 14. Deployment and backups
 
 ### 14.1 Deployment (decided)
-Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existing `/opt/postgres-omni/docker-compose.yml`:
+Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existing Postgres stack's `/opt/postgres/docker-compose.yml`:
 - Two services: `api` (Hono, port 8787) and `web` (Next.js standalone, port 3000), both bound to localhost, never to a public interface. `restart: unless-stopped`.
 - `tailscale serve` is the only publisher (3.1), on port 443.
 - Single data directory (`/data` volume), config from env vars.

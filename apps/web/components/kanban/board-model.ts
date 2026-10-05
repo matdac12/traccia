@@ -4,7 +4,7 @@ import type { IssueRow } from "@/lib/api/schemas";
 /**
  * Pure model of the Kanban board: what the columns hold, and what to tell the API after a drop.
  * Position is never computed here. The service owns fractional ordering and rebalancing, so a move is
- * described by neighbour ids only (MAT-1700 `issues.move`).
+ * described by neighbour ids only (TRC-26 `issues.move`).
  */
 
 export type BoardColumn = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };

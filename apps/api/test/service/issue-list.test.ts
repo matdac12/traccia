@@ -213,7 +213,7 @@ describe("listGroups", () => {
     const b = create({ title: "b" });
     await new Promise((r) => setTimeout(r, 5));
     await services.trash.delete("you", "issue", b.id);
-    // The delete itself bumps updatedAt, so the token moves past `b`'s creation (MAT-1765).
+    // The delete itself bumps updatedAt, so the token moves past `b`'s creation (TRC-90).
     const token = services.issues.listGroups().syncToken;
     expect(token > b.updatedAt).toBe(true);
     expect(services.issues.latestChange(b.updatedAt)).toBe(token);

@@ -6,7 +6,7 @@ import {
 } from "./issue-list-schemas.js";
 import { ISSUE_INCLUDES, updateIssueInputSchema } from "./schemas.js";
 
-// Query/body schemas for the issue REST routes (MAT-1706). Query strings
+// Query/body schemas for the issue REST routes (TRC-32). Query strings
 // arrive as text, so numbers and booleans are coerced here; everything else
 // reuses the service-layer schemas.
 

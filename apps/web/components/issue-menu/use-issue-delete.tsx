@@ -11,7 +11,7 @@ type State = { issue: IssueRow; error?: string };
 const without = (list: State[], issue: IssueRow) => list.filter((x) => x.issue.id !== issue.id);
 
 /**
- * Soft delete from a list or board (MAT-1762): the row leaves at once, a failure puts it back, and the notice
+ * Soft delete from a list or board (TRC-87): the row leaves at once, a failure puts it back, and the notice
  * offers Undo (restore from Trash) until dismissed. Lives above the rows, so it survives the row unmounting.
  */
 export function useIssueDelete({ onRemove, onRestore, remove = deleteIssueAction, restore = restoreIssueAction }: {

@@ -174,7 +174,7 @@ export async function searchIssuesAction(query: string): Promise<ActionResult<{ 
   }
 }
 
-// Attachments (MAT-1725). Uploads go through the streaming route handler at
+// Attachments (TRC-51). Uploads go through the streaming route handler at
 // `/api/issues/[identifier]/attachments`; delete and undo are plain actions.
 
 export async function deleteAttachmentAction(identifier: string, id: string): Promise<ActionResult> {

@@ -17,7 +17,7 @@ import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-tab
 
 export type IssuesData = {
   groups: IssueGroup[]; projects: Project[]; labels: Label[]; milestones: Milestone[];
-  /** Newest `updatedAt` seen before `groups` were read (MAT-1726): where the live refresh starts from. */
+  /** Newest `updatedAt` seen before `groups` were read (TRC-52): where the live refresh starts from. */
   syncToken?: string | null;
 };
 

@@ -29,9 +29,9 @@ import {
 
 export type BoardProps = {
   columns: BoardColumn[];
-  /** Labels a card can be given inline (MAT-1753). */
+  /** Labels a card can be given inline (TRC-78). */
   labels?: Label[];
-  /** For the card menu's Project and Milestone submenus (MAT-1762). */
+  /** For the card menu's Project and Milestone submenus (TRC-87). */
   projects?: Project[];
   milestones?: Milestone[];
   /** The project a column's "+" creates in when the board is scoped to one (project page). */
@@ -40,7 +40,7 @@ export type BoardProps = {
   query: string;
   /** Injectable for tests; defaults to the server actions. */
   move?: (request: MoveRequest) => Promise<MoveResult>;
-  /** Live refresh (MAT-1726): the poll registers here. */
+  /** Live refresh (TRC-52): the poll registers here. */
   register?: (a: GroupsApplier | null) => void;
   loadMore?: (input: { query: string; status: IssueStatus; cursor: string }) => Promise<{ items: IssueRow[]; nextCursor: string | null }>;
 };

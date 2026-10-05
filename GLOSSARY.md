@@ -22,7 +22,7 @@ _Avoid_: user, author, member
 
 **`you`**:
 The actor for the human owner, including the dashboard's own token.
-_Avoid_: user, human, Mattia (in code and docs)
+_Avoid_: user, human, the owner's name (in code and docs)
 
 **`agent`**:
 The single actor shared by all AI agents. Named agents are a later extension.

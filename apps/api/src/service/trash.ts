@@ -56,13 +56,13 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  * activity of purged issues and project-scoped labels, as foreign keys require.
  *
  * Other services never stamp `deleted_at` themselves. To delete an
- * attachment (MAT-1703) call `trash.delete(actor, "attachment", id)` from
+ * attachment (TRC-29) call `trash.delete(actor, "attachment", id)` from
  * the transport, or `softDeleteAttachment(tx, actor, id)` to join a larger
  * transaction. Files stay on disk until the row is purged.
  *
  * Delete and restore also set `updated_at` on projects, milestones, issues and
  * comments (attachments have no such column), so `updatedAfter` change probes
- * such as the dashboard's live refresh see them (MAT-1765). A stale
+ * such as the dashboard's live refresh see them (TRC-90). A stale
  * `expectedUpdatedAt` therefore conflicts after a delete + restore, by design.
  *
  * Purge is a separate second step: only on already-deleted items, only if

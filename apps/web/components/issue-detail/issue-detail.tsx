@@ -54,7 +54,7 @@ export function IssueDetail(props: IssueDetailProps) {
   const issueRef = useRef(issue);
   issueRef.current = issue;
 
-  // Live refresh (MAT-1726). Fields the user may be editing (title, description, a save in flight) are never
+  // Live refresh (TRC-52). Fields the user may be editing (title, description, a save in flight) are never
   // overwritten: a newer server copy waits in `stale` behind an "updated, reload" banner. Comments, activity
   // and attachments cannot clash with a draft, so they always update.
   const dirty = useRef(new Set<string>());

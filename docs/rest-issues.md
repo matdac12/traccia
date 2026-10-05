@@ -31,4 +31,4 @@ All routes live under `/v1` and need a bearer token; every write is stamped with
 
 ## Trash
 
-`GET /v1/trash?type=&limit=&cursor=`: deleted items of every type, newest deletion first. Generic `POST /v1/restore` belongs to MAT-1705.
+`GET /v1/trash?type=&limit=&cursor=`: deleted items of every type, newest deletion first. Generic `POST /v1/restore` belongs to TRC-31.

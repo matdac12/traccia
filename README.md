@@ -15,7 +15,7 @@ The product is called Traccia, and so are the CLI (`traccia`), the MCP server, t
 
 **Not in v1**: teams, multiple users, permissions, cycles, documents, custom statuses or fields, notifications, integrations, time tracking, roadmaps, real-time collaboration, mobile app. See spec sections 1 and 17.
 
-**Status**: the api (REST, MCP, attachments), the deploy tooling and the backup tooling are in place. The dashboard (`apps/web`) is still a placeholder; it is being built (MAT-1719).
+**Status**: the api (REST, MCP, attachments), the deploy tooling and the backup tooling are in place. The dashboard (`apps/web`) is still a placeholder; it is being built (TRC-45).
 
 ## Architecture
 
@@ -116,7 +116,7 @@ sudo tailscale serve --bg --https=443 --set-path=/healthz http://127.0.0.1:8787/
 tailscale serve status
 ```
 
-> Verified on `<your-server>` on 2026-10-05 (MAT-1727): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
+> Verified on `<your-server>` on 2026-10-05 (TRC-53): `tailscale serve status` lists the five mappings above, each path proxies to its own backend, and `tailscale funnel status` shows tailnet only. Do not run `tailscale funnel`.
 
 ### Dashboard access check (verified)
 
@@ -127,13 +127,13 @@ Allowlist format: the plain Tailscale login (an email address, e.g. `you@gmail.c
 
 ## Backup and restore
 
-A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has been run for real (MAT-1716) and the restore procedure has been exercised from a pulled copy (MAT-1729).
+A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has been run for real (TRC-42) and the restore procedure has been exercised from a pulled copy (TRC-55).
 
 ## Security notes
 
 - **Tailnet only.** Nothing listens on a public interface and Funnel stays off. Tailscale ACLs decide which devices reach `<your-server>`; bearer tokens decide which actor is calling. Both stay on.
 - **Tokens.** Create one per machine or agent. A token is bound to one actor, stored hashed (SHA-256), and shown once at creation. Revocation is immediate. There is no public token endpoint; tokens are managed with the CLI on the VPS.
-- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the MAT-1727 check):** another process on `<your-server>` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
+- **Dashboard access** compares the `Tailscale-User-Login` header, added by `tailscale serve`, with `DASHBOARD_ALLOWED_LOGINS` ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). **Accepted risk (acknowledged after the TRC-53 check):** another process on `<your-server>` could forge that header by calling `127.0.0.1:3000` directly. Revisit if the host ever runs third-party code.
 - **Agent purge** is disabled by default (`ALLOW_AGENT_PURGE=false`); deletes by agents are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
 - Attachment uploads are validated by magic bytes and size, and the MCP `sourceUrl` fetch goes through an SSRF blocklist.
 

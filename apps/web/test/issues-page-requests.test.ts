@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiClient } from "../lib/api/client";
 
-// MAT-1761: a /issues load is at most three API requests, the layout's sidebar included.
+// TRC-86: a /issues load is at most three API requests, the layout's sidebar included.
 const fetchMock = vi.fn();
 vi.mock("../lib/api/client", async (orig) => {
   const mod = await orig<typeof import("../lib/api/client")>();
