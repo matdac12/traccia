@@ -1,4 +1,13 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { spawn } from "node:child_process";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -210,5 +219,177 @@ describe("tracker token", () => {
       await run(e, "token", "revoke", id),
     ];
     for (const r of others) expect(r.out + r.err).not.toContain(token);
+  });
+});
+
+describe("tracker db snapshot", () => {
+  async function run(e: ReturnType<typeof env>, ...argv: string[]) {
+    const out: string[] = [];
+    const errors: string[] = [];
+    const code = await runCli(
+      ["db", "snapshot", ...argv],
+      e,
+      (m) => errors.push(m),
+      (m) => out.push(m),
+    );
+    return { code, out: out.join("\n"), err: errors.join("\n") };
+  }
+
+  async function migrated() {
+    const e = env();
+    await runCli(
+      ["db", "migrate"],
+      e,
+      () => {},
+      () => {},
+    );
+    return e;
+  }
+
+  const snapshots = (dir: string) =>
+    readdirSync(dir)
+      .filter((f) => /^tracker-.*\.db$/.test(f))
+      .sort();
+
+  it("writes tracker-<UTC timestamp>.db to DATA_DIR/backups by default", async () => {
+    const e = await migrated();
+    const r = await run(e);
+    expect(r.code).toBe(0);
+    const files = snapshots(join(e.DATA_DIR, "backups"));
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/^tracker-\d{8}T\d{6}Z\.db$/);
+  });
+
+  it("opens cleanly with integrity_check ok and the migrated schema", async () => {
+    const e = await migrated();
+    await run(e);
+    const dir = join(e.DATA_DIR, "backups");
+    const copy = new Database(join(dir, snapshots(dir)[0] as string), {
+      readonly: true,
+    });
+    expect(copy.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    expect(
+      (
+        copy
+          .prepare("SELECT count(*) AS n FROM __drizzle_migrations")
+          .get() as {
+          n: number;
+        }
+      ).n,
+    ).toBe(migrationCount(e.DATA_DIR));
+    copy.close();
+  });
+
+  it("is consistent while another process writes in a loop", async () => {
+    const e = await migrated();
+    // A separate process commits two-row transactions as fast as it can, so
+    // writes genuinely overlap each snapshot.
+    const writerScript = `
+      const D = require("better-sqlite3");
+      const db = new D(process.argv[1]);
+      db.pragma("journal_mode = WAL");
+      db.pragma("busy_timeout = 5000");
+      db.exec("CREATE TABLE pairs (id INTEGER PRIMARY KEY, grp INTEGER)");
+      const ins = db.prepare("INSERT INTO pairs (grp) VALUES (?)");
+      const pair = db.transaction((g) => { ins.run(g); ins.run(g); });
+      console.log("ready");
+      for (let g = 0; ; g++) pair(g);
+    `;
+    const writer = spawn(
+      process.execPath,
+      ["-e", writerScript, join(e.DATA_DIR, "tracker.db")],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    try {
+      await new Promise<void>((resolve, reject) => {
+        writer.once("error", reject);
+        writer.once("exit", (c) => reject(new Error(`writer exited ${c}`)));
+        writer.stdout.once("data", () => resolve());
+      });
+      const dir = join(e.DATA_DIR, "backups");
+      for (let i = 0; i < 3; i++) {
+        await new Promise((r) => setTimeout(r, 50));
+        expect((await run(e, "--keep", "10")).code).toBe(0);
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+      for (const f of snapshots(dir)) {
+        const copy = new Database(join(dir, f), { readonly: true });
+        expect(copy.pragma("integrity_check")).toEqual([
+          { integrity_check: "ok" },
+        ]);
+        const rows = copy
+          .prepare("SELECT grp, count(*) AS n FROM pairs GROUP BY grp")
+          .all() as { n: number }[];
+        expect(rows.length).toBeGreaterThan(0);
+        expect(rows.every((r) => r.n === 2)).toBe(true);
+        copy.close();
+      }
+      expect(snapshots(dir)).toHaveLength(3);
+    } finally {
+      writer.removeAllListeners("exit");
+      writer.kill();
+    }
+  }, 20_000);
+
+  it("keeps exactly the newest N and ignores unrelated files", async () => {
+    const e = await migrated();
+    const dir = join(e.DATA_DIR, "backups");
+    mkdirSync(dir, { recursive: true });
+    for (const d of ["20200101", "20200102", "20200103", "20200104"]) {
+      writeFileSync(join(dir, `tracker-${d}T000000Z.db`), "old");
+    }
+    writeFileSync(join(dir, "notes.txt"), "keep me");
+    const r = await run(e, "--keep", "3");
+    expect(r.code).toBe(0);
+    const files = snapshots(dir);
+    expect(files).toHaveLength(3);
+    expect(files.slice(0, 2)).toEqual([
+      "tracker-20200103T000000Z.db",
+      "tracker-20200104T000000Z.db",
+    ]);
+    expect(readdirSync(dir)).toContain("notes.txt");
+  });
+
+  it("fails clearly on a non-writable --out and removes nothing", async () => {
+    const e = await migrated();
+    const out = join(e.DATA_DIR, "ro");
+    mkdirSync(out);
+    writeFileSync(join(out, "tracker-20200101T000000Z.db"), "old");
+    chmodSync(out, 0o500);
+    try {
+      if (process.getuid?.() === 0) return; // root ignores permissions
+      const r = await run(e, "--out", out);
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/Cannot write snapshots to .*--out/);
+      expect(snapshots(out)).toEqual(["tracker-20200101T000000Z.db"]);
+    } finally {
+      chmodSync(out, 0o700);
+    }
+  });
+
+  it("fails when --out is a file", async () => {
+    const e = await migrated();
+    const file = join(e.DATA_DIR, "afile");
+    writeFileSync(file, "x");
+    const r = await run(e, "--out", file);
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(/Cannot write snapshots/);
+  });
+
+  it("rejects a bad --keep and a missing database", async () => {
+    const e = await migrated();
+    expect((await run(e, "--keep", "0")).code).toBe(1);
+    expect((await run(e, "--keep", "abc")).err).toMatch(/--keep/);
+    const empty = env();
+    const r = await run(empty);
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(/No database/);
+    expect(existsSync(join(empty.DATA_DIR, "tracker.db"))).toBe(false);
+  });
+
+  it("help needs no database", async () => {
+    const r = await run({ DATA_DIR: "", BASE_URL: "" }, "--help");
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/snapshot/);
   });
 });
