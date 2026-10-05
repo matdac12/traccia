@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { requireAuth } from "../auth/middleware.js";
+import { bearerChallenge } from "../auth/oauth-metadata.js";
 import { createBearerVerifier } from "../auth/verifier.js";
 import type { AppContainer, AppEnv } from "../rest/env.js";
 import { type AttachmentStorage, LocalDiskStorage } from "../storage/index.js";
@@ -44,7 +45,7 @@ export function createMcpRoute(
     "/",
     // Set before auth so a thrown 401 carries it; cleared again on success.
     async (c, next) => {
-      c.header("WWW-Authenticate", "Bearer");
+      c.header("WWW-Authenticate", bearerChallenge(config.baseUrl));
       await next();
     },
     requireAuth({
