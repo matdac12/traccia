@@ -1,0 +1,3 @@
+# FTS5 `search_index` is hand-written in migration 0000 and synced by the service layer
+
+Drizzle cannot model virtual tables, so the `search_index` FTS5 table (`porter unicode61 remove_diacritics 2`) was appended by hand to `0000_baseline.sql`; it is not in `schema.ts` or the drizzle snapshot. Regenerating the baseline with `drizzle-kit generate` would silently drop it. Add any change to it as a hand-written migration, never by regenerating `0000`. The index is kept in sync in the service-layer transaction rather than by triggers, so soft-delete rules stay in one place (deleting removes rows, restoring re-adds them). Porter stemming is English-only, which is accepted for Italian content in v1.
