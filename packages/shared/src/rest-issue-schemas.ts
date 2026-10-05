@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ISSUE_STATUSES } from "./enums.js";
 import {
   listIssuesInputSchema,
   moveIssuePositionInputSchema,
@@ -17,6 +18,34 @@ export const listIssuesQuerySchema = listIssuesInputSchema.extend({
   includeDeleted: boolText.optional(),
   limit: limitText.optional(),
 });
+
+/**
+ * `GET /v1/issues/groups`: the list filters (`status` picks the groups, default all six), with `limit` per
+ * group and one `cursor=<status>:<cursor>` per group to continue (repeatable). Yields `cursors` by status.
+ */
+export const listIssueGroupsQuerySchema = listIssuesQuerySchema
+  .omit({ cursor: true })
+  .extend({
+    cursor: z
+      .preprocess(
+        (v) => (v === undefined || Array.isArray(v) ? v : [v]),
+        z.array(
+          z
+            .string()
+            .regex(/^[a-z_]+:.+$/, "expected <status>:<cursor>")
+            .transform((s) => {
+              const i = s.indexOf(":");
+              return [s.slice(0, i), s.slice(i + 1)] as const;
+            })
+            .refine(([status]) => (ISSUE_STATUSES as readonly string[]).includes(status), "unknown status"),
+        ),
+      )
+      .optional(),
+  })
+  .transform(({ cursor, ...rest }) => ({
+    ...rest,
+    cursors: Object.fromEntries(cursor ?? []) as Partial<Record<(typeof ISSUE_STATUSES)[number], string>>,
+  }));
 
 /** `GET /v1/issues/:identifier?include=comments,activity,...` (comma-separated, repeatable). */
 export const getIssueQuerySchema = z.object({

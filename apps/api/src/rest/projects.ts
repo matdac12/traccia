@@ -14,7 +14,7 @@ import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   const { config, db } = container;
-  const { projects, stats, trash } = createServices({
+  const { projects, milestones, stats, trash } = createServices({
     db,
     defaultIssueKey: config.defaultIssueKey,
     allowAgentPurge: config.allowAgentPurge,
@@ -25,13 +25,24 @@ export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   };
 
   v1.get("/projects", (c) => {
-    const { status, includeDeleted } = validateQuery(
+    const { status, includeDeleted, include } = validateQuery(
       c,
       listProjectsQuerySchema,
     );
     const page = validateQuery(c, paginationQuery);
     const result = pageOfArray(projects.list({ status, includeDeleted }), page);
-    return c.json({ ...result, items: withCounts(result.items) });
+    const items = withCounts(result.items);
+    if (include !== "milestones") return c.json({ ...result, items });
+    // One pass for all projects: the dashboard asks for this instead of one milestones call per project.
+    const embedded = items.map((p) => ({ ...p, milestones: milestones.list(p.id) }));
+    const progress = stats.progressByMilestone(embedded.flatMap((p) => p.milestones.map((m) => m.id)));
+    return c.json({
+      ...result,
+      items: embedded.map((p) => ({
+        ...p,
+        milestones: p.milestones.map((m) => ({ ...m, progress: progress.get(m.id) })),
+      })),
+    });
   });
 
   v1.post("/projects", async (c) => {
