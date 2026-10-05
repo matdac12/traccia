@@ -184,7 +184,7 @@ describe("MCP end-to-end scenario", () => {
       purge: true,
     });
     expect(denied.isError).toBe(true);
-    expect(denied.text).toMatch(/Actor 'agent' may not purge/);
+    expect(denied.text).toMatch(/Agents cannot purge by default/);
     await ok(you, "delete_issue", { id: issue.identifier, purge: true });
     expect((await agent("get_issue", { id: issue.identifier })).isError).toBe(
       true,

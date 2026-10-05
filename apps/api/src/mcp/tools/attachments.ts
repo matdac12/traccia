@@ -14,6 +14,7 @@ import {
 } from "../../storage/index.js";
 import { normalizeMimeType, sniffType } from "../../storage/validation.js";
 import { runTool, toolResult } from "../errors.js";
+import { explainPurgeDenied } from "./helpers.js";
 import type { McpContext } from "../server.js";
 import type { SourceFetcher } from "../ssrf-fetch.js";
 
@@ -255,7 +256,9 @@ export function registerAttachmentTools(
       run("delete_attachment", async () => {
         if (purge === true) {
           // Permission, the two-step rule and file removal live in trash.purge.
-          const result = await trash.purge(actor, "attachment", id);
+          const result = await trash
+            .purge(actor, "attachment", id)
+            .catch(explainPurgeDenied);
           for (const storageKey of result.failedFiles) {
             logger.error("purged attachment file not removed", {
               attachmentId: id,

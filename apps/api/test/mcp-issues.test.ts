@@ -240,6 +240,7 @@ describe("MCP issue tools", () => {
     const bad = await call("save_issue", { id: "ALP-1", status: "Doing" });
     expect(bad.isError).toBe(true);
     expect(bad.text).toContain("must be one of: backlog, todo, in_progress");
+    expect(bad.text).toContain('display names like "In Progress"');
 
     expect((await call("save_issue", { title: "x" })).text).toContain(
       "requires 'title' and 'project'",
@@ -396,14 +397,22 @@ describe("MCP issue tools", () => {
 
     const del = await agent("delete_issue", { id: "ALP-1" });
     expect(del.isError).toBe(false);
-    expect(del.data).toMatchObject({ type: "issue" });
+    expect(del.data).toMatchObject({
+      type: "issue",
+      identifier: "ALP-1",
+      title: expect.not.stringMatching(/^$/),
+    });
     expect((await agent("list_issues")).data.items).toHaveLength(0);
     const withDeleted = await agent("list_issues", { includeDeleted: true });
     expect(withDeleted.data.items[0].deleted).toBe(true);
 
     const denied = await agent("delete_issue", { id: "ALP-1", purge: true });
     expect(denied.isError).toBe(true);
-    expect(denied.text).toContain("may not purge");
+    expect(denied.text).toContain("Agents cannot purge by default");
+
+    const restored = await agent("restore", { type: "issue", id: "ALP-1" });
+    expect(restored.data).toMatchObject({ identifier: "ALP-1" });
+    await agent("delete_issue", { id: "ALP-1" });
 
     const purged = await you("delete_issue", { id: "ALP-1", purge: true });
     expect(purged.isError).toBe(false);
@@ -492,7 +501,7 @@ describe("MCP comment tools", () => {
       id: top.data.id,
       purge: true,
     });
-    expect(denied.text).toContain("may not purge");
+    expect(denied.text).toContain("Agents cannot purge by default");
     const purged = await you("delete_comment", {
       id: top.data.id,
       purge: true,
