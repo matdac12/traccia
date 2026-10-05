@@ -109,7 +109,15 @@ finally {
 
 Write-Host "Pulled to $target"
 Write-Host "  snapshot:    $(Join-Path $target "backups\$latest")"
-Write-Host "  attachments: $(Join-Path $target 'attachments')"
+# The remote tar skips /data/attachments when it doesn't exist (nothing was
+# ever uploaded), so the pulled folder may have no attachments\ directory.
+$attachmentsDir = Join-Path $target 'attachments'
+if (Test-Path -LiteralPath $attachmentsDir -PathType Container) {
+  Write-Host "  attachments: $attachmentsDir"
+}
+else {
+  Write-Host '  attachments: none (no attachments on omni)'
+}
 
 # 4. Retention, local folders only, only after a successful pull. The dated
 # names sort chronologically.
