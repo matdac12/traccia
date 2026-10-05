@@ -191,7 +191,7 @@ export function IssueDetail(props: IssueDetailProps) {
 
             <AttachmentsSlot count={issue.attachments.length} />
 
-            <SubIssues parent={{ id: issue.id, identifier: issue.identifier, key: issue.key }} items={issue.children} />
+            <SubIssues parentIdentifier={issue.identifier} items={issue.children} />
 
             <BlockerList
               title="Blocked by"

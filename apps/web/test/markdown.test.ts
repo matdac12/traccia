@@ -31,6 +31,9 @@ describe("Markdown sanitization", () => {
   it("blocks javascript: image sources", () => {
     expect(html("![x](javascript:alert(1))")).not.toMatch(/javascript:/i);
   });
+  it("does not render remote images", () => {
+    expect(html("![t](https://tracker.example/p.png)")).not.toMatch(/<img|tracker\.example/);
+  });
   it("keeps https links and opens them safely", () => {
     const out = html("[docs](https://example.com/a)");
     expect(out).toContain('href="https://example.com/a"');

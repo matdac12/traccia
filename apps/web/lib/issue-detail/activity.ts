@@ -1,14 +1,7 @@
 import type { Actor, IssueStatus } from "@linear-matti/shared";
+import { STATUS_LABEL } from "@/components/traccia/atoms";
 import type { ActivityRow } from "@/lib/api/schemas";
 
-const STATUS: Record<IssueStatus, string> = {
-  backlog: "Backlog",
-  todo: "Todo",
-  in_progress: "In Progress",
-  in_review: "In Review",
-  done: "Done",
-  canceled: "Canceled",
-};
 const PRIORITY = ["No priority", "Urgent", "High", "Medium", "Low"];
 
 export type ActivityLookups = {
@@ -37,7 +30,7 @@ export function describeActivity(row: Pick<ActivityRow, "type" | "data">, lookup
     case "description_changed":
       return "edited the description";
     case "status_changed":
-      return `changed status from ${STATUS[d.from as IssueStatus] ?? "?"} to ${STATUS[d.to as IssueStatus] ?? "?"}`;
+      return `changed status from ${STATUS_LABEL[d.from as IssueStatus] ?? "?"} to ${STATUS_LABEL[d.to as IssueStatus] ?? "?"}`;
     case "priority_changed":
       return `changed priority from ${PRIORITY[num(d.from) ?? -1] ?? "?"} to ${PRIORITY[num(d.to) ?? -1] ?? "?"}`;
     case "estimate_changed":

@@ -70,6 +70,13 @@ describe("updateIssueAction", () => {
     expect(JSON.parse(calls()[0]!.init.body as string)).toEqual({ labels: ["bug"], blockedBy: ["PIL-2"], blocks: [] });
   });
 
+  it("rejects malformed references, so nothing odd reaches the API path or revalidatePath", async () => {
+    const { updateIssueAction, deleteIssueAction, searchIssuesAction } = await actions();
+    expect(await updateIssueAction("../trash", { title: "x" }, "t")).toMatchObject({ ok: false, code: "validation_error" });
+    expect(await deleteIssueAction("a/b")).toMatchObject({ ok: false });
+    expect(await searchIssuesAction("x".repeat(500))).toMatchObject({ ok: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("rejects invalid input without calling the API, and surfaces API errors", async () => {
     const { updateIssueAction } = await actions();
     expect(await updateIssueAction("PIL-1", { title: "  " }, "x")).toMatchObject({ ok: false, code: "validation_error" });
@@ -112,11 +119,11 @@ describe("delete and undo", () => {
 });
 
 describe("sub-issues and blocker search", () => {
-  it("creates a sub-issue under the parent in the parent's project", async () => {
-    fetchMock.mockResolvedValueOnce(json({ ...issue, id: "i2", identifier: "PIL-2", parentId: "i1" }, 201));
+  it("creates a sub-issue under the parent in the parent's project, reading both from the API", async () => {
+    fetchMock.mockResolvedValueOnce(json(issue)).mockResolvedValueOnce(json({ ...issue, id: "i2", identifier: "PIL-2", parentId: "i1" }, 201));
     const { createSubIssueAction } = await actions();
-    await createSubIssueAction({ id: "i1", identifier: "PIL-1", key: "PIL" }, " Child ");
-    expect(JSON.parse(calls()[0]!.init.body as string)).toEqual({ project: "PIL", title: "Child", parentId: "i1" });
+    await createSubIssueAction("PIL-1", " Child ");
+    expect(JSON.parse(calls()[1]!.init.body as string)).toEqual({ project: "PIL", title: "Child", parentId: "i1" });
   });
   it("looks an identifier up directly and returns nothing for an unknown one", async () => {
     fetchMock.mockResolvedValueOnce(json(issue)).mockResolvedValueOnce(json({ error: { code: "not_found", message: "nope" } }, 404));

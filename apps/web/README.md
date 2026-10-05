@@ -102,6 +102,7 @@ lib/session.ts         current login for display
 app/(app)/             shell layout + pages (issues, projects, trash)
 components/ui/         shadcn primitives
 components/traccia/    app components
+components/issue-detail/  issue page (MAT-1721); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
 ```

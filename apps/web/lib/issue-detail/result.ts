@@ -1,4 +1,4 @@
-import type { Issue, IssueDetail } from "@/lib/api/schemas";
+import type { IssueDetail } from "@/lib/api/schemas";
 import { ApiError } from "@/lib/api/client";
 
 /**
@@ -18,5 +18,3 @@ export function toFailure(err: unknown): Failure {
   if (err instanceof ApiError) return { ok: false, code: err.code, message: err.message };
   return { ok: false, code: "unknown", message: err instanceof Error ? err.message : "Something went wrong" };
 }
-
-export type IssueUpdate = { issue: Issue };

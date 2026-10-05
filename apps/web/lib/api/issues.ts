@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { api } from "./client";
+import { ApiError, api } from "./client";
 import {
   issueDetailSchema,
   issueRefSchema,
@@ -80,17 +80,12 @@ export async function findIssues(query: string, limit = 8) {
       const issue = await api().request(`/issues/${encodeURIComponent(q.toUpperCase())}`, { schema: issueRefSchema });
       return [issue];
     } catch (err) {
-      if ((err as { status?: number }).status === 404) return [];
+      if (err instanceof ApiError && err.status === 404) return [];
       throw err;
     }
   }
   const hits = await api().request("/search", { schema: pageOf(searchHitSchema), query: { q: toFtsQuery(q), limit } });
-  const out = [];
-  for (const hit of hits.items) {
-    const issue = await api().request(`/issues/${encodeURIComponent(hit.identifier)}`, { schema: issueRefSchema });
-    out.push(issue);
-  }
-  return out;
+  return Promise.all(hits.items.map((hit) => api().request(`/issues/${encodeURIComponent(hit.identifier)}`, { schema: issueRefSchema })));
 }
 
 /** Plain words only: quotes and operators typed by the user must not reach the FTS parser. */

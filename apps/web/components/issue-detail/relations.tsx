@@ -12,7 +12,7 @@ import { IssuePicker } from "./issue-picker";
 
 const row = "flex h-9 items-center gap-2 border-b px-3 text-[13px] last:border-0 hover:bg-accent/50";
 
-export function SubIssues({ parent, items }: { parent: { id: string; identifier: string; key: string }; items: Issue[] }) {
+export function SubIssues({ parentIdentifier, items }: { parentIdentifier: string; items: Issue[] }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export function SubIssues({ parent, items }: { parent: { id: string; identifier:
     if (!title.trim() || busy) return;
     setBusy(true);
     setError(null);
-    const res = await createSubIssueAction(parent, title);
+    const res = await createSubIssueAction(parentIdentifier, title);
     setBusy(false);
     if (res.ok) {
       setTitle("");
