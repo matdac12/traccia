@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { API_PORT, E2E_LOGIN, WEB_PORT } from "./ports";
+import { API_PORT, E2E_LOGIN, LOGIN_HEADER, WEB_PORT } from "./ports";
 
 const webDir = resolve(__dirname, "../..");
 const apiDir = resolve(webDir, "../api");
@@ -103,7 +103,7 @@ export async function startStack(): Promise<Stack> {
       NEXT_TELEMETRY_DISABLED: "1",
     };
     children.push(start(bin(webDir, "next"), ["dev", "--webpack", "-p", String(WEB_PORT), "-H", "127.0.0.1"], { cwd: webDir, env: webEnv }));
-    await waitFor(`${webUrl}/healthz`, "dashboard", 120_000, { headers: { "tailscale-user-login": E2E_LOGIN } });
+    await waitFor(`${webUrl}/healthz`, "dashboard", 120_000, { headers: { [LOGIN_HEADER]: E2E_LOGIN } });
     return { apiUrl, webUrl, token, stop };
   } catch (err) {
     await stop();

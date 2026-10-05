@@ -3,12 +3,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-export const PROJECT_TABS = [
+const PROJECT_TABS = [
   { key: "overview", label: "Overview", segment: "" },
   { key: "activity", label: "Activity", segment: "/activity" },
   { key: "issues", label: "Issues", segment: "/issues" },
 ] as const;
-export type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
+type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
 
 /** Which tab a pathname belongs to. Unknown sub-paths fall back to Overview. */
 export function activeProjectTab(path: string): ProjectTab {
