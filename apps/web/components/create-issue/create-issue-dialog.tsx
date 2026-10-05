@@ -205,7 +205,7 @@ export function CreateIssueDialog({
                 </SelectContent>
               </Select>
               {parent ? (
-                <span className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border px-2 text-xs" aria-label="Parent">
+                <span className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border px-2 text-xs">
                   <span className="font-mono text-muted-foreground">{parent.identifier}</span>
                   <span className="truncate">{parent.title}</span>
                   <button type="button" aria-label="Remove parent" onClick={() => setParent(null)} className="rounded p-0.5 text-muted-foreground hover:bg-accent"><X className="size-3" /></button>
@@ -252,6 +252,7 @@ export function CreateIssueDialog({
                   projectId={project}
                   onCancel={() => setNewLabel(false)}
                   onCreated={(l) => {
+                    if (l.projectId !== null && l.projectId !== project) return; // the project changed while it was saving
                     setOptions((o) => ({ ...o, labels: [...o.labels, l] }));
                     setLabels((s) => [...s, l.name]);
                     setNewLabel(false);

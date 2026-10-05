@@ -103,7 +103,7 @@ describe("sub-issues panel", () => {
     const user = userEvent.setup();
     render(<SubIssues parentIdentifier="ALP-1" items={[]} />);
     await user.click(screen.getByRole("button", { name: /Add/ }));
-    await user.click(screen.getByRole("tab", { name: "Link existing" }));
+    await user.click(screen.getByRole("button", { name: "Link existing" }));
     await user.type(screen.getByRole("textbox", { name: "Search issues" }), "loose");
     await user.click(await screen.findByRole("button", { name: /ALP-5/ }));
     await waitFor(() => expect(linkSubIssueAction).toHaveBeenCalledWith("ALP-1", "ALP-5"));
@@ -115,7 +115,7 @@ describe("sub-issues panel", () => {
     const user = userEvent.setup();
     render(<SubIssues parentIdentifier="ALP-1" items={[]} />);
     await user.click(screen.getByRole("button", { name: /Add/ }));
-    await user.click(screen.getByRole("tab", { name: "Link existing" }));
+    await user.click(screen.getByRole("button", { name: "Link existing" }));
     await user.type(screen.getByRole("textbox", { name: "Search issues" }), "else");
     await user.click(await screen.findByRole("button", { name: /OTH-5/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("same project");

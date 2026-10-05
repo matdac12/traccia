@@ -62,9 +62,9 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
       )}
       {adding && (
         <div className="mt-2 space-y-1">
-          <div className="flex gap-1 text-xs" role="tablist" aria-label="Add sub-issue">
-            <Button size="xs" variant={adding === "create" ? "secondary" : "ghost"} role="tab" aria-selected={adding === "create"} onClick={() => { setAdding("create"); setError(null); }}>Create new</Button>
-            <Button size="xs" variant={adding === "link" ? "secondary" : "ghost"} role="tab" aria-selected={adding === "link"} onClick={() => { setAdding("link"); setError(null); }}>Link existing</Button>
+          <div className="flex gap-1 text-xs" role="group" aria-label="Add sub-issue">
+            <Button size="xs" variant={adding === "create" ? "secondary" : "ghost"} aria-pressed={adding === "create"} onClick={() => { setAdding("create"); setError(null); }}>Create new</Button>
+            <Button size="xs" variant={adding === "link" ? "secondary" : "ghost"} aria-pressed={adding === "link"} onClick={() => { setAdding("link"); setError(null); }}>Link existing</Button>
           </div>
           {adding === "create" ? (
             <div className="flex gap-2">

@@ -9,10 +9,10 @@ const DEFAULT_COLOR = "#6b7280";
 
 /**
  * Inline "create label" form for the label dropdowns (create dialog, issue detail). Same fields as
- * the project page: name, colour and project-scoped or global. `defaultName` pre-fills what was typed.
+ * the project page: name, colour and project-scoped or global. 
  */
-export function NewLabelForm({ projectId, defaultName = "", onCreated, onCancel }: { projectId: string; defaultName?: string; onCreated: (label: Label) => void; onCancel: () => void }) {
-  const [name, setName] = useState(defaultName);
+export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: string; onCreated: (label: Label) => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
   const [color, setColor] = useState(DEFAULT_COLOR);
   const [global, setGlobal] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,16 +34,17 @@ export function NewLabelForm({ projectId, defaultName = "", onCreated, onCancel 
     });
   }
 
-  // Not a <form>: the dialog and dropdown that host this swallow nested submits and Enter is handled here.
+  // Not a <form>: the dialog and dropdown that host this swallow nested submits, so Enter and Escape are handled here.
   return (
     <div
       className="space-y-1.5 p-2"
       onKeyDown={(e) => {
         e.stopPropagation();
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
           e.preventDefault();
           submit();
         }
+        if (e.key === "Escape") onCancel();
       }}
     >
       <div className="flex items-center gap-2">

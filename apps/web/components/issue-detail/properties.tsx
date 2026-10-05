@@ -3,6 +3,7 @@
 import { Check, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
+import { ESTIMATES } from "@/components/create-issue/constants";
 import { NewLabelForm } from "@/components/labels/new-label-form";
 import { ActorAvatar, StatusIcon, STATUS_LABEL } from "@/components/traccia/atoms";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,7 +15,6 @@ import { IssuePicker } from "./issue-picker";
 
 export type Change = (label: string, build: (current: IssueDetail) => Record<string, unknown>, optimistic?: Partial<IssueDetail>) => void;
 
-const ESTIMATES = [1, 2, 3, 5, 8, 13];
 const trigger = "flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] hover:bg-accent disabled:opacity-60";
 
 function Prop({ label, children }: { label: string; children: ReactNode }) {
