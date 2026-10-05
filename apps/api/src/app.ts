@@ -3,6 +3,7 @@ import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import type { AppContainer, AppEnv } from "./rest/env.js";
+import { mountAttachmentRoutes } from "./rest/attachments.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
 import { requestContext } from "./rest/request-context.js";
 
@@ -20,16 +21,16 @@ export function createApp(container: AppContainer) {
   app.get("/healthz", (c) => c.json({ ok: true }));
 
   const v1 = new Hono<AppEnv>();
-  v1.use(
-    requireAuth({
-      verify: createBearerVerifier(container.db),
-      db: container.db,
-      rateLimitPerMin: container.config.rateLimitPerMin,
-    }),
-  );
+  const auth = requireAuth({
+    verify: createBearerVerifier(container.db),
+    db: container.db,
+    rateLimitPerMin: container.config.rateLimitPerMin,
+  });
+  v1.use(auth);
   v1.get("/me", (c) =>
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
+  mountAttachmentRoutes(app, v1, container, auth);
   app.route("/v1", v1);
   app.route("/mcp", createMcpRoute(container));
 

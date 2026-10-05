@@ -1,3 +1,4 @@
+import { ServiceError as SharedServiceError } from "@linear-matti/shared";
 import type { Context, ErrorHandler, NotFoundHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
@@ -46,6 +47,13 @@ export function zodDetails(err: ZodError): Record<string, unknown> {
 export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
   if (err instanceof ServiceError) {
     return respond(c, err.code, err.message, err.details);
+  }
+  if (err instanceof SharedServiceError) {
+    const details =
+      typeof err.details === "object" && err.details !== null
+        ? (err.details as Record<string, unknown>)
+        : {};
+    return respond(c, err.code, err.message, details);
   }
   if (err instanceof ZodError) {
     return respond(c, "validation_error", "Validation failed", zodDetails(err));

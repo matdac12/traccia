@@ -19,6 +19,7 @@ import {
   type ServiceContext,
   type Tx,
 } from "./context.js";
+import { type Attachment, listIssueAttachments } from "./attachments.js";
 import { type CommentThread, listIssueComments } from "./comments.js";
 import { assertValidParent } from "./hierarchy.js";
 import { allocateIssueNumber } from "./issue-keys.js";
@@ -39,7 +40,7 @@ export type Activity = typeof activity.$inferSelect;
 export type IssueDetail = Issue & {
   comments: CommentThread[];
   activity: Activity[];
-  attachments: unknown[];
+  attachments: Attachment[];
   children: Issue[];
   relations: IssueRelations;
 };
@@ -186,7 +187,9 @@ export function createIssuesService(ctx: ServiceContext) {
         comments: include.includes("comments")
           ? listIssueComments(ctx.db, issue.id)
           : [],
-        attachments: [],
+        attachments: include.includes("attachments")
+          ? listIssueAttachments(ctx.db, issue.id)
+          : [],
         relations: include.includes("relations")
           ? loadRelations(ctx.db, issue.id)
           : NO_RELATIONS,
