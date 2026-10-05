@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { requireAuth } from "./auth/middleware.js";
+import { createOAuthMetadataRoutes } from "./auth/oauth-metadata.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import { createMcpRoute } from "./mcp/route.js";
 import { mountActivityRoutes } from "./rest/activity.js";
@@ -31,6 +32,8 @@ export function createApp(
   app.notFound(notFoundHandler);
 
   app.get("/healthz", (c) => c.json({ ok: true }));
+
+  app.route("/", createOAuthMetadataRoutes(container.config.baseUrl));
 
   const v1 = new Hono<AppEnv>();
   const auth = requireAuth({

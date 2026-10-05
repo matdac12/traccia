@@ -121,7 +121,9 @@ describe("MCP endpoint", () => {
     const { post } = await start();
     const res = await post(initialize);
     expect(res.status).toBe(401);
-    expect(res.headers.get("www-authenticate")).toBe("Bearer");
+    expect(res.headers.get("www-authenticate")).toBe(
+      'Bearer resource_metadata="http://localhost:8787/.well-known/oauth-protected-resource"',
+    );
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("unauthorized");
   });
