@@ -37,3 +37,32 @@ export const errorBodySchema = z.object({
     details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
+
+export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment"] as const;
+export type TrashType = (typeof TRASH_TYPES)[number];
+
+export const trashItemSchema = z.object({
+  type: z.enum(TRASH_TYPES),
+  id: z.string(),
+  /** Project/milestone name, "KEY-1 title" for issues, comment excerpt, attachment filename. */
+  label: z.string(),
+  deletedAt: z.string(),
+  deletedBatch: z.string().nullable(),
+  /** Owning issue (id) for comments and attachments. */
+  issueId: z.string().nullable(),
+});
+export type TrashItem = z.infer<typeof trashItemSchema>;
+
+const countsSchema = z.object({
+  projects: z.number().int(),
+  milestones: z.number().int(),
+  issues: z.number().int(),
+  comments: z.number().int(),
+  attachments: z.number().int(),
+});
+export type TrashCounts = z.infer<typeof countsSchema>;
+
+export const restoreResultSchema = z.object({ type: z.enum(TRASH_TYPES), id: z.string(), counts: countsSchema });
+export type RestoreResult = z.infer<typeof restoreResultSchema>;
+
+export const purgeResultSchema = z.object({ purged: z.literal(true) });
