@@ -44,6 +44,12 @@ Ask before anything destructive. Read hostnames and logins from the machine; nev
 
 It is deliberately not a team tool, not SaaS, and not a general project manager. The [spec](traccia-spec.md) is the source of truth for what is out of scope.
 
+## Screenshots
+
+![The Traccia issues table, with a row menu open](assets/screenshots/list-menu.png)
+
+The issues table, grouped by status, with inline editing and the row menu. The same view has a Kanban board.
+
 ## Architecture
 
 ```
