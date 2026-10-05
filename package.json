@@ -8,6 +8,7 @@
   "scripts": {
     "lint": "biome lint .",
     "format": "biome format --write .",
+    "docs:tools": "pnpm --filter api docs:tools",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test"
   },
