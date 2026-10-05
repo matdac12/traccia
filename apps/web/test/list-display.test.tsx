@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IssuesView, type IssuesData } from "../components/issues-table/issues-view";
-import { buildSections, subIssueCounts } from "../components/issues-table/group-rows";
+import { buildSections, STATUS_DISPLAY_ORDER, subIssueCounts } from "../components/issues-table/group-rows";
 import { DEFAULT_FILTERS, type IssueFilters } from "../lib/issue-filters";
 
 const replace = vi.fn();
@@ -34,12 +34,30 @@ describe("group rows", () => {
     expect(buildSections(groups, "assignee", DEFAULT_FILTERS, lookups).map((x) => x.title)).toEqual(["Agent", "Unassigned"]);
     expect(buildSections(groups, "none", { ...DEFAULT_FILTERS, orderBy: "title", order: "asc" }, lookups)[0]!.items.map((i) => i.id)).toEqual(["i1", "i2", "i3"]);
   });
+  it("orders status groups In Progress, In Review, Todo, Backlog, Done, Canceled, whatever order the API returned", () => {
+    const workflow = ["backlog", "todo", "in_progress", "in_review", "done", "canceled"];
+    const all = workflow.map((s, n) => ({ status: s, items: [issue(n + 1, s)], nextCursor: s === "backlog" ? "c" : null })) as unknown as IssuesData["groups"];
+    expect(STATUS_DISPLAY_ORDER).toEqual(["in_progress", "in_review", "todo", "backlog", "done", "canceled"]);
+    const keys = buildSections(all, "status", DEFAULT_FILTERS, lookups).map((x) => x.key);
+    expect(keys).toEqual(["in_progress", "in_review", "todo", "backlog", "done", "canceled"]);
+    // Empty groups stay hidden, and the input (API order, per-status cursors) is not reordered.
+    const partial = [all[0]!, { ...all[1]!, items: [] }, all[3]!, all[4]!];
+    expect(buildSections(partial, "status", DEFAULT_FILTERS, lookups).map((x) => x.key)).toEqual(["in_review", "backlog", "done"]);
+    expect(all.map((g) => g.status)).toEqual(workflow);
+  });
   it("counts finished sub-issues per parent", () => {
     expect(subIssueCounts(groups.flatMap((g) => g.items)).get("i1")).toEqual({ done: 1, total: 2 });
   });
 });
 
 describe("table display", () => {
+  it("renders status sections in display order with their own load-more cursors", () => {
+    const view = [{ status: "backlog", items: [issue(1, "backlog")], nextCursor: "cb" }, { status: "todo", items: [issue(2, "todo")], nextCursor: null }, { status: "in_progress", items: [issue(3, "in_progress")], nextCursor: null }, { status: "done", items: [issue(4, "done")], nextCursor: "cd" }] as unknown as IssuesData["groups"];
+    render(<IssuesView filters={DEFAULT_FILTERS} data={{ ...data, groups: view }} />);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/[0-9+]+$/, ""))).toEqual(["In Progress", "Todo", "Backlog", "Done"]);
+    expect(screen.getByTestId("count-backlog").textContent).toBe("1+");
+    expect(screen.getByTestId("count-done").textContent).toBe("1+");
+  });
   it("marks sub-issues with their parent and parents with progress", () => {
     setup();
     const marker = within(screen.getByRole("link", { name: "Issue 2" }).parentElement!).getByTestId("parent-marker");
