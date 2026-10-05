@@ -99,10 +99,10 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 
 ## Moving an install that predates the Traccia rename
 
-The images, Compose project and data volume were called `tracker` before the rename ([ADR 0012](../docs/adr/0012-rename-to-traccia-with-legacy-aliases.md)). An existing install keeps its data and its `.env`. omni was moved this way on 2026-10-05 (MAT-1746); the steps below are what was run. Every command goes through `ssh -o RemoteCommand=none -o RequestTTY=no omni '...'`.
+The images, Compose project and data volume were called `tracker` before the rename ([ADR 0012](../docs/adr/0012-rename-to-traccia-with-legacy-aliases.md)). An existing install keeps its data and its `.env`. Run these in order (MAT-1746 did so on omni). Every command goes through `ssh -o RemoteCommand=none -o RequestTTY=no omni '...'`.
 
-1. **Record the before state.** `docker volume ls` (expect `tracker_tracker-data`), `docker ps`, the issue and project counts, and `tail deployed-tags`.
-2. **Take a snapshot and check it.** `cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot` (the old stack only has `tracker.js`; it prints `integrity_check ok`).
+1. **Record the before state.** `docker volume ls` (expect `tracker_tracker-data`), `docker ps`, the issue and project counts, and `tail /opt/tracker/deployed-tags`.
+2. **Take a snapshot and check it.** `cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot` (the exception to the `traccia.js` naming: the old image only has `tracker.js`; it prints `integrity_check ok`).
 3. **Keep the old compose file.** `deploy.sh` overwrites `/opt/tracker/docker-compose.yml`, so rollback needs a copy: `cp -p /opt/tracker/docker-compose.yml /opt/tracker/docker-compose.tracker.yml.bak`.
 4. **Pin the volume.** First check that `.env` ends with a newline (`tail -c1 /opt/tracker/.env | xxd` shows `0a`), or the new line is glued to the last variable. Then `echo TRACCIA_DATA_VOLUME=tracker_tracker-data >> /opt/tracker/.env`. Without it Compose creates a new, empty `traccia-data` volume.
 5. **Install the renamed snapshot units without enabling them.** `scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/`, then `install -m 644` them into `/etc/systemd/system/` and `systemctl daemon-reload`. omni logs in as root; otherwise use `sudo`.
@@ -127,8 +127,8 @@ TAG=<last tracker-* tag> docker compose -p tracker up -d   # tag from the line b
 systemctl disable --now traccia-snapshot.timer && systemctl enable --now tracker-snapshot.timer
 ```
 
-`deploy.sh` prints `rollback: ... TAG=<previous tag>`; that only works for `traccia-*` tags, so after this one-time move use the commands above. The volume is shared by both projects, and the new stack writes `tracker.db` in place, so no data moves.
+`deploy.sh` prints `rollback: ... TAG=<previous tag>`; that only works for `traccia-*` tags, so after this one-time move use the commands above. The volume is shared by both projects and the data stays in place, so nothing moves; the old compose file ignores the extra `TRACCIA_DATA_VOLUME` line in `.env`.
 
 ### Agent machines
 
-The `tracker` entry in Claude Code can sit in the local scope of the project folder rather than the user scope. Look in `~/.claude.json` (keys only, never print the header) or run `claude mcp list` from that folder, then `claude mcp remove tracker --scope <scope>` from the same folder. Re-add it as `traccia` with the same scope and `--header 'Authorization: Bearer ${TRACCIA_TOKEN}'`. `TRACCIA_TOKEN` must be set in the environment that launches `claude`, otherwise the server fails with 401; restart the Claude Code session to pick up the new entry.
+The `tracker` entry in Claude Code can sit in the local scope of the project folder rather than the user scope. Look in `~/.claude.json` (keys only, never print the header) or run `claude mcp list` from that folder, then `claude mcp remove tracker --scope <scope>` from the same folder. Re-add it as `traccia` with the same scope, following [`docs/agent-setup.md`](../docs/agent-setup.md). `TRACCIA_TOKEN` must be set in the environment that launches `claude`, otherwise the server fails with 401; restart the Claude Code session to pick up the new entry.
