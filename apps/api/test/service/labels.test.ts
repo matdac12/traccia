@@ -202,6 +202,13 @@ describe("attach and detach", () => {
     expect(services.labels.detach("you", issue.id, ["Bug"])).toHaveLength(1);
     expect(attachedCount(issue.id)).toBe(0);
     expect(activityTypes(issue.id)).toContain("label_removed:bug");
+    // A same-named live label that is not attached does not hide the stale one.
+    const l2 = services.labels.create({ name: "dup" });
+    services.labels.attach("you", issue.id, ["dup"]);
+    services.labels.delete(l2.id);
+    services.labels.create({ name: "dup" });
+    expect(services.labels.detach("you", issue.id, ["dup"])).toHaveLength(1);
+    expect(attachedCount(issue.id)).toBe(0);
     // A name that never matched anything attached is still unknown.
     expect(code(() => services.labels.detach("you", issue.id, ["nope"]))).toBe(
       "validation_error",

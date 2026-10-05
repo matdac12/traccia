@@ -94,8 +94,7 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
                 </span>
               ) : null}
               <time dateTime={t.deletedAt} title={new Date(t.deletedAt).toLocaleString()} className="w-32 shrink-0 text-right text-xs text-muted-foreground">
-                {ago(t.deletedAt)}
-                {deletedByText(t) ? ` ${deletedByText(t)}` : ""}
+                {[ago(t.deletedAt), deletedByText(t)].filter(Boolean).join(" ")}
               </time>
               <div className="flex shrink-0 gap-1">
                 <Button

@@ -225,11 +225,14 @@ export function detachLabels(
   const parsed = parseInput(labelNamesSchema, names);
   const staleMatches = new Map<string, Label>();
   const rest: string[] = [];
+  const available = labelsAvailableTo(tx, issue.projectId);
   for (const name of parsed) {
-    const live = labelsAvailableTo(tx, issue.projectId).some(
-      (l) => lowerName(l.name) === lowerName(name),
+    // A live label of that name that is attached wins; otherwise the stale one
+    // is what the caller means (a same-named live label may exist unattached).
+    const liveAttached = available.some(
+      (l) => lowerName(l.name) === lowerName(name) && attached.has(l.id),
     );
-    const hit = live
+    const hit = liveAttached
       ? undefined
       : stale.find((l) => lowerName(l.name) === lowerName(name));
     if (hit) staleMatches.set(hit.id, hit);
