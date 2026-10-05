@@ -176,20 +176,35 @@ describe("listGroups", () => {
     create({ title: "b", status: "todo" });
     create({ title: "c", status: "done" });
     const { groups } = services.issues.listGroups({ limit: 10 });
-    expect(groups.map((g) => g.status)).toEqual(["backlog", "todo", "in_progress", "in_review", "done", "canceled"]);
+    expect(groups.map((g) => g.status)).toEqual([
+      "backlog",
+      "todo",
+      "in_progress",
+      "in_review",
+      "done",
+      "canceled",
+    ]);
     for (const g of groups) {
       expect(g.items.map((i) => i.id)).toEqual(
-        services.issues.list({ status: [g.status], limit: 10 }).items.map((i) => i.id),
+        services.issues
+          .list({ status: [g.status], limit: 10 })
+          .items.map((i) => i.id),
       );
     }
   });
 
   it("narrows by status, applies filters, and continues one group by its own cursor", () => {
     const { create, services } = setup();
-    for (let i = 0; i < 5; i++) create({ title: `t${i}`, status: "todo", assignee: "you" });
-    for (let i = 0; i < 3; i++) create({ title: `b${i}`, status: "backlog", assignee: "you" });
+    for (let i = 0; i < 5; i++)
+      create({ title: `t${i}`, status: "todo", assignee: "you" });
+    for (let i = 0; i < 3; i++)
+      create({ title: `b${i}`, status: "backlog", assignee: "you" });
     create({ title: "other", status: "todo" });
-    const first = services.issues.listGroups({ status: ["todo", "backlog"], assignee: "you", limit: 2 });
+    const first = services.issues.listGroups({
+      status: ["todo", "backlog"],
+      assignee: "you",
+      limit: 2,
+    });
     expect(first.groups.map((g) => g.status)).toEqual(["backlog", "todo"]);
     const todo = first.groups.find((g) => g.status === "todo")!;
     expect(todo.nextCursor).not.toBeNull();
@@ -206,9 +221,13 @@ describe("listGroups", () => {
 
   it("syncToken is the newest change, deleted issues included, and the epoch when empty", async () => {
     const { create, services } = setup();
-    expect(services.issues.listGroups().syncToken).toBe("1970-01-01T00:00:00.000Z");
+    expect(services.issues.listGroups().syncToken).toBe(
+      "1970-01-01T00:00:00.000Z",
+    );
     const a = create({ title: "a" });
-    expect(services.issues.listGroups({ status: ["done"] }).syncToken).toBe(a.updatedAt);
+    expect(services.issues.listGroups({ status: ["done"] }).syncToken).toBe(
+      a.updatedAt,
+    );
     await new Promise((r) => setTimeout(r, 5));
     const b = create({ title: "b" });
     await new Promise((r) => setTimeout(r, 5));

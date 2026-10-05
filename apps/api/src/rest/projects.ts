@@ -34,13 +34,21 @@ export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
     const items = withCounts(result.items);
     if (include !== "milestones") return c.json({ ...result, items });
     // One pass for all projects: the dashboard asks for this instead of one milestones call per project.
-    const embedded = items.map((p) => ({ ...p, milestones: milestones.list(p.id) }));
-    const progress = stats.progressByMilestone(embedded.flatMap((p) => p.milestones.map((m) => m.id)));
+    const embedded = items.map((p) => ({
+      ...p,
+      milestones: milestones.list(p.id),
+    }));
+    const progress = stats.progressByMilestone(
+      embedded.flatMap((p) => p.milestones.map((m) => m.id)),
+    );
     return c.json({
       ...result,
       items: embedded.map((p) => ({
         ...p,
-        milestones: p.milestones.map((m) => ({ ...m, progress: progress.get(m.id) })),
+        milestones: p.milestones.map((m) => ({
+          ...m,
+          progress: progress.get(m.id),
+        })),
       })),
     });
   });

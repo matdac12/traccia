@@ -417,16 +417,15 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
 
   function presentSaved(identifier: string, withRelations: boolean) {
     const fresh = resolveIssue(db, identifier);
-    const relations =
-      withRelations
-        ? (() => {
-            const r = loadRelations(db, fresh.id);
-            return {
-              blockedBy: r.blockedBy.map(relationItem),
-              blocks: r.blocks.map(relationItem),
-            };
-          })()
-        : undefined;
+    const relations = withRelations
+      ? (() => {
+          const r = loadRelations(db, fresh.id);
+          return {
+            blockedBy: r.blockedBy.map(relationItem),
+            blocks: r.blocks.map(relationItem),
+          };
+        })()
+      : undefined;
     return toolResult(
       compactObject({
         ...compactIssue(fresh, loadRefs(db, [fresh])),
