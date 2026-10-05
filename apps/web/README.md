@@ -130,10 +130,21 @@ test/                  vitest
 `updatedAt` as `If-Match`; a `conflict` returns the current issue, nothing is saved, and the UI offers "Re-apply my
 change" (patches are rebuilt against the fresh issue, and title/description are refused if the same field moved).
 Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
-agent-written text. The attachments slot is `AttachmentsSlot` in `issue-detail.tsx` (MAT-1725).
+agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
 
 ## Docker
 
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t tracker-web:latest .` from the repo
 root; the image runs `node apps/web/server.js` (standalone). Env comes from compose (`deploy/docker-compose.yml`).
+
+## Files (attachments, MAT-1725)
+
+The browser has no token, so files go through two route handlers (both covered by `proxy.ts`, both streaming, nothing buffered):
+`GET|HEAD /api/files/[id]` (from `GET /v1/files/:id`; passes `Content-Type`, `Content-Disposition`, `Content-Length`,
+`ETag`; forces `nosniff`; 404 for unknown ids; no Range, the API has none) and
+`POST /api/issues/[identifier]/attachments` (multipart passthrough to the API, which enforces the size cap and the
+allowed types; its error shape is returned unchanged). Delete and undo are server actions (soft delete, restore from Trash).
+`lib/attachments.ts` holds the pure helpers (ULID check, size and type pre-check that mirrors the API's defaults).
+Markdown images: `markdown.tsx` rewrites `<BASE_URL>/files/<id>` (what MCP `create_attachment` writes) to
+`/api/files/<id>` in a rehype plugin that runs before `rehype-sanitize`; every other image is dropped.

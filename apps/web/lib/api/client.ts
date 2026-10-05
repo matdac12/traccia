@@ -82,7 +82,31 @@ export function createApiClient({ baseUrl, token, fetch: doFetch = fetch }: ApiC
     }
     return parsed.data;
   }
-  return { request };
+
+  /**
+   * The API's raw response, for streaming files in and out (the proxy routes). Nothing is parsed or
+   * buffered; the caller forwards the body. A network failure is an `unreachable` ApiError.
+   */
+  async function raw(
+    path: string,
+    { method = "GET", headers = {}, body, signal }: { method?: string; headers?: Record<string, string>; body?: BodyInit | null; signal?: AbortSignal },
+  ): Promise<Response> {
+    const url = `${baseUrl.replace(/\/+$/, "")}/v1${path}`;
+    try {
+      return await doFetch(url, {
+        method,
+        headers: { ...headers, authorization: `Bearer ${token}` },
+        body,
+        cache: "no-store",
+        signal,
+        // A streamed request body needs half duplex; it is ignored when there is no body.
+        ...(body ? { duplex: "half" } : {}),
+      } as RequestInit);
+    } catch (err) {
+      throw new ApiError(0, "unreachable", `API unreachable at ${baseUrl}: ${String(err)}`);
+    }
+  }
+  return { request, raw };
 }
 
 function safeJson(text: string): unknown {

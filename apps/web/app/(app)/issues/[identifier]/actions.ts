@@ -7,6 +7,9 @@ import { createComment, deleteComment, updateComment } from "@/lib/api/comments"
 import { createIssue, deleteIssue, findIssues, getIssue, getIssueDetail, patchIssue, restoreIssue } from "@/lib/api/issues";
 import type { Comment, Issue, IssueRef, Reply } from "@/lib/api/schemas";
 import { ApiError } from "@/lib/api/client";
+import { deleteAttachment } from "@/lib/api/attachments";
+import { restoreItem } from "@/lib/api/trash";
+import { ATTACHMENT_ID } from "@/lib/attachments";
 import { type ActionResult, toFailure } from "@/lib/issue-detail/result";
 
 // Writes from the issue page. Each one validates its input, calls the server-only API client and
@@ -146,6 +149,31 @@ export async function searchIssuesAction(query: string): Promise<ActionResult<{ 
   if (typeof query !== "string" || query.length > 200) return invalid("Search text is too long");
   try {
     return { ok: true, issues: await findIssues(query) };
+  } catch (err) {
+    return toFailure(err);
+  }
+}
+
+// Attachments (MAT-1725). Uploads go through the streaming route handler at
+// `/api/issues/[identifier]/attachments`; delete and undo are plain actions.
+
+export async function deleteAttachmentAction(identifier: string, id: string): Promise<ActionResult> {
+  if (!refSchema.safeParse(identifier).success || !ATTACHMENT_ID.test(id)) return invalid("not a valid attachment");
+  try {
+    await deleteAttachment(id);
+    refresh(identifier);
+    return { ok: true };
+  } catch (err) {
+    return toFailure(err);
+  }
+}
+
+export async function restoreAttachmentAction(identifier: string, id: string): Promise<ActionResult> {
+  if (!refSchema.safeParse(identifier).success || !ATTACHMENT_ID.test(id)) return invalid("not a valid attachment");
+  try {
+    await restoreItem("attachment", id);
+    refresh(identifier);
+    return { ok: true };
   } catch (err) {
     return toFailure(err);
   }

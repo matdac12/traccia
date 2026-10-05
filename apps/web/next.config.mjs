@@ -9,6 +9,10 @@ const nextConfig = {
   transpilePackages: ["@linear-matti/shared"],
   poweredByHeader: false,
   agentRules: false,
+  // proxy.ts runs on every request and Next buffers (and truncates) request bodies it sees at 10 MB,
+  // which would turn an oversized upload into a "malformed multipart" error instead of the API's
+  // clear "too large". Raise it well above the API's MAX_ATTACHMENT_BYTES so the API enforces the cap.
+  experimental: { proxyClientMaxBodySize: "64mb" },
   // packages/shared is TypeScript source that imports siblings as "./x.js" (NodeNext style).
   // Webpack needs the alias to find the .ts files; Turbopack does not support it yet.
   webpack(config) {
