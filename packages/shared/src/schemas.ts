@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { ACTORS, PROJECT_STATUSES } from "./enums.js";
+import {
+  ACTORS,
+  ISSUE_STATUSES,
+  PRIORITIES,
+  type Priority,
+  PROJECT_STATUSES,
+} from "./enums.js";
 
 // Zod input schemas shared by the service layer, REST and MCP.
 
@@ -66,3 +72,91 @@ export const updateMilestoneInputSchema = z.object({
   sortOrder: z.number().finite().optional(),
 });
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneInputSchema>;
+
+// ---- Issues ----
+
+/**
+ * Status input: case-insensitive, accepts display names and separators, so
+ * `"In Progress"`, `"in-progress"` and `"in_progress"` all give `in_progress`.
+ */
+export const issueStatusSchema = z.preprocess(
+  (v) =>
+    typeof v === "string"
+      ? v
+          .trim()
+          .toLowerCase()
+          .replace(/[\s_-]+/g, "_")
+      : v,
+  z.enum(ISSUE_STATUSES, {
+    message: `must be one of: ${ISSUE_STATUSES.join(", ")}`,
+  }),
+);
+
+const PRIORITY_NAMES: Record<string, Priority> = {
+  none: 0,
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+};
+
+/** Priority input: a number 0-4, its numeric string, or a name (case-insensitive). */
+export const prioritySchema = z.preprocess(
+  (v) => {
+    if (typeof v !== "string") return v;
+    const s = v.trim().toLowerCase();
+    if (Object.hasOwn(PRIORITY_NAMES, s)) return PRIORITY_NAMES[s];
+    return /^\d$/.test(s) ? Number(s) : v;
+  },
+  z
+    .number()
+    .refine(
+      (n): n is Priority => (PRIORITIES as readonly number[]).includes(n),
+      {
+        message: "must be 0-4 or one of: none, urgent, high, medium, low",
+      },
+    ),
+);
+
+export const estimateSchema = z.number().int().min(0);
+
+const issueTitleSchema = z.string().trim().min(1, "must not be empty");
+
+export const createIssueInputSchema = z.object({
+  /** Project id, name or key (see `resolveProject`). */
+  project: z.string().min(1),
+  title: issueTitleSchema,
+  description: z.string().optional(),
+  status: issueStatusSchema.optional(),
+  priority: prioritySchema.optional(),
+  estimate: estimateSchema.nullable().optional(),
+  assignee: actorSchema.nullable().optional(),
+  milestoneId: z.string().min(1).nullable().optional(),
+  /** Pass-through: must be a live issue in the same project. */
+  parentId: z.string().min(1).nullable().optional(),
+  sortOrder: z.number().finite().optional(),
+});
+export type CreateIssueInput = z.input<typeof createIssueInputSchema>;
+
+export const updateIssueInputSchema = z.object({
+  title: issueTitleSchema.optional(),
+  description: z.string().optional(),
+  status: issueStatusSchema.optional(),
+  priority: prioritySchema.optional(),
+  estimate: estimateSchema.nullable().optional(),
+  assignee: actorSchema.nullable().optional(),
+  milestoneId: z.string().min(1).nullable().optional(),
+  sortOrder: z.number().finite().optional(),
+  /** Optimistic concurrency: the `updatedAt` the caller last saw. */
+  expectedUpdatedAt: z.string().optional(),
+});
+export type UpdateIssueInput = z.input<typeof updateIssueInputSchema>;
+
+export const ISSUE_INCLUDES = [
+  "comments",
+  "activity",
+  "attachments",
+  "children",
+  "relations",
+] as const;
+export type IssueInclude = (typeof ISSUE_INCLUDES)[number];
