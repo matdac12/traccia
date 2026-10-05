@@ -403,7 +403,8 @@
             "updatedAt",
             "createdAt",
             "priority",
-            "sortOrder"
+            "sortOrder",
+            "title"
           ]
         },
         "limit": {

@@ -1,30 +1,33 @@
 "use client";
 import type { IssueStatus } from "@traccia/shared";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CornerDownRight, ListTree, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreIssues } from "@/app/(app)/issues/actions";
-import { AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
 import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker } from "@/components/inline-edit/pickers";
 import { upsertRow } from "@/components/inline-edit/rows";
 import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
 import { Button } from "@/components/ui/button";
-import type { IssueRow, Label, Milestone } from "@/lib/api/schemas";
+import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import type { IssueFilters } from "@/lib/issue-filters";
+import { buildSections, subIssueCounts } from "./group-rows";
 import { timeAgo } from "./format";
+import { PriorityIcon } from "./priority";
 import { countsOf, sameGroups, type GroupsApplier } from "./use-list-sync";
 
 export type IssueGroup = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
-export const COLLAPSED_BY_DEFAULT: IssueStatus[] = ["done", "canceled"];
+/** Section keys (a status, or the key of another grouping). */
+export const COLLAPSED_BY_DEFAULT: string[] = ["done", "canceled"];
 
 type GroupState = IssueGroup & { error?: string };
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, labels = [], collapsed, onToggle, onSort, register,
+  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register,
 }: {
-  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; labels?: Label[]; collapsed: Set<IssueStatus>; onToggle: (s: IssueStatus) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
+  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; projects?: Project[]; labels?: Label[]; collapsed: Set<string>; onToggle: (key: string) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -47,6 +50,11 @@ export function IssuesTable({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [register]);
   const milestoneName = new Map(milestones.map((m) => [m.id, m.name]));
+  const sections = buildSections(groups, filters.groupBy, filters, { projects, milestones });
+  const everyRow = groups.flatMap((g) => g.items);
+  const parentOf = new Map(everyRow.map((r) => [r.id, r.identifier]));
+  const children = subIssueCounts(everyRow);
+  const pagedGroups = groups.filter((g) => g.nextCursor);
 
   const more = (group: GroupState) => {
     if (!group.nextCursor) return;
@@ -76,27 +84,30 @@ export function IssuesTable({
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       <div className="sticky top-0 z-10 flex h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur">
         {sortButton("priority", "Priority", "w-[96px]")}
-        <span className="flex-1">Title</span>
+        {sortButton("title", "Title", "flex-1")}
         <span className="w-32">Milestone</span>
         <span className="w-8 text-center">Est.</span>
         <span className="w-[18px]" />
         {sortButton("updatedAt", "Updated", "w-12 justify-end")}
       </div>
-      {groups.map((g) => {
-        if (!g.items.length) return null;
-        const isCollapsed = collapsed.has(g.status);
-                return (
-          <section key={g.status} aria-label={STATUS_LABEL[g.status]}>
+      {sections.map((g) => {
+        const isCollapsed = collapsed.has(g.key);
+        const group = g.status ? groups.find((x) => x.status === g.status) : undefined;
+        return (
+          <section key={g.key} aria-label={g.status ? STATUS_LABEL[g.status] : g.title}>
             <h2 className="m-0 flex h-8 items-center border-b bg-surface px-4 text-[13px] font-medium">
-              <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.status)} className="flex items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.key)} className="flex items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-                <StatusIcon status={g.status} />
-                <span>{STATUS_LABEL[g.status]}</span>
-                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.status}`}>{g.items.length}{g.nextCursor ? "+" : ""}</span>
+                {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.key) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.key === "none" ? null : (g.key as "you" | "agent")} size={16} /> : null}
+                <span>{g.status ? STATUS_LABEL[g.status] : g.title}</span>
+                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{g.items.length}{group?.nextCursor ? "+" : ""}</span>
               </button>
             </h2>
             <div>
-              {!isCollapsed && g.items.map((i) => (
+              {!isCollapsed && g.items.map((i) => {
+                const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
+                const sub = children.get(i.id);
+                return (
                 <div key={i.id} className="relative flex h-9 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/50 focus-within:bg-accent/50">
                   <span className="flex w-[96px] shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
                     <PriorityPicker issue={i} editor={editor} />
@@ -106,6 +117,16 @@ export function IssuesTable({
                     <StatusPicker issue={i} editor={editor} />
                     {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
                     <Link href={`/issues/${i.identifier}`} className="truncate rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{i.title}</Link>
+                    {i.parentId && (
+                      <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                        <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent}
+                      </span>
+                    )}
+                    {sub && (
+                      <span data-testid="sub-progress" className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                        <ListTree aria-hidden className="size-3" />{sub.done}/{sub.total}<span className="sr-only"> sub-issues done</span>
+                      </span>
+                    )}
                     {i.createdBy === "agent" && i.status === "backlog" && <AgentMark />}
                     <LabelsPicker issue={i} editor={editor} className="ml-1 shrink-0" />
                   </span>
@@ -114,20 +135,26 @@ export function IssuesTable({
                   <AssigneePicker issue={i} editor={editor} />
                   <time suppressHydrationWarning dateTime={i.updatedAt} className="w-12 text-right text-xs text-muted-foreground">{timeAgo(i.updatedAt)}</time>
                 </div>
-              ))}
-              {!isCollapsed && g.nextCursor && (
-                <div className="flex items-center gap-3 border-b px-4 py-1.5">
-                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={loading.has(g.status)} onClick={() => more(g)}>
-                    {loading.has(g.status) && <Loader2 className="size-3.5 animate-spin" />}
-                    Load more {STATUS_LABEL[g.status].toLowerCase()}
-                  </Button>
-                  {g.error && <span role="alert" className="text-xs text-destructive">{g.error}</span>}
-                </div>
-              )}
+                );
+              })}
+              {!isCollapsed && group?.nextCursor && <LoadMore group={group} loading={loading.has(group.status)} onMore={more} />}
             </div>
           </section>
         );
       })}
+      {filters.groupBy !== "status" && pagedGroups.map((g) => <LoadMore key={g.status} group={g} loading={loading.has(g.status)} onMore={more} />)}
+    </div>
+  );
+}
+
+function LoadMore({ group, loading, onMore }: { group: GroupState; loading: boolean; onMore: (g: GroupState) => void }) {
+  return (
+    <div className="flex items-center gap-3 border-b px-4 py-1.5">
+      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={loading} onClick={() => onMore(group)}>
+        {loading && <Loader2 className="size-3.5 animate-spin" />}
+        Load more {STATUS_LABEL[group.status].toLowerCase()}
+      </Button>
+      {group.error && <span role="alert" className="text-xs text-destructive">{group.error}</span>}
     </div>
   );
 }

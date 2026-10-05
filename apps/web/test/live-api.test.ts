@@ -48,6 +48,15 @@ describe("refreshIssueGroups", () => {
     expect(calledUrls().filter((u) => u.searchParams.get("status") === "done")).toHaveLength(1);
   });
 
+  it("only reads the chosen statuses", async () => {
+    fetchMock.mockImplementation(async () => json({ items: [], nextCursor: null }));
+    const { refreshIssueGroups, listIssueGroups } = await import("../lib/api/issues");
+    const filters = { ...DEFAULT_FILTERS, status: ["todo" as const, "done" as const] };
+    expect((await listIssueGroups(filters)).map((g) => g.status)).toEqual(["todo", "done"]);
+    expect((await refreshIssueGroups(filters, {}, false)).map((g) => g.status)).toEqual(["todo", "done"]);
+    expect(calledUrls()).toHaveLength(4);
+  });
+
   it("lists by board position for the board", async () => {
     fetchMock.mockImplementation(async () => json({ items: [], nextCursor: null }));
     const { refreshIssueGroups } = await import("../lib/api/issues");

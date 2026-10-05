@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import type { IssueFilters } from "@/lib/issue-filters";
 import { PRIORITY_LABEL, PriorityIcon } from "./priority";
-import { ActorAvatar } from "@/components/traccia/atoms";
+import { ActorAvatar, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { LabelChip } from "./label-chip";
 import { useDebouncedCallback } from "./use-debounced-callback";
 
@@ -22,6 +23,11 @@ export function FilterMenu({ filters, lookups, onChange, hideProject = false }: 
   const labels = filters.project ? lookups.labels.filter((l) => !l.projectId || l.projectId === filters.project) : lookups.labels;
   const sections: Section[] = [
     { key: "project", title: "Project", selected: filters.project ? [filters.project] : [], toggle: single("project"), options: lookups.projects.map((p) => ({ value: p.id, label: p.name })) },
+    {
+      key: "status", title: "Status", selected: filters.status,
+      toggle: (s) => onChange({ ...filters, status: filters.status.includes(s as never) ? filters.status.filter((x) => x !== s) : ISSUE_STATUSES.filter((x) => x === s || filters.status.includes(x)) }),
+      options: ISSUE_STATUSES.map((s) => ({ value: s, label: <><StatusIcon status={s} /> {STATUS_LABEL[s]}</> })),
+    },
     {
       key: "assignee", title: "Assignee", selected: filters.assignee ? [filters.assignee] : [], toggle: single("assignee"),
       options: [
@@ -97,6 +103,7 @@ export function SearchBox({ value, onSearch }: { value: string; onSearch: (q: st
 export function ActiveChips({ filters, lookups, onChange, hideProject = false }: { filters: IssueFilters; lookups: Lookups; onChange: (next: IssueFilters) => void; hideProject?: boolean }) {
   const chips: { key: string; kind: string; text: string; remove: IssueFilters }[] = [];
   if (filters.project && !hideProject) chips.push({ key: "project", kind: "project", text: lookups.projects.find((p) => p.id === filters.project)?.name ?? filters.project, remove: { ...filters, project: undefined } });
+  for (const s of filters.status) chips.push({ key: `status:${s}`, kind: "status", text: STATUS_LABEL[s], remove: { ...filters, status: filters.status.filter((x) => x !== s) } });
   if (filters.assignee) chips.push({ key: "assignee", kind: "assignee", text: filters.assignee === "none" ? "Unassigned" : filters.assignee === "you" ? "You" : "Agent", remove: { ...filters, assignee: undefined } });
   for (const l of filters.labels) chips.push({ key: `label:${l}`, kind: "label", text: l, remove: { ...filters, labels: filters.labels.filter((x) => x !== l) } });
   if (filters.priority !== undefined) chips.push({ key: "priority", kind: "priority", text: PRIORITY_LABEL[filters.priority], remove: { ...filters, priority: undefined } });

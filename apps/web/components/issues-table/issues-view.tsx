@@ -1,5 +1,4 @@
 "use client";
-import type { IssueStatus } from "@traccia/shared";
 import { Columns3, Rows3 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -11,6 +10,7 @@ import { activeFilterCount, clearFilters, filtersToSearchParams, type IssueFilte
 import { Board } from "@/components/kanban/board";
 import { LiveStatus } from "@/components/traccia/live-status";
 import { useListSync } from "./use-list-sync";
+import { DisplayMenu } from "./display-menu";
 import { ActiveChips, FilterMenu, SearchBox } from "./filter-bar";
 import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-table";
 
@@ -26,7 +26,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
   const path = usePathname();
   const [pending, startTransition] = useTransition();
   // Kept here so re-sorting (which reloads the groups) does not re-collapse what the user opened.
-  const [collapsed, setCollapsed] = useState<Set<IssueStatus>>(new Set(COLLAPSED_BY_DEFAULT));
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(COLLAPSED_BY_DEFAULT));
   const query = filtersToSearchParams(filters).toString();
   const go = (next: IssueFilters) => {
     const qs = filtersToSearchParams(next).toString();
@@ -52,6 +52,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {data && <span className="text-xs text-muted-foreground" data-testid="total">{shown}{more ? "+" : ""}</span>}
         <div className="mx-2 h-4 w-px bg-border" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
+        {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} />}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
         <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="ml-auto" />
         <div className="flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="View">
@@ -75,7 +76,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
           )
         ) : (
-          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
     </div>

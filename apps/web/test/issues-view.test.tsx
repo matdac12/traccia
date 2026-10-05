@@ -97,6 +97,9 @@ describe("IssuesView filters and URL sync", () => {
     await pick("Project", "Traccia");
     expect(replace).toHaveBeenLastCalledWith("/issues?project=p1", { scroll: false });
     await user.keyboard("{Escape}{Escape}");
+    await pick("Status", /In Review/);
+    expect(replace).toHaveBeenLastCalledWith("/issues?status=in_review", { scroll: false });
+    await user.keyboard("{Escape}{Escape}");
     await pick("Assignee", /Agent/);
     expect(replace).toHaveBeenLastCalledWith("/issues?assignee=agent", { scroll: false });
     await user.keyboard("{Escape}{Escape}");
