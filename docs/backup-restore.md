@@ -42,6 +42,8 @@ scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/
 ssh -o RemoteCommand=none -o RequestTTY=no omni 'sudo install -m 644 /tmp/traccia-snapshot.service /tmp/traccia-snapshot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now traccia-snapshot.timer'
 ```
 
+If the old `tracker-snapshot.timer` is installed, disable it in the same step (`systemctl disable --now tracker-snapshot.timer`) and never leave both enabled; see the rename notes in [`deploy/README.md`](../deploy/README.md).
+
 Check it:
 
 ```sh
