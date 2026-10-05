@@ -2,8 +2,7 @@ import { Readable } from "node:stream";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { canPurge } from "../../auth/permissions.js";
-import { ForbiddenError, ValidationError } from "../../service/errors.js";
+import { ValidationError } from "../../service/errors.js";
 import { createServices } from "../../service/index.js";
 import {
   type AttachmentStorage,
@@ -65,9 +64,11 @@ export function registerAttachmentTools(
   const { container, actor } = ctx;
   const { config, db, logger } = container;
   const { storage, fetchSource } = deps;
-  const { attachments } = createServices({
+  const { attachments, trash } = createServices({
     db,
     defaultIssueKey: config.defaultIssueKey,
+    allowAgentPurge: config.allowAgentPurge,
+    storage,
   });
   const urlFor = (id: string) =>
     `${config.baseUrl.replace(/\/+$/, "")}/files/${id}`;
@@ -249,20 +250,17 @@ export function registerAttachmentTools(
     ({ id, purge }) =>
       run("delete_attachment", async () => {
         if (purge === true) {
-          if (!canPurge(actor, config)) {
-            throw new ForbiddenError("This token may not purge attachments");
-          }
-          const record = attachments.purge(id);
-          await storage.delete(record.storageKey).catch((err) =>
+          // Permission, the two-step rule and file removal live in trash.purge.
+          const result = await trash.purge(actor, "attachment", id);
+          for (const storageKey of result.failedFiles) {
             logger.error("purged attachment file not removed", {
               attachmentId: id,
-              storageKey: record.storageKey,
-              error: String(err),
-            }),
-          );
+              storageKey,
+            });
+          }
           return toolResult({ id, deleted: true, purged: true });
         }
-        attachments.softDelete(actor, id);
+        await trash.delete(actor, "attachment", id);
         return toolResult({ id, deleted: true, purged: false });
       }),
   );

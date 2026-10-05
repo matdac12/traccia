@@ -477,7 +477,7 @@ describe("MCP attachment tools", () => {
       await s.call(c, "delete_attachment", { id });
       const r = await s.call(c, "delete_attachment", { id, purge: true });
       expect(r.isError).toBe(true);
-      expect(errText(r)).toMatch(/may not purge/);
+      expect(errText(r)).toMatch(/not allowed to purge/);
     });
 
     it("purges a deleted attachment and its file for 'you'", async () => {
