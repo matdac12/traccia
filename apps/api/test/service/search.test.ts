@@ -215,3 +215,18 @@ describe("rebuildSearchIndex", () => {
     expect(ids("needle")).toEqual([a.identifier]);
   });
 });
+
+describe("comment edit on a soft-deleted issue", () => {
+  it("does not re-add the comment to the index", () => {
+    const { services, db, mk, rows } = setup();
+    const a = mk("alpha");
+    const c = services.comments.create("you", a.identifier, { body: "old" });
+    db.update(issues)
+      .set({ deletedAt: "2026-01-01T00:00:00.000Z" })
+      .where(eq(issues.id, a.id))
+      .run();
+    removeFromSearchIndex(db, { issueIds: [a.id] });
+    services.comments.update("you", c.id, { body: "new" });
+    expect(rows()).toEqual([]);
+  });
+});

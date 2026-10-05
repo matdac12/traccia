@@ -26,7 +26,10 @@ export type SearchResult = {
   title: string;
   /** Where the best match was found. */
   source: "issue" | "comment";
-  /** The matching fragment, with hits wrapped in `<mark>…</mark>`. */
+  /**
+   * The matching fragment, with hits wrapped in `<mark>…</mark>`. The rest is
+   * raw issue/comment text, NOT HTML-escaped: escape it before rendering as HTML.
+   */
   snippet: string;
 };
 
@@ -46,6 +49,7 @@ export function buildMatchExpression(q: string): string | null {
  * so list and search share one matching path. Matches nothing when `q` has
  * no searchable token.
  */
+/** Note: deleted issues are not indexed, so `includeDeleted` never surfaces them via `q`. */
 export function issueMatchesCondition(q: string) {
   const match = buildMatchExpression(q);
   if (!match) return sql`0`;
@@ -83,7 +87,9 @@ export function createSearchService(ctx: ServiceContext) {
     /**
      * Full-text search over issue titles/descriptions and comments, one result
      * per issue, best match first. A query with no searchable word (blank or
-     * only punctuation) returns an empty page rather than an error.
+     * only punctuation) returns an empty page rather than an error. Tokens are
+     * AND-ed within a single indexed row (an issue, or one comment), so words
+     * split between an issue and a comment do not match together.
      * Pagination is offset-based: `cursor` is opaque.
      */
     search(input: SearchInput): Page<SearchResult> {
