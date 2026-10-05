@@ -29,8 +29,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     <ProjectDeletedGate projectId={project.id} projectKey={project.key} name={project.name}>
       <PageHeader title={<ProjectTitle projectId={project.id} name={project.name} projectKey={project.key} updatedAt={project.updatedAt} />}>
         <ProjectStatusSelect projectId={project.id} status={project.status} updatedAt={project.updatedAt} />
-        <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
         <DeleteProjectButton projectId={project.id} />
+        <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
       </PageHeader>
       <div className="grid gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
         <ProjectDescription projectId={project.id} description={project.description} updatedAt={project.updatedAt} />

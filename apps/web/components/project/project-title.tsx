@@ -55,7 +55,7 @@ export function ProjectTitle({ projectId, name, projectKey, updatedAt }: { proje
         />
       ) : (
         <>
-          <span className="truncate">{name}</span>
+          <button type="button" title="Click to rename" className="truncate rounded text-left hover:underline" onClick={() => { setDraft(name); setEditing(true); }}>{name}</button>
           <Button variant="ghost" size="icon" aria-label="Rename project" className="size-6 text-muted-foreground" onClick={() => { setDraft(name); setEditing(true); }}>
             <Pencil className="size-3" />
           </Button>

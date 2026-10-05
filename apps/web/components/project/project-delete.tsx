@@ -1,6 +1,5 @@
 "use client";
 import { Trash2, Undo2 } from "lucide-react";
-import Link from "next/link";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { deleteProjectAction, restoreProjectAction } from "@/app/(app)/projects/[id]/actions";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,8 @@ export function ProjectDeletedGate({ projectId, projectKey, name, children }: { 
             if (res?.ok) { setDeleted(false); setError(null); }
             else setError(res ? res.error : "Could not restore. Try again from Trash.");
           }}><Undo2 className="size-3.5" />Undo</Button>
-          <Link href="/projects" className="text-muted-foreground hover:text-foreground">Back to projects</Link>
+          {/* A full navigation, so the sidebar and project picker (still cached with this project) are re-fetched. */}
+          <a href="/projects" className="text-muted-foreground hover:text-foreground">Back to projects</a>
           {error ? <span role="alert" className="text-destructive">{error}</span> : null}
         </div>
       </div>
