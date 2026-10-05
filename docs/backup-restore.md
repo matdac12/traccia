@@ -67,7 +67,7 @@ Tooling choice: the Windows OpenSSH client (`ssh.exe`) plus the built-in `tar.ex
 It:
 
 1. Lists `/data/backups/tracker-*.db` and picks the newest.
-2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\tracker-….db` and `attachments\`).
+2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\tracker-….db` and `attachments\`). If omni has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on omni)`; that is not an error.
 3. Only after a successful pull, deletes older `omni-*` folders beyond `-Keep` (default 3).
 
 It never writes to or deletes anything on the VPS. Retention touches only folders matching `omni-<digits>-<digits>` in the destination. Pull after the daily timer has run at least once, otherwise it stops with "No snapshot found".
