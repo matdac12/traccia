@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function Home() {
-  return <main>Tracker dashboard placeholder</main>;
+  redirect("/issues");
 }

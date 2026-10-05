@@ -1,0 +1,76 @@
+"use client";
+import { Check, ChevronsUpDown, ListTodo, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./theme-toggle";
+
+/** What the client shell needs from a project: plain data, resolved on the server. */
+export type ShellProject = { id: string; key: string; name: string };
+
+function NavItem({ href, icon, children, active }: { href: string; icon: ReactNode; children: ReactNode; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn("flex h-7 items-center gap-2 rounded-md px-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground", active && "bg-sidebar-accent text-sidebar-accent-foreground")}
+    >
+      <span className="grid size-4 place-items-center text-muted-foreground">{icon}</span>
+      <span className="flex-1 truncate">{children}</span>
+    </Link>
+  );
+}
+
+export function AppShell({ projects, login, children }: { projects: ShellProject[]; login: string; children: ReactNode }) {
+  const path = usePathname();
+  const current = projects.find((p) => path === `/projects/${p.id}`);
+  return (
+    <div className="flex h-dvh overflow-hidden">
+      <aside className="hidden w-[232px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="m-2 flex h-8 items-center gap-2 rounded-md px-1 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+            <div className="grid size-6 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">T</div>
+            <span className="flex-1 truncate text-[13px] font-medium">{current?.name ?? "Traccia"}</span>
+            <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel className="text-[11px] text-muted-foreground">Switch project</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href="/projects">All projects {!current && path === "/projects" ? <Check className="ml-auto size-3.5" /> : null}</Link>
+            </DropdownMenuItem>
+            {projects.length ? <DropdownMenuSeparator /> : null}
+            {projects.map((p) => (
+              <DropdownMenuItem key={p.id} asChild>
+                <Link href={`/projects/${p.id}`}>
+                  <span className="truncate">{p.name}</span>
+                  {current?.id === p.id ? <Check className="ml-auto size-3.5" /> : null}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <nav aria-label="Main" className="flex-1 space-y-0.5 overflow-y-auto px-2">
+          <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")}>Issues</NavItem>
+          <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"}>Trash</NavItem>
+          <Link href="/projects" className="block px-2 pb-1 pt-4 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>
+          {projects.length === 0 ? <p className="px-2 text-[12px] text-muted-foreground">No projects yet.</p> : null}
+          {projects.map((p) => (
+            <NavItem key={p.id} href={`/projects/${p.id}`} active={path === `/projects/${p.id}`} icon={<span className="size-2.5 rounded-[3px] bg-muted-foreground/50" />}>
+              {p.name}
+            </NavItem>
+          ))}
+        </nav>
+        <div className="space-y-2 border-t border-sidebar-border p-2">
+          <div className="flex items-center gap-2 px-1">
+            <div className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold uppercase text-primary">{login.charAt(0)}</div>
+            <span className="truncate text-[12px] text-sidebar-foreground" title={login}>{login}</span>
+            <ThemeToggle />
+          </div>
+        </div>
+      </aside>
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">{children}</main>
+    </div>
+  );
+}
