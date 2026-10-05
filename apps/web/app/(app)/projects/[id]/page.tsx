@@ -11,7 +11,7 @@ import { NewIssueButton } from "@/components/project/new-issue-button";
 import { PageHeader } from "@/components/traccia/page-header";
 import { ApiError } from "@/lib/api/client";
 import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
-import { getProject } from "@/lib/api/projects";
+import { getProject, listProjects } from "@/lib/api/projects";
 import { parseFilters } from "@/lib/issue-filters";
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -22,8 +22,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   });
   // The issue list is scoped to this project whatever `?project=` says.
   const filters = { ...parseFilters(query), project: project.id };
-  const [milestones, labels, { groups, syncToken }] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters)]);
-  const issues: IssuesData = { groups, projects: [project], labels, milestones, syncToken };
+  const [milestones, labels, { groups, syncToken }, projects] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters), listProjects()]);
+  const issues: IssuesData = { groups, projects: projects.some((p) => p.id === project.id) ? projects : [project, ...projects], labels, milestones, syncToken };
   return (
     <ProjectDeletedGate projectId={project.id} projectKey={project.key} name={project.name}>
       <PageHeader title={<ProjectTitle projectId={project.id} name={project.name} projectKey={project.key} updatedAt={project.updatedAt} />}>

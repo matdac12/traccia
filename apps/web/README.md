@@ -145,6 +145,16 @@ the fresh row). `upsertRow` puts the saved row back into the table groups or boa
 refused while a save is in flight. Table rows are a link overlay with the pickers above it; on cards the pickers stop key events so Space/Enter
 never starts a keyboard drag.
 
+## Issue context menu (table rows and board cards, MAT-1762)
+
+`components/issue-menu/`: `IssueContextMenu` wraps a row or card (it becomes the Radix context-menu trigger, so right-click, touch long-press and
+Shift+F10 / the context-menu key on a focused child work) and `IssueMenuButton` is the "..." button, which dispatches a `contextmenu` event so there is
+one menu. Status, Priority, Assignee and Labels reuse the option builders in `components/inline-edit/options.tsx` (shared with the dropdown pickers) and
+save through `useInlineEdit`, so optimistic updates and the conflict notice are the same. Project and Milestone patch the same fields as the detail page;
+Set parent uses `IssuePicker`, Add sub-issue calls `createSubIssueAction`. Delete is a soft delete via `useIssueDelete` (row leaves at once, failure
+restores it, notice offers Undo). The menu, submenus and dialogs stop key and pointer events from reaching a board card's drag listeners.
+Not done: single-key shortcuts (S/P/A/L) on a focused row.
+
 ## Docker
 
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t traccia-web:latest .` from the repo
