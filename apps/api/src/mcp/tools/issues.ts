@@ -1,0 +1,480 @@
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type Actor, ServiceError } from "@linear-matti/shared";
+import { and, eq, isNull } from "drizzle-orm";
+import { z } from "zod";
+import { canPurge } from "../../auth/permissions.js";
+import type { Db } from "../../db/connection.js";
+import { milestones } from "../../db/schema.js";
+import { resolveIssue } from "../../service/issues.js";
+import { resolveProject } from "../../service/projects.js";
+import { loadRelations } from "../../service/relations.js";
+import { resolveUpdatedAfter } from "../duration.js";
+import { toolError, toolResult } from "../errors.js";
+import type { McpContext } from "../server.js";
+import {
+  attachmentsByComment,
+  compactIssue,
+  compactIssues,
+  compactObject,
+  loadRefs,
+  presentAttachment,
+  presentComment,
+} from "./present.js";
+import { runLogged } from "./run.js";
+import { mcpServices } from "./services.js";
+
+const STATUS_HELP =
+  "One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog|todo|in_progress|in_review|done|canceled).";
+const PRIORITY_HELP =
+  "0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear).";
+
+const status = z.string().describe(STATUS_HELP);
+const priority = z
+  .union([z.number().int(), z.string()])
+  .describe(PRIORITY_HELP);
+const oneOrMany = <T extends z.ZodType>(t: T) => z.union([t, z.array(t)]);
+
+const INCLUDES = [
+  "comments",
+  "attachments",
+  "activity",
+  "children",
+  "relations",
+] as const;
+
+/** Milestone by name or id inside one project; the error lists what exists. */
+function resolveMilestoneRef(db: Db, projectId: string, ref: string): string {
+  const rows = db
+    .select()
+    .from(milestones)
+    .where(
+      and(eq(milestones.projectId, projectId), isNull(milestones.deletedAt)),
+    )
+    .all();
+  const hit =
+    rows.find((m) => m.id === ref) ??
+    rows.find((m) => m.name.toLowerCase() === ref.toLowerCase());
+  if (!hit) {
+    throw new ServiceError(
+      "not_found",
+      `Unknown milestone '${ref}' in this project. ${
+        rows.length
+          ? `Existing milestones: ${rows.map((m) => m.name).join(", ")}.`
+          : "The project has no milestones."
+      }`,
+    );
+  }
+  return hit.id;
+}
+
+/** Re-throws a stale-write conflict with the timestamp the caller needs. */
+function explainConflict(err: unknown): never {
+  if (err instanceof ServiceError && err.code === "conflict") {
+    const current = (err.details as { currentUpdatedAt?: string } | undefined)
+      ?.currentUpdatedAt;
+    if (current) {
+      throw new ServiceError(
+        "conflict",
+        `${err.message} (current updatedAt: ${current}). Re-read it with get_issue and retry with that expectedUpdatedAt.`,
+        err.details,
+      );
+    }
+  }
+  throw err;
+}
+
+export function registerIssueTools(server: McpServer, ctx: McpContext) {
+  const { db } = ctx.container;
+  const actor: Actor = ctx.actor;
+  const services = mcpServices(ctx);
+
+  server.registerTool(
+    "list_issues",
+    {
+      description:
+        "List issues, newest update first. Compact items (description truncated; use get_issue for full text). Filters are AND-ed; `status` values are OR-ed; `label` array requires ALL labels. Deleted issues are hidden unless includeDeleted. Page with nextCursor.",
+      inputSchema: {
+        query: z
+          .string()
+          .optional()
+          .describe("Full-text search over titles, descriptions, comments."),
+        project: z.string().optional().describe("Project key, name, or id."),
+        status: oneOrMany(status).optional(),
+        assignee: z.enum(["agent", "you", "none"]).optional(),
+        label: oneOrMany(z.string())
+          .optional()
+          .describe("Label name(s); issues must have all."),
+        milestone: z.string().optional().describe("Milestone name or id."),
+        parentId: z
+          .string()
+          .optional()
+          .describe("List sub-issues of this issue (identifier)."),
+        priority: priority.optional(),
+        createdBy: z.enum(["agent", "you"]).optional(),
+        updatedAfter: z
+          .string()
+          .optional()
+          .describe("ISO 8601 timestamp or duration like -P1D."),
+        includeDeleted: z.boolean().optional(),
+        orderBy: z
+          .enum(["updatedAt", "createdAt", "priority", "sortOrder"])
+          .optional()
+          .describe("Default updatedAt."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(250)
+          .optional()
+          .describe("Default 50."),
+        cursor: z.string().optional().describe("From a previous nextCursor."),
+      },
+    },
+    (args) =>
+      runLogged(ctx, "list_issues", () => {
+        const { query, parentId, updatedAfter, ...rest } = args;
+        const page = services.issues.list({
+          ...rest,
+          q: query,
+          parent: parentId,
+          updatedAfter: updatedAfter
+            ? resolveUpdatedAfter(updatedAfter)
+            : undefined,
+        });
+        return toolResult({
+          items: compactIssues(db, page.items),
+          nextCursor: page.nextCursor,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "get_issue",
+    {
+      description:
+        "Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations ({blockedBy, blocks}); add 'activity' for the change log.",
+      inputSchema: {
+        id: z.string().describe("Issue identifier like ABC-123."),
+        include: z
+          .array(z.enum(INCLUDES))
+          .optional()
+          .describe("Default: comments, attachments, children, relations."),
+      },
+    },
+    ({ id, include = ["comments", "attachments", "children", "relations"] }) =>
+      runLogged(ctx, "get_issue", () => {
+        const issue = services.issues.get(id, include);
+        const refs = loadRefs(db, [issue, ...issue.children]);
+        const withAttachments = attachmentsByComment(db, issue.id);
+        const flat = issue.comments.flatMap(({ replies, ...top }) => [
+          top,
+          ...replies,
+        ]);
+        const base = compactIssue(issue, refs);
+        // Full text replaces the list snippet.
+        const { descriptionSnippet: _s, ...item } = base;
+        return toolResult(
+          compactObject({
+            ...item,
+            description: issue.description,
+            createdBy: issue.createdBy,
+            createdAt: issue.createdAt,
+            startedAt: issue.startedAt,
+            completedAt: issue.completedAt,
+            canceledAt: issue.canceledAt,
+            comments: include.includes("comments")
+              ? flat.map((c) =>
+                  presentComment(c, withAttachments.get(c.id) ?? []),
+                )
+              : undefined,
+            attachments: include.includes("attachments")
+              ? issue.attachments.map(presentAttachment)
+              : undefined,
+            children: include.includes("children")
+              ? issue.children.map((c) => compactIssue(c, refs))
+              : undefined,
+            relations: include.includes("relations")
+              ? {
+                  blockedBy: issue.relations.blockedBy.map(relationItem),
+                  blocks: issue.relations.blocks.map(relationItem),
+                }
+              : undefined,
+            activity: include.includes("activity")
+              ? issue.activity.map((a) => ({
+                  type: a.type,
+                  actor: a.actor,
+                  data: JSON.parse(a.data) as unknown,
+                  createdAt: a.createdAt,
+                }))
+              : undefined,
+          }),
+        );
+      }),
+  );
+
+  server.registerTool(
+    "save_issue",
+    {
+      description:
+        "Create (no id; needs title + project) or update (with id; only provided fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set. `project` on update moves the issue (identifier unchanged; parent/milestone reset). Labels must exist (list_issue_labels / save_issue_label). Pass expectedUpdatedAt to fail on concurrent edits. Returns the compact issue.",
+      inputSchema: {
+        id: z.string().optional().describe("Issue identifier. Omit to create."),
+        title: z.string().optional().describe("Required on create."),
+        project: z
+          .string()
+          .optional()
+          .describe(
+            "Project key, name, or id. Required on create; on update, moves the issue.",
+          ),
+        description: z
+          .string()
+          .optional()
+          .describe("Markdown. Replaces the whole description."),
+        status: status
+          .optional()
+          .describe(`${STATUS_HELP} Default on create: Backlog.`),
+        priority: priority.optional(),
+        estimate: z.number().int().min(0).nullable().optional(),
+        assignee: z
+          .enum(["agent", "you"])
+          .nullable()
+          .optional()
+          .describe("null unassigns."),
+        labels: z
+          .array(z.string())
+          .optional()
+          .describe("Replaces the label set. Names must already exist."),
+        milestone: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Milestone name or id in the issue's project; null clears.",
+          ),
+        parentId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Makes this a sub-issue; null detaches. Same project only.",
+          ),
+        blockedBy: z
+          .array(z.string())
+          .optional()
+          .describe("Replaces the set of issues blocking this one."),
+        blocks: z
+          .array(z.string())
+          .optional()
+          .describe("Replaces the set of issues this one blocks."),
+        expectedUpdatedAt: z
+          .string()
+          .optional()
+          .describe(
+            "Fail if the issue changed since this updatedAt (update only).",
+          ),
+      },
+    },
+    (args) =>
+      runLogged(ctx, "save_issue", () => {
+        const { id, milestone, blockedBy, blocks, ...fields } = args;
+        try {
+          return id
+            ? updateIssue(id, fields, milestone, blockedBy, blocks)
+            : createIssue(fields, milestone, blockedBy, blocks);
+        } catch (err) {
+          return explainConflict(err);
+        }
+      }),
+  );
+
+  type Fields = Omit<
+    z.infer<z.ZodObject<{ [k: string]: z.ZodType }>>,
+    never
+  > & {
+    title?: string;
+    project?: string;
+    labels?: string[];
+    parentId?: string | null;
+    expectedUpdatedAt?: string;
+    [k: string]: unknown;
+  };
+
+  function createIssue(
+    fields: Fields,
+    milestone: string | null | undefined,
+    blockedBy: string[] | undefined,
+    blocks: string[] | undefined,
+  ) {
+    const {
+      title,
+      project: projectRef,
+      labels,
+      expectedUpdatedAt,
+      ...rest
+    } = fields;
+    if (!title || !projectRef) {
+      return toolError(
+        "Creating an issue requires 'title' and 'project' (key, name, or id). To update an existing issue pass its 'id'.",
+      );
+    }
+    if (expectedUpdatedAt) {
+      return toolError(
+        "expectedUpdatedAt only applies when updating (with 'id').",
+      );
+    }
+    // Validate everything that can fail before writing, so a bad label or
+    // blocker never leaves a half-created issue behind.
+    const project = resolveProject(db, projectRef);
+    const milestoneId = milestone
+      ? resolveMilestoneRef(db, project.id, milestone)
+      : undefined;
+    if (labels?.length) {
+      const known = services.labels.list({ project: project.id });
+      const names = new Set(known.map((l) => l.name.toLowerCase()));
+      const bad = labels.find((l) => !names.has(l.trim().toLowerCase()));
+      if (bad !== undefined) {
+        const existing = [...new Set(known.map((l) => l.name))];
+        throw new ServiceError(
+          "validation_error",
+          `Unknown label '${bad}'. ${
+            existing.length
+              ? `Existing labels: ${existing.join(", ")}.`
+              : "No labels exist yet."
+          } Use save_issue_label to create one.`,
+        );
+      }
+    }
+    for (const ref of [...(blockedBy ?? []), ...(blocks ?? [])]) {
+      resolveIssue(db, ref);
+    }
+    const created = services.issues.create(actor, {
+      ...rest,
+      title,
+      project: projectRef,
+      milestoneId,
+    });
+    if (labels?.length) {
+      services.issues.update(actor, created.identifier, { labels });
+    }
+    return applyRelations(created.identifier, blockedBy, blocks);
+  }
+
+  function updateIssue(
+    id: string,
+    fields: Fields,
+    milestone: string | null | undefined,
+    blockedBy: string[] | undefined,
+    blocks: string[] | undefined,
+  ) {
+    const issue = resolveIssue(db, id);
+    const project = fields.project
+      ? resolveProject(db, fields.project)
+      : undefined;
+    const milestoneId =
+      milestone === undefined || milestone === null
+        ? milestone
+        : resolveMilestoneRef(db, project?.id ?? issue.projectId, milestone);
+    const { title, ...rest } = fields;
+    for (const ref of [...(blockedBy ?? []), ...(blocks ?? [])]) {
+      if (resolveIssue(db, ref).id === issue.id) {
+        throw new ServiceError(
+          "validation_error",
+          "An issue cannot block itself",
+        );
+      }
+    }
+    // Fields, labels and the optimistic-concurrency check commit atomically.
+    services.issues.update(actor, issue.identifier, {
+      ...rest,
+      title,
+      milestoneId,
+    });
+    return applyRelations(issue.identifier, blockedBy, blocks);
+  }
+
+  /** Replaces blocker sets (when given) by diffing against the current ones. */
+  function applyRelations(
+    identifier: string,
+    blockedBy: string[] | undefined,
+    blocks: string[] | undefined,
+  ) {
+    const issue = resolveIssue(db, identifier);
+    if (blockedBy || blocks) {
+      const current = loadRelations(db, issue.id);
+      const sync = (
+        want: string[] | undefined,
+        have: { identifier: string }[],
+        add: (other: string) => void,
+        remove: (other: string) => void,
+      ) => {
+        if (!want) return;
+        const wanted = new Set(want.map((r) => resolveIssue(db, r).identifier));
+        for (const h of have)
+          if (!wanted.has(h.identifier)) remove(h.identifier);
+        const present = new Set(have.map((h) => h.identifier));
+        for (const w of wanted) if (!present.has(w)) add(w);
+      };
+      sync(
+        blockedBy,
+        current.blockedBy,
+        (o) => services.relations.addBlocker(actor, o, issue.identifier),
+        (o) => services.relations.removeBlocker(actor, o, issue.identifier),
+      );
+      sync(
+        blocks,
+        current.blocks,
+        (o) => services.relations.addBlocker(actor, issue.identifier, o),
+        (o) => services.relations.removeBlocker(actor, issue.identifier, o),
+      );
+    }
+    const fresh = resolveIssue(db, identifier);
+    const relations =
+      blockedBy || blocks
+        ? (() => {
+            const r = loadRelations(db, fresh.id);
+            return {
+              blockedBy: r.blockedBy.map(relationItem),
+              blocks: r.blocks.map(relationItem),
+            };
+          })()
+        : undefined;
+    return toolResult(
+      compactObject({
+        ...compactIssue(fresh, loadRefs(db, [fresh])),
+        relations,
+      }),
+    );
+  }
+
+  server.registerTool(
+    "delete_issue",
+    {
+      description:
+        "Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an ALREADY deleted issue; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+      inputSchema: {
+        id: z.string().describe("Issue identifier."),
+        purge: z.boolean().optional().describe("Default false."),
+      },
+    },
+    ({ id, purge }) =>
+      runLogged(ctx, "delete_issue", async () => {
+        if (purge && !canPurge(actor, ctx.container.config)) {
+          return toolError(
+            `Actor '${actor}' may not purge. Soft-delete instead (purge=false; restorable), or ask 'you' to purge.`,
+          );
+        }
+        const result = await services.trash.delete(actor, "issue", id, {
+          purge: purge ?? false,
+        });
+        return toolResult({ ...result });
+      }),
+  );
+}
+
+function relationItem(r: {
+  identifier: string;
+  title: string;
+  status: string;
+}) {
+  return { identifier: r.identifier, title: r.title, status: r.status };
+}

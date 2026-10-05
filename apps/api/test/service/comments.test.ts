@@ -133,13 +133,19 @@ describe("update comment", () => {
     const { c, issue, tick } = setup();
     const a = c.create("agent", issue.id, { body: "v1" });
     tick();
-    const b = c.update("you", a.id, { body: "v2" });
+    const b = c.update("agent", a.id, { body: "v2" });
     expect(b).toMatchObject({
       body: "v2",
       actor: "agent",
       createdAt: a.createdAt,
     });
     expect(b.updatedAt).not.toBe(a.updatedAt);
+  });
+
+  it("is forbidden for an actor other than the comment's author", () => {
+    const { c, issue } = setup();
+    const a = c.create("agent", issue.id, { body: "v1" });
+    expect(code(() => c.update("you", a.id, { body: "v2" }))).toBe("forbidden");
   });
 
   it("is not_found for a missing or deleted comment and rejects an empty body", () => {

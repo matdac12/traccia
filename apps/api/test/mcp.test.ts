@@ -73,7 +73,7 @@ describe("MCP endpoint", () => {
     expect(client.getServerVersion()?.name).toBe("tracker");
 
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name)).toEqual(["whoami"]);
+    expect(tools.map((t) => t.name)).toContain("whoami");
 
     const res = await client.callTool({ name: "whoami", arguments: {} });
     expect(res.isError).toBeFalsy();

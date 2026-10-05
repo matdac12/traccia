@@ -115,9 +115,12 @@ export function createCommentsService(ctx: ServiceContext) {
       });
     },
 
-    /** Replaces the body and bumps `updated_at`. Deleted comments are `not_found`. */
+    /**
+     * Replaces the body and bumps `updated_at`. Deleted comments are `not_found`;
+     * only the comment's own actor may edit it (`forbidden` otherwise).
+     */
     update(
-      _actor: Actor,
+      actor: Actor,
       commentId: string,
       input: UpdateCommentInput,
     ): Comment {
@@ -132,6 +135,12 @@ export function createCommentsService(ctx: ServiceContext) {
           throw new ServiceError(
             "not_found",
             `Comment "${commentId}" not found`,
+          );
+        }
+        if (existing.actor !== actor) {
+          throw new ServiceError(
+            "forbidden",
+            `Comment "${commentId}" was written by '${existing.actor}'; only its author can edit it`,
           );
         }
         const updated = tx

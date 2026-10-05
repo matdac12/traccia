@@ -4,6 +4,8 @@ import pkg from "../../package.json" with { type: "json" };
 import { errorFields } from "../logger.js";
 import type { AppContainer } from "../rest/env.js";
 import { runTool, toolResult } from "./errors.js";
+import { registerCommentTools } from "./tools/comments.js";
+import { registerIssueTools } from "./tools/issues.js";
 
 /** The caller, resolved by the auth middleware before the transport runs. */
 export type McpContext = {
@@ -38,6 +40,9 @@ export function createMcpServer(ctx: McpContext): McpServer {
           }),
       ),
   );
+
+  registerIssueTools(server, ctx);
+  registerCommentTools(server, ctx);
 
   return server;
 }
