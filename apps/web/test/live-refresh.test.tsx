@@ -7,10 +7,11 @@ import { IssueDetail } from "../components/issue-detail/issue-detail";
 import { useListSync, type GroupsApplier } from "../components/issues-table/use-list-sync";
 import { POLL_INTERVAL_MS } from "../lib/polling/use-poll";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }), usePathname: () => "/issues" }));
 vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 vi.mock("../app/(app)/issues/[identifier]/actions", () => ({
   updateIssueAction: vi.fn(), deleteIssueAction: vi.fn(), restoreIssueAction: vi.fn(),
-  createCommentAction: vi.fn(), deleteCommentAction: vi.fn(), updateCommentAction: vi.fn(),
+  createCommentAction: vi.fn(), deleteCommentAction: vi.fn(), updateCommentAction: vi.fn(), deleteAttachmentAction: vi.fn(), restoreAttachmentAction: vi.fn(),
 }));
 
 let captured: { onDragStart: (e: unknown) => void; onDragOver: (e: unknown) => void; onDragEnd: (e: unknown) => void } | null = null;
