@@ -1,8 +1,7 @@
-import { notFound } from "next/navigation";
 import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
 import { ApiError } from "@/lib/api/client";
 import { listBoardColumns, listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
-import { getProject, listProjects } from "@/lib/api/projects";
+import { getProjectOr404, listProjects } from "@/lib/api/projects";
 import { parseFilters } from "@/lib/issue-filters";
 
 export const metadata = { title: "Project issues" };
@@ -10,10 +9,7 @@ export const metadata = { title: "Project issues" };
 /** Issues tab: the shared issue table and board (filters live in this page's URL), locked to the project. */
 export default async function ProjectIssuesPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const project = await getProject(id).catch((err) => {
-    if (err instanceof ApiError && err.status === 404) notFound();
-    throw err;
-  });
+  const project = await getProjectOr404(id);
   // The list is scoped to this project whatever `?project=` says.
   const filters = { ...parseFilters(query), project: project.id };
   let data: IssuesData | undefined;
