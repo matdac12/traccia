@@ -173,6 +173,10 @@ export const updateIssueInputSchema = z.object({
   estimate: estimateSchema.nullable().optional(),
   assignee: actorSchema.nullable().optional(),
   milestoneId: z.string().min(1).nullable().optional(),
+  /** Issue id or identifier; null makes it a root issue. */
+  parentId: z.string().min(1).nullable().optional(),
+  /** Moves the issue (and its sub-issues) to this project id, name or key. */
+  project: z.string().min(1).optional(),
   sortOrder: z.number().finite().optional(),
   /** Replaces the issue's label set. Names must already exist; never auto-created. */
   labels: labelNamesSchema.optional(),

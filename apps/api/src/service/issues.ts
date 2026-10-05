@@ -20,9 +20,16 @@ import {
   type Tx,
 } from "./context.js";
 import { type CommentThread, listIssueComments } from "./comments.js";
+import { assertValidParent } from "./hierarchy.js";
 import { allocateIssueNumber } from "./issue-keys.js";
+import { applyStructureChanges } from "./issue-structure.js";
 import { setIssueLabels } from "./labels.js";
 import { resolveProject } from "./projects.js";
+import {
+  type IssueRelations,
+  loadRelations,
+  NO_RELATIONS,
+} from "./relations.js";
 
 export type Issue = typeof issues.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
@@ -33,7 +40,7 @@ export type IssueDetail = Issue & {
   activity: Activity[];
   attachments: unknown[];
   children: Issue[];
-  relations: unknown[];
+  relations: IssueRelations;
 };
 
 /** Writes one activity row; call inside the same transaction as the change. */
@@ -73,7 +80,7 @@ export function resolveIssue(db: DbHandle, ref: string): Issue {
   return row;
 }
 
-function assertMilestoneInProject(
+export function assertMilestoneInProject(
   db: DbHandle,
   milestoneId: string,
   projectId: string,
@@ -126,14 +133,7 @@ export function createIssuesService(ctx: ServiceContext) {
           assertMilestoneInProject(tx, data.milestoneId, project.id);
         }
         const parent = data.parentId ? resolveIssue(tx, data.parentId) : null;
-        if (parent) {
-          if (parent.projectId !== project.id) {
-            throw new ServiceError(
-              "validation_error",
-              "Parent must be in the same project",
-            );
-          }
-        }
+        if (parent) assertValidParent(tx, null, parent, project.id);
         const status = data.status ?? "backlog";
         const now = nowIso();
         const number = allocateIssueNumber(tx, project.key);
@@ -152,7 +152,7 @@ export function createIssuesService(ctx: ServiceContext) {
             estimate: data.estimate ?? null,
             assignee: data.assignee ?? null,
             milestoneId: data.milestoneId ?? null,
-            parentId: data.parentId ? resolveIssue(tx, data.parentId).id : null,
+            parentId: parent?.id ?? null,
             sortOrder: data.sortOrder ?? 0,
             createdBy: actor,
             createdAt: now,
@@ -185,7 +185,9 @@ export function createIssuesService(ctx: ServiceContext) {
           ? listIssueComments(ctx.db, issue.id)
           : [],
         attachments: [],
-        relations: [],
+        relations: include.includes("relations")
+          ? loadRelations(ctx.db, issue.id)
+          : NO_RELATIONS,
         activity: include.includes("activity")
           ? ctx.db
               .select()
@@ -267,19 +269,18 @@ export function createIssuesService(ctx: ServiceContext) {
           set.assignee = patch.assignee;
           log("assignee_changed", { from: issue.assignee, to: patch.assignee });
         }
-        if (
-          patch.milestoneId !== undefined &&
-          patch.milestoneId !== issue.milestoneId
-        ) {
-          if (patch.milestoneId) {
-            assertMilestoneInProject(tx, patch.milestoneId, issue.projectId);
-          }
-          set.milestoneId = patch.milestoneId;
-          log("milestone_changed", {
-            from: issue.milestoneId,
-            to: patch.milestoneId,
-          });
-        }
+        // project / parent / milestone: see issue-structure.ts
+        Object.assign(
+          set,
+          applyStructureChanges(
+            tx,
+            issue,
+            patch.project ? resolveProject(tx, patch.project) : null,
+            patch,
+            actor,
+            now,
+          ),
+        );
         // sort_order is ordering, not content: no activity row.
         if (
           patch.sortOrder !== undefined &&
