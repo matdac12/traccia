@@ -19,7 +19,7 @@ import {
   type ServiceContext,
   type Tx,
 } from "./context.js";
-import { listIssueComments } from "./comments.js";
+import { type CommentThread, listIssueComments } from "./comments.js";
 import { allocateIssueNumber } from "./issue-keys.js";
 import { resolveProject } from "./projects.js";
 
@@ -28,7 +28,7 @@ export type Activity = typeof activity.$inferSelect;
 
 /** An issue plus the requested `include` collections (empty until those features land). */
 export type IssueDetail = Issue & {
-  comments: unknown[];
+  comments: CommentThread[];
   activity: Activity[];
   attachments: unknown[];
   children: Issue[];

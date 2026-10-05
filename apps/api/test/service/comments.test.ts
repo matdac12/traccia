@@ -203,6 +203,6 @@ describe("get issue include=comments", () => {
     const got = services.issues.get(issue.id, ["comments"]);
     expect(got.comments).toHaveLength(1);
     expect(got.comments[0]).toMatchObject({ id: a.id });
-    expect((got.comments[0] as { replies: unknown[] }).replies).toHaveLength(1);
+    expect(got.comments[0]?.replies).toHaveLength(1);
   });
 });

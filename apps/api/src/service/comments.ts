@@ -3,6 +3,7 @@ import {
   type CreateCommentInput,
   createCommentInputSchema,
   type ListCommentsInput,
+  listCommentsInputSchema,
   ServiceError,
   type UpdateCommentInput,
   updateCommentInputSchema,
@@ -131,7 +132,6 @@ export function createCommentsService(ctx: ServiceContext) {
             `Comment "${commentId}" not found`,
           );
         }
-        if (existing.body === data.body) return existing;
         return tx
           .update(comments)
           .set({ body: data.body, updatedAt: nowIso() })
@@ -142,8 +142,9 @@ export function createCommentsService(ctx: ServiceContext) {
     },
 
     list(issueRef: string, input: ListCommentsInput = {}): CommentThread[] {
+      const data = parseInput(listCommentsInputSchema, input);
       const issue = resolveIssue(ctx.db, issueRef);
-      return listIssueComments(ctx.db, issue.id, input.includeDeleted);
+      return listIssueComments(ctx.db, issue.id, data.includeDeleted);
     },
   };
 }
