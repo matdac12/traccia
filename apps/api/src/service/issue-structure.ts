@@ -44,8 +44,12 @@ export function applyStructureChanges(
   if (wantedParent !== undefined) {
     const parent = wantedParent ? resolveIssue(tx, wantedParent) : null;
     const parentId = parent?.id ?? null;
+    // When moving, an explicit parent is re-validated even if unchanged: it
+    // would otherwise stay behind in the old project.
+    if (parent && (moving || parentId !== issue.parentId)) {
+      assertValidParent(tx, issue, parent, projectId);
+    }
     if (parentId !== issue.parentId) {
-      if (parent) assertValidParent(tx, issue, parent, projectId);
       set.parentId = parentId;
       log(issue.id, "parent_changed", { from: issue.parentId, to: parentId });
     }
@@ -57,10 +61,10 @@ export function applyStructureChanges(
       : moving
         ? null
         : undefined;
+  if (wantedMilestone && (moving || wantedMilestone !== issue.milestoneId)) {
+    assertMilestoneInProject(tx, wantedMilestone, projectId);
+  }
   if (wantedMilestone !== undefined && wantedMilestone !== issue.milestoneId) {
-    if (wantedMilestone) {
-      assertMilestoneInProject(tx, wantedMilestone, projectId);
-    }
     set.milestoneId = wantedMilestone;
     log(issue.id, "milestone_changed", {
       from: issue.milestoneId,

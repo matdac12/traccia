@@ -212,4 +212,22 @@ describe("moving between projects", () => {
     expect(issues.get(b.id)).toMatchObject({ parentId: a.id });
     expect(types(b.id)).toEqual(["issue_created"]);
   });
+
+  it("rejects a move that keeps the old project's parent or milestone", () => {
+    const { create, issues, milestones, p1, p2 } = setup();
+    const a = create();
+    const m = milestones.create("you", p1.id, { name: "M" });
+    const b = create({ parentId: a.id, milestoneId: m.id });
+    expect(
+      code(() =>
+        issues.update("you", b.id, { project: p2.id, parentId: a.id }),
+      ),
+    ).toBe("validation_error");
+    expect(
+      code(() =>
+        issues.update("you", b.id, { project: p2.id, milestoneId: m.id }),
+      ),
+    ).toBe("validation_error");
+    expect(issues.get(b.id).projectId).toBe(p1.id);
+  });
 });
