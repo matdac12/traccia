@@ -66,3 +66,31 @@ export const updateMilestoneInputSchema = z.object({
   sortOrder: z.number().finite().optional(),
 });
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneInputSchema>;
+
+/** Hex colour `#rrggbb`. */
+export const colorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "must be a hex colour like #6b7280");
+
+export const createLabelInputSchema = z.object({
+  name: nameSchema,
+  color: colorSchema.optional(),
+  /** Project id, name or key. Omit or `null` for a global label. */
+  project: z.string().nullable().optional(),
+});
+export type CreateLabelInput = z.infer<typeof createLabelInputSchema>;
+
+export const updateLabelInputSchema = z.object({
+  name: nameSchema.optional(),
+  color: colorSchema.optional(),
+});
+export type UpdateLabelInput = z.infer<typeof updateLabelInputSchema>;
+
+export const listLabelsInputSchema = z.object({
+  /** Include this project's labels besides the global ones. */
+  project: z.string().optional(),
+  includeDeleted: z.boolean().optional(),
+});
+export type ListLabelsInput = z.infer<typeof listLabelsInputSchema>;
+
+export const labelNamesSchema = z.array(nameSchema);
