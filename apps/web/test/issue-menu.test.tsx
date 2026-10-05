@@ -132,7 +132,7 @@ describe("context menu on table rows", () => {
     expect(del).toHaveBeenCalledWith("TRK-1");
     expect(screen.queryByRole("link", { name: "Issue 1" })).toBeNull();
     expect(await screen.findByRole("status")).toHaveTextContent("TRK-1 moved to Trash");
-    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await user.click(screen.getByRole("button", { name: "Undo delete of TRK-1" }));
     expect(restore).toHaveBeenCalledWith("TRK-1");
     expect(await screen.findByRole("link", { name: "Issue 1" })).toBeInTheDocument();
   });

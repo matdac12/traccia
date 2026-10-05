@@ -45,7 +45,7 @@ export function IssuesTable({
     register?.({
       counts: () => countsOf(groupsRef.current),
       apply: (fresh) => {
-        if (inline.pending.current > 0) return false;
+        if (inline.pending.current > 0 || del.pending.current > 0) return false;
         if (!sameGroups(groupsRef.current, fresh)) setGroups(fresh);
         return true;
       },

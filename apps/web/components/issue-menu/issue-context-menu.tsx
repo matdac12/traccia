@@ -1,8 +1,9 @@
 "use client";
-import { Check, CornerDownRight, ExternalLink, Link2, ListTree, MoreHorizontal, Copy, Trash2 } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { CornerDownRight, ExternalLink, Link2, ListTree, MoreHorizontal, Copy, Trash2 } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { createSubIssueAction } from "@/app/(app)/issues/[identifier]/actions";
 import { IssuePicker } from "@/components/issue-detail/issue-picker";
+import { Tick } from "@/components/inline-edit/pickers";
 import { assigneeOptions, labelOptions, priorityOptions, statusOptions, type InlineEditor, type PickOption } from "@/components/inline-edit/options";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,10 +17,6 @@ import { cn } from "@/lib/utils";
 /** What the menu needs besides the issue: the lists for the Project and Milestone submenus, and the delete handler. */
 export type IssueMenuContext = { editor: InlineEditor; projects: Pick<Project, "id" | "key" | "name">[]; milestones: Milestone[]; onDelete: (issue: IssueRow) => void };
 
-const Tick = ({ on }: { on: boolean }) => (on ? <Check className="ml-auto size-3.5 text-primary" /> : null);
-
-/** A portaled menu or dialog still bubbles React events to the card, where they would start a drag. */
-const stop = { onKeyDown: (e: React.KeyboardEvent) => e.stopPropagation(), onPointerDown: (e: React.PointerEvent) => e.stopPropagation() };
 
 function Choices({ options }: { options: PickOption[] }) {
   return options.map((o) => (
@@ -33,7 +30,7 @@ function Sub({ icon, text, children }: { icon: ReactNode; text: string; children
   return (
     <ContextMenuSub>
       <ContextMenuSubTrigger>{icon}{text}</ContextMenuSubTrigger>
-      <ContextMenuSubContent className="max-h-80 overflow-y-auto" {...stop}>{children}</ContextMenuSubContent>
+      <ContextMenuSubContent className="max-h-80 overflow-y-auto">{children}</ContextMenuSubContent>
     </ContextMenuSub>
   );
 }
@@ -51,17 +48,18 @@ type Dialogs = "parent" | "sub" | null;
 export function IssueContextMenu({ issue, menu, children }: { issue: IssueRow; menu: IssueMenuContext; children: ReactNode }) {
   const { editor, projects, milestones, onDelete } = menu;
   const [dialog, setDialog] = useState<Dialogs>(null);
+  const labels = labelOptions(issue, editor);
   const milestoneChoices = milestones.filter((m) => m.projectId === issue.projectId);
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-        <ContextMenuContent className="w-56" aria-label={`Actions for ${issue.identifier}`} {...stop}>
+        <ContextMenuContent className="w-56" aria-label={`Actions for ${issue.identifier}`}>
           <Sub icon={null} text="Status"><Choices options={statusOptions(issue, editor)} /></Sub>
           <Sub icon={null} text="Priority"><Choices options={priorityOptions(issue, editor)} /></Sub>
           <Sub icon={null} text="Assignee"><Choices options={assigneeOptions(issue, editor)} /></Sub>
           <Sub icon={null} text="Labels">
-            {labelOptions(issue, editor).length === 0 ? <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels yet.</div> : <Choices options={labelOptions(issue, editor)} />}
+            {labels.length === 0 ? <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels yet.</div> : <Choices options={labels} />}
           </Sub>
           <Sub icon={null} text="Project">
             {projects.map((p) => (
@@ -89,7 +87,7 @@ export function IssueContextMenu({ issue, menu, children }: { issue: IssueRow; m
           <ContextMenuItem variant="destructive" onSelect={() => onDelete(issue)}><Trash2 />Delete</ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-      <span {...stop}>
+      <span>
         <ParentDialog issue={issue} editor={editor} open={dialog === "parent"} onClose={() => setDialog(null)} />
         <SubIssueDialog issue={issue} open={dialog === "sub"} onClose={() => setDialog(null)} />
       </span>
@@ -115,14 +113,12 @@ function SubIssueDialog({ issue, open, onClose }: { issue: IssueRow; open: boole
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const done = useRef(onClose);
-  done.current = onClose;
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       const res = await createSubIssueAction(issue.identifier, title);
-      if (res.ok) { setTitle(""); done.current(); } else setError(res.message);
+      if (res.ok) { setTitle(""); onClose(); } else setError(res.message);
     } catch {
       setError("Could not reach the server.");
     } finally {
@@ -130,7 +126,7 @@ function SubIssueDialog({ issue, open, onClose }: { issue: IssueRow; open: boole
     }
   };
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { setError(null); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setError(null); setTitle(""); onClose(); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add sub-issue to {issue.identifier}</DialogTitle>
@@ -152,7 +148,7 @@ function SubIssueDialog({ issue, open, onClose }: { issue: IssueRow; open: boole
  */
 export function IssueMenuButton({ issue, className }: { issue: IssueRow; className?: string }) {
   return (
-    <span className={cn("relative z-[1] inline-flex", className)} onKeyDown={(e) => e.stopPropagation()}>
+    <span className={cn("relative z-[1] inline-flex", className)} onKeyDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
       <button
         type="button"
         aria-label={`Actions for ${issue.identifier}`}

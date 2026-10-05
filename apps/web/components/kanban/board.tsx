@@ -64,7 +64,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     register?.({
       counts: () => countsOf(current.current),
       apply: (fresh) => {
-        if (snapshot.current || inFlight.current > 0 || inline.pending.current > 0) return false;
+        if (snapshot.current || inFlight.current > 0 || inline.pending.current > 0 || del.pending.current > 0) return false;
         if (!sameGroups(current.current, fresh)) commit(fresh);
         return true;
       },
@@ -220,7 +220,7 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
   return (
     <IssueContextMenu issue={issue} menu={menu}>
       <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
-        <Card issue={issue} editor={editor} dragging={isDragging} menu />
+        <Card issue={issue} editor={editor} dragging={isDragging} showMenuButton />
       </div>
     </IssueContextMenu>
   );
@@ -229,7 +229,7 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
 /** The drag overlay only shows the card: its pickers do nothing. */
 const INERT: InlineEditor = { edit: () => {}, labels: [] };
 
-function Card({ issue, editor, dragging, overlay, menu }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean; menu?: boolean }) {
+function Card({ issue, editor, dragging, overlay, showMenuButton }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean; showMenuButton?: boolean }) {
   return (
     <div className={cn("cursor-grab rounded-lg border bg-card p-2.5 shadow-sm transition-colors hover:border-foreground/20", dragging && "opacity-30", overlay && "rotate-1 cursor-grabbing shadow-xl")}>
       <div className="mb-1.5 flex items-center justify-between">
@@ -239,7 +239,7 @@ function Card({ issue, editor, dragging, overlay, menu }: { issue: IssueRow; edi
           {issue.createdBy === "agent" && issue.status === "backlog" && <AgentMark />}
         </span>
         <span className="flex items-center gap-1">
-          {menu && <IssueMenuButton issue={issue} />}
+          {showMenuButton && <IssueMenuButton issue={issue} />}
           <AssigneePicker issue={issue} editor={editor} size={16} />
         </span>
       </div>
