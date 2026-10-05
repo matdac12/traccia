@@ -1,14 +1,29 @@
 #!/usr/bin/env tsx
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import { ConfigError, loadConfig, loadConfigFromEnv } from "../config.js";
 import { type Db, openDatabase } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
+import { SnapshotError, takeSnapshot } from "../db/snapshot.js";
 import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
 
 type Env = Record<string, string | undefined>;
 
+const DB_USAGE = `Usage:
+  tracker db migrate
+  tracker db snapshot [--out <dir>] [--keep <n>]
+
+migrate   Applies pending database migrations.
+snapshot  Writes a consistent online snapshot tracker-<UTC timestamp>.db to
+          --out (default: $DATA_DIR/backups), runs PRAGMA integrity_check on it,
+          and deletes all but the newest --keep (default 3) snapshots there.
+          Safe to run while the API is serving writes.`;
+
 const USAGE = `Usage:
   tracker db migrate
+  tracker db snapshot [--out <dir>] [--keep <n>]
   tracker token create --name <name> --actor agent|you
   tracker token list
   tracker token revoke <id>`;
@@ -28,7 +43,7 @@ export async function runCli(
     }
     // Help never needs configuration or a database.
     if (group === "db" && argv.some((a) => a === "--help" || a === "-h")) {
-      out("Usage: tracker db migrate\n\nApplies pending database migrations.");
+      out(DB_USAGE);
       return 0;
     }
     const help = group === "token" ? tokenHelp(argv.slice(1)) : null;
@@ -41,6 +56,10 @@ export async function runCli(
       out("migrations up to date");
       return 0;
     }
+    if (group === "db" && command === "snapshot") {
+      runSnapshot(argv.slice(2), env, out);
+      return 0;
+    }
     if (group === "token") {
       withDb(env, (db) => runTokenCommand(db, argv.slice(1), out));
       return 0;
@@ -48,7 +67,8 @@ export async function runCli(
     logError(`Unknown command: ${argv.join(" ") || "(none)"}\n${USAGE}`);
     return 1;
   } catch (err) {
-    if (err instanceof UsageError) logError(err.message);
+    if (err instanceof UsageError || err instanceof SnapshotError)
+      logError(err.message);
     else logError(err instanceof ConfigError ? err.message : errorMessage(err));
     return 1;
   }
@@ -56,6 +76,45 @@ export async function runCli(
 
 const errorMessage = (err: unknown) =>
   err instanceof Error ? err.message : String(err);
+
+function runSnapshot(
+  args: string[],
+  env: Env | undefined,
+  out: (message: string) => void,
+): void {
+  let values: { out?: string; keep?: string };
+  try {
+    const parsed = parseArgs({
+      args,
+      options: { out: { type: "string" }, keep: { type: "string" } },
+    });
+    values = parsed.values;
+  } catch (err) {
+    throw new UsageError(errorMessage(err));
+  }
+  const keep = values.keep === undefined ? 3 : Number(values.keep);
+  if (!Number.isInteger(keep) || keep < 1) {
+    throw new UsageError("--keep must be a positive integer");
+  }
+  const config = env ? loadConfig(env) : loadConfigFromEnv();
+  // Never create an empty database just to snapshot it.
+  if (!existsSync(join(config.dataDir, "tracker.db"))) {
+    throw new SnapshotError(`No database at ${config.dataDir}/tracker.db`);
+  }
+  const { sqlite } = openDatabase(config.dataDir);
+  try {
+    const result = takeSnapshot(sqlite, {
+      outDir: values.out ?? join(config.dataDir, "backups"),
+      keep,
+    });
+    out(`Snapshot written: ${result.path} (integrity_check ok)`);
+    if (result.removed.length) {
+      out(`Removed old snapshots: ${result.removed.join(", ")}`);
+    }
+  } finally {
+    sqlite.close();
+  }
+}
 
 function withDb(env: Env | undefined, fn: (db: Db) => void): void {
   const config = env ? loadConfig(env) : loadConfigFromEnv();

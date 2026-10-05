@@ -7,6 +7,7 @@ Docker Compose in `/opt/tracker` on the VPS (`omni`). Images are built on the Ma
 | `deploy.sh` | Run on the Mac: build, ship, restart, wait for health |
 | `docker-compose.yml` | Copied to `/opt/tracker` by `deploy.sh` |
 | `.env.example` | Template for `/opt/tracker/.env` |
+| `backup/` | Daily snapshot timer for the VPS and the Windows pull script; see [`docs/backup-restore.md`](../docs/backup-restore.md) |
 
 Both services publish to `127.0.0.1` only (`8787` api, `3000` web). `tailscale serve` is the only thing that exposes them to the tailnet (spec 3.1).
 
@@ -43,7 +44,7 @@ ssh -o RemoteCommand=none -o RequestTTY=no omni 'tail -n 3 /opt/tracker/deployed
 ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && TAG=<previous tag> docker compose up -d'
 ```
 
-Rollback does not touch `/data`. If the bad release ran a database migration, restore a snapshot instead (spec 14.2); migrations are forward-only.
+Rollback does not touch `/data`. If the bad release ran a database migration, restore a snapshot instead ([`docs/backup-restore.md`](../docs/backup-restore.md)); migrations are forward-only.
 
 A plain `docker compose up -d` without `TAG` starts the `latest` tag, which is the most recent deploy.
 

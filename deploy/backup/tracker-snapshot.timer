@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Traccia SQLite snapshot daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# Catch up after the VPS was off at the scheduled time.
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target
