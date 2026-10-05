@@ -24,6 +24,14 @@ function respond(
   return c.json(body, ERROR_STATUS[code]);
 }
 
+const HTTP_STATUS_CODES: Partial<Record<number, ErrorCode>> = {
+  401: "unauthorized",
+  403: "forbidden",
+  404: "not_found",
+  409: "conflict",
+  429: "rate_limited",
+};
+
 /** Maps a ZodError to `{ fields: { "a.b": ["message", ...] } }`. */
 export function zodDetails(err: ZodError): Record<string, unknown> {
   const fields: Record<string, string[]> = {};
@@ -44,8 +52,8 @@ export const errorHandler: ErrorHandler<AppEnv> = (err, c) => {
   }
   if (err instanceof HTTPException && err.status < 500) {
     // Raised by Hono itself, e.g. a malformed or oversized body.
-    const code: ErrorCode =
-      err.status === 404 ? "not_found" : "validation_error";
+    const code = HTTP_STATUS_CODES[err.status] ?? "validation_error";
+    err.status === 404 ? "not_found" : "validation_error";
     return respond(c, code, err.message || "Bad request");
   }
   c.get("logger").error("unhandled error", {

@@ -1,5 +1,6 @@
 import { SHARED_PLACEHOLDER } from "@linear-matti/shared";
 import { describe, expect, it } from "vitest";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import { ERROR_STATUS } from "../src/service/errors.js";
 import {
@@ -84,6 +85,20 @@ describe("error shape", () => {
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
       "not_found",
     );
+  });
+});
+
+describe("HTTPException mapping", () => {
+  it("keeps 401/403/429 statuses", async () => {
+    const { app } = createTestApp();
+    app.get("/u", () => {
+      throw new HTTPException(401, { message: "no" });
+    });
+    app.get("/r", () => {
+      throw new HTTPException(429);
+    });
+    expect((await app.request("/u")).status).toBe(401);
+    expect((await app.request("/r")).status).toBe(429);
   });
 });
 
@@ -178,7 +193,7 @@ describe("pagination", () => {
     expect(res.status).toBe(400);
   });
 
-  it.each(["not-a-cursor!!", "bm90anNvbg"])(
+  it.each(["not-a-cursor!!", "bm90anNvbg", "bnVsbA", "NQ"])(
     "rejects bad cursor %s",
     async (cursor) => {
       const res = await listApp().request(`/items?cursor=${cursor}`);

@@ -6,7 +6,7 @@ export const MAX_LIMIT = 250;
 
 export type Page<T> = { items: T[]; nextCursor: string | null };
 
-/** Opaque cursor: base64url of a JSON value. Callers validate the payload shape. */
+/** Opaque cursor: base64url of a JSON object. Callers validate the payload shape. */
 export function encodeCursor(payload: unknown): string {
   return Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 }
@@ -15,7 +15,10 @@ export function decodeCursor(cursor: string): unknown {
   try {
     const text = Buffer.from(cursor, "base64url").toString("utf8");
     if (!/^[A-Za-z0-9_-]+$/.test(cursor)) throw new Error("charset");
-    return JSON.parse(text);
+    const payload: unknown = JSON.parse(text);
+    if (typeof payload !== "object" || payload === null)
+      throw new Error("shape");
+    return payload;
   } catch {
     throw new ValidationError("Invalid cursor", {
       fields: { cursor: ["Invalid cursor"] },
