@@ -59,6 +59,9 @@ names and the token value; run it before changing anything around the client.
   `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`.
 - Lists return `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
 - Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId? }`; a column is (project, status).
+  `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified
+  against the service; the board sends the card above as `afterId`). Neighbours must share the issue's project.
+  The board lives in `components/kanban/` (pure drop logic in `board-model.ts`) and lists columns by `sortOrder`.
 - **Search snippets** (`GET /search`) contain `<mark>` around hits and are NOT HTML-escaped. Escape the whole string,
   then re-enable only `<mark>` and `</mark>`, before using it as HTML. Never `dangerouslySetInnerHTML` raw snippets.
 
