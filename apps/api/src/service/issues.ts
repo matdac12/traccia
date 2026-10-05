@@ -22,6 +22,7 @@ import {
 import { type CommentThread, listIssueComments } from "./comments.js";
 import { assertValidParent } from "./hierarchy.js";
 import { allocateIssueNumber } from "./issue-keys.js";
+import { indexIssue } from "./search-index.js";
 import { applyStructureChanges } from "./issue-structure.js";
 import { setIssueLabels } from "./labels.js";
 import { resolveProject } from "./projects.js";
@@ -103,7 +104,7 @@ export function assertMilestoneInProject(
 }
 
 /** Timestamp columns implied by entering `status`, applied on top of `current`. */
-function statusTimestamps(
+export function statusTimestamps(
   status: IssueStatus,
   current: Pick<Issue, "startedAt" | "completedAt" | "canceledAt">,
   now: string,
@@ -165,6 +166,7 @@ export function createIssuesService(ctx: ServiceContext) {
           })
           .returning()
           .get();
+        indexIssue(tx, issue);
         recordActivity(
           tx,
           issue.id,
@@ -303,12 +305,16 @@ export function createIssuesService(ctx: ServiceContext) {
         const extraChanged =
           (hook?.(tx, issue, actor) ?? false) || labelsChanged;
         if (Object.keys(set).length === 0 && !extraChanged) return issue;
-        return tx
+        const updated = tx
           .update(issues)
           .set({ ...set, updatedAt: now })
           .where(eq(issues.id, issue.id))
           .returning()
           .get();
+        if (set.title !== undefined || set.description !== undefined) {
+          indexIssue(tx, updated);
+        }
+        return updated;
       });
     },
   };

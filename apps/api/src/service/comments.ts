@@ -9,10 +9,11 @@ import {
   updateCommentInputSchema,
 } from "@linear-matti/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { comments } from "../db/schema.js";
+import { comments, issues } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
+import { indexComment } from "./search-index.js";
 import { recordActivity, resolveIssue } from "./issues.js";
 
 export type Comment = typeof comments.$inferSelect;
@@ -101,6 +102,7 @@ export function createCommentsService(ctx: ServiceContext) {
           })
           .returning()
           .get();
+        indexComment(tx, comment);
         recordActivity(
           tx,
           issue.id,
@@ -132,12 +134,20 @@ export function createCommentsService(ctx: ServiceContext) {
             `Comment "${commentId}" not found`,
           );
         }
-        return tx
+        const updated = tx
           .update(comments)
           .set({ body: data.body, updatedAt: nowIso() })
           .where(eq(comments.id, commentId))
           .returning()
           .get();
+        // A comment of a soft-deleted issue stays out of the index until restore.
+        const owner = tx
+          .select({ deletedAt: issues.deletedAt })
+          .from(issues)
+          .where(eq(issues.id, updated.issueId))
+          .get();
+        if (owner?.deletedAt === null) indexComment(tx, updated);
+        return updated;
       });
     },
 

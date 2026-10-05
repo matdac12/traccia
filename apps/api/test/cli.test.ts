@@ -393,3 +393,32 @@ describe("tracker db snapshot", () => {
     expect(r.out).toMatch(/snapshot/);
   });
 });
+
+describe("tracker db reindex", () => {
+  it("rebuilds the search index and is idempotent", async () => {
+    const e = env();
+    const out: string[] = [];
+    const run = (...argv: string[]) =>
+      runCli(
+        argv,
+        e,
+        () => {},
+        (m) => out.push(m),
+      );
+    await run("db", "migrate");
+    const { sqlite, db } = openDatabase(e.DATA_DIR);
+    const { createServices } = await import("../src/service/index.js");
+    const s = createServices({ db, defaultIssueKey: "MAT" });
+    const p = s.projects.create("you", { name: "P" });
+    s.issues.create("you", { project: p.id, title: "findable" });
+    sqlite.exec("DELETE FROM search_index");
+    sqlite.close();
+    expect(await run("db", "reindex")).toBe(0);
+    expect(await run("db", "reindex")).toBe(0);
+    expect(out.at(-1)).toBe("search index rebuilt: 1 issues, 0 comments");
+    const again = openDatabase(e.DATA_DIR);
+    const s2 = createServices({ db: again.db, defaultIssueKey: "MAT" });
+    expect(s2.search.search({ q: "findable" }).items).toHaveLength(1);
+    again.sqlite.close();
+  });
+});

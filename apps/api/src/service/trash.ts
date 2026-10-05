@@ -22,7 +22,7 @@ import { parseInput, type ServiceContext, type Tx } from "./context.js";
 import { loadSubtree } from "./hierarchy.js";
 import { recordActivity } from "./issues.js";
 import { resolveProject } from "./projects.js";
-import { removeFromSearchIndex, restoreToSearchIndex } from "./search-sync.js";
+import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
 
 /**
  * Soft delete, restore, purge and the Trash listing (ADR 0004).
@@ -391,12 +391,10 @@ function softDelete(
     }
   }
 
-  removeFromSearchIndex(tx, [
-    ...sets.projectIds,
-    ...sets.milestoneIds,
-    ...sets.issueIds,
-    ...sets.commentIds,
-  ]);
+  removeFromSearchIndex(tx, {
+    refIds: sets.commentIds,
+    issueIds: sets.issueIds,
+  });
   return { type, id, batch, counts: countsOf(sets) };
 }
 
@@ -502,7 +500,17 @@ function restoreBatch(
       now,
     );
   }
-  restoreToSearchIndex(tx, sets);
+  // Re-adds each affected issue and its live comments (a restored comment
+  // re-indexes its owning issue, which is a no-op for the rest).
+  const commentOwners = sets.commentIds.length
+    ? tx
+        .select({ issueId: comments.issueId })
+        .from(comments)
+        .where(inArray(comments.id, sets.commentIds))
+        .all()
+        .map((c) => c.issueId)
+    : [];
+  reindexIssues(tx, [...new Set([...sets.issueIds, ...commentOwners])]);
   return { type, id: row.id, batch: batch ?? "", counts: countsOf(sets) };
 }
 
@@ -610,12 +618,10 @@ function purgeRows(
     }
     tx.delete(projects).where(eq(projects.id, id)).run();
   }
-  removeFromSearchIndex(tx, [
-    ...sets.projectIds,
-    ...sets.milestoneIds,
-    ...sets.issueIds,
-    ...sets.commentIds,
-  ]);
+  removeFromSearchIndex(tx, {
+    refIds: sets.commentIds,
+    issueIds: sets.issueIds,
+  });
   return { sets, keys: attRows.map((a) => a.storageKey) };
 }
 

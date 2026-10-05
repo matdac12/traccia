@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   activity,
   attachments,
@@ -319,15 +319,21 @@ describe("purge", () => {
 });
 
 describe("trash listing", () => {
+  afterEach(() => vi.useRealTimers());
   it("lists deleted items across types, newest first, paginated", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
     const s = await setup();
+    const tick = () => vi.advanceTimersByTime(1000);
     const i = s.issue();
     const c = s.services.comments.create("you", i.id, { body: "hello" });
     const a = await s.attach(i.id);
     const m = s.services.milestones.create("you", s.project.id, { name: "M" });
     await s.del("attachment", a.id);
+    tick();
     await s.del("comment", c.id);
+    tick();
     await s.del("milestone", m.id);
+    tick();
     const j = s.issue("gone");
     await s.del("issue", j.id);
     const all = s.services.trash.list();
@@ -344,5 +350,26 @@ describe("trash listing", () => {
     expect(p2.items.map((x) => x.id)).toEqual([all.items[3]?.id]);
     expect(p2.nextCursor).toBeNull();
     expect(s.services.trash.list({ type: "comment" }).items).toHaveLength(1);
+  });
+});
+
+describe("search index", () => {
+  it("soft delete removes rows, restore brings them back, purge removes them", async () => {
+    const s = await setup();
+    const i = s.issue("alpha issue");
+    const c = s.services.comments.create("you", i.id, { body: "beta comment" });
+    const found = (q: string) => s.services.search.search({ q }).items.length;
+    expect([found("alpha"), found("beta")]).toEqual([1, 1]);
+    await s.del("comment", c.id);
+    expect([found("alpha"), found("beta")]).toEqual([1, 0]);
+    s.services.trash.restore("you", "comment", c.id);
+    expect([found("alpha"), found("beta")]).toEqual([1, 1]);
+    await s.del("issue", i.id);
+    expect([found("alpha"), found("beta")]).toEqual([0, 0]);
+    s.services.trash.restore("you", "issue", i.id);
+    expect([found("alpha"), found("beta")]).toEqual([1, 1]);
+    await s.del("issue", i.id);
+    await s.services.trash.purge("you", "issue", i.id);
+    expect([found("alpha"), found("beta")]).toEqual([0, 0]);
   });
 });
