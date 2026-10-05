@@ -211,9 +211,13 @@ describe("listGroups", () => {
     expect(services.issues.listGroups({ status: ["done"] }).syncToken).toBe(a.updatedAt);
     await new Promise((r) => setTimeout(r, 5));
     const b = create({ title: "b" });
+    await new Promise((r) => setTimeout(r, 5));
     await services.trash.delete("you", "issue", b.id);
-    expect(services.issues.listGroups().syncToken).toBe(b.updatedAt);
-    expect(services.issues.latestChange(b.updatedAt)).toBeNull();
-    expect(services.issues.latestChange(a.updatedAt)).toBe(b.updatedAt);
+    // The delete itself bumps updatedAt, so the token moves past `b`'s creation (MAT-1765).
+    const token = services.issues.listGroups().syncToken;
+    expect(token > b.updatedAt).toBe(true);
+    expect(services.issues.latestChange(b.updatedAt)).toBe(token);
+    expect(services.issues.latestChange(token)).toBeNull();
+    expect(services.issues.latestChange(a.updatedAt)).toBe(token);
   });
 });
