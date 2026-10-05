@@ -96,6 +96,13 @@ export function sniffType(head: Buffer): SniffedType {
   return "text";
 }
 
+function describeSniffed(sniffed: SniffedType): string {
+  if (sniffed === "text") return "text/plain";
+  if (sniffed === "binary")
+    return "an unsupported binary or HTML/script format";
+  return sniffed;
+}
+
 /** Lowercases and strips parameters: `Text/Plain; charset=utf-8` -> `text/plain`. */
 export function normalizeMimeType(declared: string): string {
   return (declared.split(";")[0] ?? "").trim().toLowerCase();
@@ -187,7 +194,7 @@ export function createUploadInspector(opts: {
     if (sniffed !== expected) {
       throw new AttachmentValidationError(
         "type_mismatch",
-        `Content does not match declared type ${mimeType} (detected ${sniffed === "text" ? "plain text" : sniffed === "binary" ? "an unsupported binary or HTML/script format" : sniffed})`,
+        `Content does not match declared type ${mimeType} (detected ${describeSniffed(sniffed)})`,
       );
     }
     classified = true;

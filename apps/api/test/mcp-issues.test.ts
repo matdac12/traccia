@@ -400,7 +400,7 @@ describe("MCP issue tools", () => {
     expect(del.data).toMatchObject({
       type: "issue",
       identifier: "ALP-1",
-      title: expect.any(String),
+      title: expect.not.stringMatching(/^$/),
     });
     expect((await agent("list_issues")).data.items).toHaveLength(0);
     const withDeleted = await agent("list_issues", { includeDeleted: true });
