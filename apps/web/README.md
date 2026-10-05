@@ -106,6 +106,16 @@ scripts/               check-client-bundle.mjs
 test/                  vitest
 ```
 
+## Issue detail (`/issues/[identifier]`, MAT-1721)
+
+`app/(app)/issues/[identifier]/` (page + `actions.ts`) and `components/issue-detail/`. The page fetches the issue with
+`?include=comments,activity,attachments,children,relations`. Every edit is a server action that sends the issue's
+`updatedAt` as `If-Match`; a `conflict` returns the current issue, nothing is saved, and the UI offers "Re-apply my
+change" (patches are rebuilt against the fresh issue, and title/description are refused if the same field moved).
+Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
+agent-written text. The attachments slot is `AttachmentsSlot` in `issue-detail.tsx` (MAT-1725).
+The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
+
 ## Docker
 
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t tracker-web:latest .` from the repo
