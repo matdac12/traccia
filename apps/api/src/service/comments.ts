@@ -116,8 +116,8 @@ export function createCommentsService(ctx: ServiceContext) {
     },
 
     /**
-     * Replaces the body and bumps `updated_at`. Deleted comments are `not_found`;
-     * only the comment's own actor may edit it (`forbidden` otherwise).
+     * Replaces the body and bumps `updated_at`. Deleted comments are
+     * `not_found`; editing another actor's comment is `forbidden`.
      */
     update(
       actor: Actor,
@@ -140,7 +140,7 @@ export function createCommentsService(ctx: ServiceContext) {
         if (existing.actor !== actor) {
           throw new ServiceError(
             "forbidden",
-            `Comment "${commentId}" was written by '${existing.actor}'; only its author can edit it`,
+            "Only the actor who wrote a comment may edit it",
           );
         }
         const updated = tx

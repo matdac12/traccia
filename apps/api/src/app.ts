@@ -1,9 +1,18 @@
 import { Hono } from "hono";
-import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
-import type { AppContainer, AppEnv } from "./rest/env.js";
+import { createMcpRoute } from "./mcp/route.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
+import { mountLabelRoutes } from "./rest/labels.js";
+import { mountMilestoneRoutes } from "./rest/milestones.js";
+import { mountProjectRoutes } from "./rest/projects.js";
+import { mountRestoreRoutes } from "./rest/restore.js";
+import { mountActivityRoutes } from "./rest/activity.js";
+import { mountCommentRoutes } from "./rest/comments.js";
+import { mountIssueRoutes } from "./rest/issues.js";
+import { mountSearchRoutes } from "./rest/search.js";
+import { mountTrashRoutes } from "./rest/trash.js";
+import type { AppContainer, AppEnv } from "./rest/env.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
 import { requestContext } from "./rest/request-context.js";
 
@@ -12,7 +21,10 @@ import { requestContext } from "./rest/request-context.js";
  * root; every authenticated route belongs on `v1`, which is where auth
  * middleware will be attached later.
  */
-export function createApp(container: AppContainer) {
+export function createApp(
+  container: AppContainer,
+  mcpDeps?: Parameters<typeof createMcpRoute>[1],
+) {
   const app = new Hono<AppEnv>();
   app.use(requestContext(container));
   app.onError(errorHandler);
@@ -31,8 +43,17 @@ export function createApp(container: AppContainer) {
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
   mountAttachmentRoutes(app, v1, container, auth);
+  mountProjectRoutes(v1, container);
+  mountMilestoneRoutes(v1, container);
+  mountLabelRoutes(v1, container);
+  mountRestoreRoutes(v1, container);
+  mountIssueRoutes(v1, container);
+  mountCommentRoutes(v1, container);
+  mountSearchRoutes(v1, container);
+  mountActivityRoutes(v1, container);
+  mountTrashRoutes(v1, container);
   app.route("/v1", v1);
-  app.route("/mcp", createMcpRoute(container));
+  app.route("/mcp", createMcpRoute(container, mcpDeps));
 
   return app;
 }

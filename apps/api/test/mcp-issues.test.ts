@@ -442,7 +442,9 @@ describe("MCP comment tools", () => {
       body: "hijack",
     });
     expect(foreign.isError).toBe(true);
-    expect(foreign.text).toContain("only its author can edit");
+    expect(foreign.text).toContain(
+      "Only the actor who wrote a comment may edit it",
+    );
 
     expect((await agent("save_comment", { body: "x" })).text).toContain(
       "requires 'issueId'",

@@ -1,11 +1,15 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Actor } from "@linear-matti/shared";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import pkg from "../../package.json" with { type: "json" };
 import { errorFields } from "../logger.js";
 import type { AppContainer } from "../rest/env.js";
 import { runTool, toolResult } from "./errors.js";
 import { registerCommentTools } from "./tools/comments.js";
 import { registerIssueTools } from "./tools/issues.js";
+import {
+  type AttachmentToolDeps,
+  registerAttachmentTools,
+} from "./tools/attachments.js";
 
 /** The caller, resolved by the auth middleware before the transport runs. */
 export type McpContext = {
@@ -21,7 +25,10 @@ export type McpContext = {
  * `whoami` is kept deliberately: it is the cheapest way for an agent (or a
  * smoke test) to confirm its token works and which actor its writes get.
  */
-export function createMcpServer(ctx: McpContext): McpServer {
+export function createMcpServer(
+  ctx: McpContext,
+  deps: { attachments: AttachmentToolDeps },
+): McpServer {
   const server = new McpServer({ name: "tracker", version: pkg.version });
 
   server.registerTool(
@@ -43,6 +50,7 @@ export function createMcpServer(ctx: McpContext): McpServer {
 
   registerIssueTools(server, ctx);
   registerCommentTools(server, ctx);
+  registerAttachmentTools(server, ctx, deps.attachments);
 
   return server;
 }

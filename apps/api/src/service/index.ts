@@ -1,5 +1,6 @@
 import type { Db } from "../db/connection.js";
 import type { AttachmentStorage } from "../storage/storage.js";
+import { createActivityFeedService } from "./activity-feed.js";
 import { createAttachmentsService } from "./attachments.js";
 import { createCommentsService } from "./comments.js";
 import { createServiceContext } from "./context.js";
@@ -11,9 +12,11 @@ import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
 import { createRelationsService } from "./relations.js";
 import { createSearchService } from "./search.js";
+import { createStatsService } from "./stats.js";
 import { createTrashService } from "./trash.js";
 
 export { ServiceError } from "@linear-matti/shared";
+export type { ActivityFeedItem } from "./activity-feed.js";
 export type { Attachment } from "./attachments.js";
 export type { Comment, CommentThread } from "./comments.js";
 export type { DbHandle, ServiceContext, Tx } from "./context.js";
@@ -73,6 +76,8 @@ export function createServices(options: {
     trash: createTrashService(ctx),
     attachments: createAttachmentsService(ctx),
     search: createSearchService(ctx),
+    stats: createStatsService(ctx),
+    activityFeed: createActivityFeedService(ctx),
   };
 }
 
