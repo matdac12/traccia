@@ -121,7 +121,7 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "delete_milestone",
-    "Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge:true is permanent; agents cannot purge by default.",
+    "Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge=true permanently removes an ALREADY deleted milestone; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
     deleteMilestoneToolShape,
     async (args) => {
       try {

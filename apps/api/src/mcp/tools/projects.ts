@@ -126,7 +126,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "delete_project",
-    "Soft-delete a project (hides its milestones and issues); restorable with restore. purge:true removes an already-deleted project permanently; agents cannot purge by default.",
+    "Soft-delete a project (hides its milestones and issues); restorable with restore. purge=true permanently removes an ALREADY deleted project; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
     deleteProjectToolShape,
     async (args) => {
       const p = resolveProjectRef(projects, args.project, {

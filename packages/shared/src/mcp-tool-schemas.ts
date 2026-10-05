@@ -43,15 +43,13 @@ export const saveProjectToolShape = {
       "Issue prefix. Omit to use the default (MAT). Cannot be changed after creation.",
     ),
   description: z.string().optional().describe("Markdown."),
-  status: z.enum(PROJECT_STATUSES).optional(),
+  status: z
+    .enum(PROJECT_STATUSES)
+    .optional()
+    .describe("Default on create: active."),
 };
 
-const purgeSchema = z
-  .boolean()
-  .optional()
-  .describe(
-    "Permanent removal; default false. Only works on already-deleted items, and agents cannot purge unless the server allows it.",
-  );
+const purgeSchema = z.boolean().optional().describe("Default false.");
 
 export const deleteProjectToolShape = {
   project: projectRefSchema,
@@ -60,7 +58,10 @@ export const deleteProjectToolShape = {
 
 export const listMilestonesToolShape = {
   project: projectRefSchema.optional().describe("Omit for all projects."),
-  includeDeleted: z.boolean().optional(),
+  includeDeleted: z
+    .boolean()
+    .optional()
+    .describe("Include soft-deleted milestones."),
   ...mcpPaginationShape,
 };
 
@@ -76,7 +77,7 @@ export const saveMilestoneToolShape = {
 };
 
 export const deleteMilestoneToolShape = {
-  id: z.string(),
+  id: z.string().describe("Milestone id."),
   purge: purgeSchema,
 };
 
@@ -90,7 +91,7 @@ export const listIssueLabelsToolShape = {
 export const saveIssueLabelToolShape = {
   id: z.string().optional().describe("Omit to create."),
   name: z.string().min(1).optional().describe("Required on create."),
-  color: colorSchema.optional(),
+  color: colorSchema.optional().describe("Hex #rrggbb."),
   project: projectRefSchema
     .nullable()
     .optional()
