@@ -598,4 +598,22 @@ describe("PATCH blocker cycles", () => {
     const after = await t.call("GET", `/issues/${a.identifier}`);
     expect(after.json.title).toBe("A");
   });
+
+  it("replaces blockedBy and blocks together without a false cycle", async () => {
+    const t = setup();
+    const a = await t.mk("A");
+    const b = await t.mk("B");
+    const c = await t.mk("C");
+    // A blocks B, B blocks C. Swap: A is now blocked by C and blocks nothing.
+    await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { blocks: [b.identifier] },
+    });
+    await t.call("PATCH", `/issues/${b.identifier}`, {
+      body: { blocks: [c.identifier] },
+    });
+    const res = await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { blockedBy: [c.identifier], blocks: [] },
+    });
+    expect(res.status).toBe(200);
+  });
 });

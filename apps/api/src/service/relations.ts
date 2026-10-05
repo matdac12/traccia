@@ -143,31 +143,32 @@ export function setBlockersTx(
 ): boolean {
   const self = resolveIssue(tx, issueRef);
   const current = loadRelations(tx, self.id);
-  let changed = false;
-  const sync = (
+  type Edge = { blocker: string; blocked: string };
+  const plan = (
     have: RelatedIssue[],
     refs: string[] | undefined,
-    add: (other: string) => boolean,
-    remove: (other: string) => boolean,
+    edge: (other: string) => Edge,
   ) => {
-    if (refs === undefined) return;
+    if (refs === undefined) return { remove: [], add: [] };
     const wantIds = new Set(refs.map((r) => resolveIssue(tx, r).id));
-    for (const r of have)
-      if (!wantIds.has(r.id)) changed = remove(r.id) || changed;
-    for (const id of wantIds) changed = add(id) || changed;
+    return {
+      remove: have.filter((r) => !wantIds.has(r.id)).map((r) => edge(r.id)),
+      add: [...wantIds].map(edge),
+    };
   };
-  sync(
-    current.blockedBy,
-    want.blockedBy,
-    (o) => addBlockerTx(tx, actor, o, self.id),
-    (o) => removeBlockerTx(tx, actor, o, self.id),
-  );
-  sync(
-    current.blocks,
-    want.blocks,
-    (o) => addBlockerTx(tx, actor, self.id, o),
-    (o) => removeBlockerTx(tx, actor, self.id, o),
-  );
+  const as = (other: string): Edge => ({ blocker: other, blocked: self.id });
+  const to = (other: string): Edge => ({ blocker: self.id, blocked: other });
+  const steps = [
+    plan(current.blockedBy, want.blockedBy, as),
+    plan(current.blocks, want.blocks, to),
+  ];
+  // Every removal lands before any add, so replacing both sets at once can't
+  // trip the cycle check on an edge that is about to disappear.
+  let changed = false;
+  for (const e of steps.flatMap((s) => s.remove))
+    changed = removeBlockerTx(tx, actor, e.blocker, e.blocked) || changed;
+  for (const e of steps.flatMap((s) => s.add))
+    changed = addBlockerTx(tx, actor, e.blocker, e.blocked) || changed;
   return changed;
 }
 
