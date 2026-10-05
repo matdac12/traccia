@@ -83,6 +83,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `RATE_LIMIT_PER_MIN` | api | `120` | Requests per minute, per token |
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | api | `true` | Read the client IP from `X-Forwarded-For` |
+| `SOURCE_URL_EXTRA_PORTS` | api | empty | Comma-separated extra ports MCP `sourceUrl` fetches may use besides 443. Empty means 443 only |
 | `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
 | `TRACKER_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
 | `TRACKER_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |

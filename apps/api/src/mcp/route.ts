@@ -31,7 +31,9 @@ export function createMcpRoute(
     storage:
       deps.storage ??
       new LocalDiskStorage(path.join(config.dataDir, "attachments")),
-    fetchSource: deps.fetchSource ?? createSourceFetcher(),
+    fetchSource:
+      deps.fetchSource ??
+      createSourceFetcher({ extraPorts: config.sourceUrlExtraPorts }),
   };
   const maxBytes = mcpBodyLimit(config.maxMcpUploadBytes);
   const mcp = new Hono<AppEnv>();

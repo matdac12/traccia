@@ -16,6 +16,7 @@ describe("loadConfig", () => {
       rateLimitPerMin: 120,
       logLevel: "info",
       trustProxy: true,
+      sourceUrlExtraPorts: [],
     });
   });
 
@@ -36,6 +37,22 @@ describe("loadConfig", () => {
       logLevel: "debug",
     });
   });
+
+  it("parses SOURCE_URL_EXTRA_PORTS as a port list", () => {
+    expect(
+      loadConfig({ ...valid, SOURCE_URL_EXTRA_PORTS: "8443, 9443" })
+        .sourceUrlExtraPorts,
+    ).toEqual([8443, 9443]);
+  });
+
+  it.each(["abc", "0", "70000", "8443,x"])(
+    "rejects SOURCE_URL_EXTRA_PORTS=%s",
+    (v) => {
+      expect(() => loadConfig({ ...valid, SOURCE_URL_EXTRA_PORTS: v })).toThrow(
+        /SOURCE_URL_EXTRA_PORTS/,
+      );
+    },
+  );
 
   it("fails naming BASE_URL when it is missing", () => {
     expect(() => loadConfig({})).toThrow(ConfigError);
