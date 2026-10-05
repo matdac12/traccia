@@ -93,9 +93,11 @@ describe("authentication failures", () => {
   });
 
   it("never logs the token", async () => {
-    const { app, logs, agent } = setup();
+    const { app, db, logs, agent } = setup();
     await app.request("/v1/me", { headers: bearer(agent.token) });
     await app.request("/v1/me", { headers: bearer(`${agent.token}x`) });
+    revokeToken(db, agent.id);
+    await app.request("/v1/me", { headers: bearer(agent.token) });
     expect(logs.join("\n")).not.toContain(agent.token);
   });
 });

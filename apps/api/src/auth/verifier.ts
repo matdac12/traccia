@@ -27,16 +27,17 @@ export function createBearerVerifier(db: Db): VerifyCredential {
     const token = bearerToken(request);
     if (!token?.startsWith(TOKEN_PREFIX)) return null;
 
-    const presented = Buffer.from(hashToken(token), "hex");
+    const presentedHash = hashToken(token);
     const row = db
       .select()
       .from(tokens)
-      .where(eq(tokens.tokenHash, presented.toString("hex")))
+      .where(eq(tokens.tokenHash, presentedHash))
       .get();
     if (!row || row.revokedAt) return null;
 
     // The lookup already matched; compare again in constant time so the
     // decision never rests on a short-circuiting string comparison.
+    const presented = Buffer.from(presentedHash, "hex");
     const stored = Buffer.from(row.tokenHash, "hex");
     if (
       stored.length !== presented.length ||
