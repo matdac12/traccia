@@ -104,11 +104,11 @@ The images, Compose project and data volume were called `tracker` before the ren
 1. **Record the before state.** `docker volume ls` (expect `tracker_tracker-data`), `docker ps`, the issue and project counts, and `tail deployed-tags`.
 2. **Take a snapshot and check it.** `cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot` (the old stack only has `tracker.js`; it prints `integrity_check ok`).
 3. **Keep the old compose file.** `deploy.sh` overwrites `/opt/tracker/docker-compose.yml`, so rollback needs a copy: `cp -p /opt/tracker/docker-compose.yml /opt/tracker/docker-compose.tracker.yml.bak`.
-4. **Pin the volume.** `echo TRACCIA_DATA_VOLUME=tracker_tracker-data >> /opt/tracker/.env`. Without it Compose creates a new, empty `traccia-data` volume. Check first that `.env` ends with a newline, or the line is glued to the last variable.
+4. **Pin the volume.** First check that `.env` ends with a newline (`tail -c1 /opt/tracker/.env | xxd` shows `0a`), or the new line is glued to the last variable. Then `echo TRACCIA_DATA_VOLUME=tracker_tracker-data >> /opt/tracker/.env`. Without it Compose creates a new, empty `traccia-data` volume.
 5. **Install the renamed snapshot units without enabling them.** `scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/`, then `install -m 644` them into `/etc/systemd/system/` and `systemctl daemon-reload`. omni logs in as root; otherwise use `sudo`.
 6. **Stop the old project, then deploy.** `cd /opt/tracker && docker compose -p tracker down` (keeps volumes), then `deploy/deploy.sh` from the Mac. `deploy.sh` refuses to continue while the old project is running. Compose prints a warning that `tracker_tracker-data` "was created for project tracker"; it is expected and harmless.
-7. **Verify.** `/healthz` through the tailnet URL, the dashboard (`/issues` returns 200), unauthenticated `/mcp` returns 401, the same issue and project counts, and `ss -ltn` shows only `127.0.0.1:8787` and `127.0.0.1:3000`. `traccia token list` shows the dashboard token's `last used` moving, which proves the web reached the api.
-8. **Switch the snapshot timer.** `systemctl enable --now traccia-snapshot.timer`, `systemctl disable --now tracker-snapshot.timer`, `systemctl start traccia-snapshot.service` once, check the journal and `systemctl list-timers`. Do not leave both enabled. Between the `down` and the deploy the old unit would fail (`compose exec` has no running api), so do this the same day.
+7. **Verify.** `/healthz` through the tailnet URL, the dashboard (`/issues` returns 200), unauthenticated `/mcp` returns 401, the same issue and project counts, and `ss -ltn` shows only `127.0.0.1:8787` and `127.0.0.1:3000`. On omni, `docker compose exec -T api node dist/traccia.js token list` shows the dashboard token's `last used` updating after you load a dashboard page, so the web reached the api.
+8. **Switch the snapshot timer.** `systemctl enable --now traccia-snapshot.timer`, `systemctl disable --now tracker-snapshot.timer`, `systemctl start traccia-snapshot.service` once, check the journal and `systemctl list-timers`. Do not leave both enabled. The old unit fails while no api is running (between the `down` and the deploy), so switch the same day.
 
 Notes:
 
@@ -121,9 +121,9 @@ Notes:
 Before the old images and volume are removed:
 
 ```sh
-cd /opt/tracker && docker compose down                  # the new traccia project
+cd /opt/tracker && docker compose -p traccia down       # the new project
 cp docker-compose.tracker.yml.bak docker-compose.yml
-TAG=09a358d docker compose up -d                        # the last tracker-* tag, from deployed-tags
+TAG=<last tracker-* tag> docker compose -p tracker up -d   # tag from the line before the first traccia one in deployed-tags
 systemctl disable --now traccia-snapshot.timer && systemctl enable --now tracker-snapshot.timer
 ```
 
