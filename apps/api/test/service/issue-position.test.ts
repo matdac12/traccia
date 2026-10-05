@@ -46,7 +46,7 @@ describe("moveIssuePosition", () => {
   it("rejects non-adjacent or foreign neighbours", () => {
     const { create, move } = setup();
     const a = create("a");
-    const b = create("b");
+    create("b");
     const c = create("c");
     const other = create("o", "done");
     expect(
@@ -58,7 +58,6 @@ describe("moveIssuePosition", () => {
     expect(code(() => move(a.id, "todo", { beforeId: a.id }))).toBe(
       "validation_error",
     );
-    void b;
   });
 
   it("changes status across columns with side effects and activity", () => {
@@ -105,5 +104,11 @@ describe("moveIssuePosition", () => {
       })
       .items.map((i) => i.sortOrder);
     expect(new Set(orders).size).toBe(orders.length);
+    // The gap must have collapsed at least once, so the column was renumbered.
+    expect(
+      Math.min(
+        ...orders.map((o, i) => (i ? o - (orders[i - 1] as number) : Infinity)),
+      ),
+    ).toBeGreaterThan(1e-6);
   });
 });

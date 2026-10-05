@@ -150,14 +150,15 @@ describe("query plans", () => {
       .join("\n");
   };
   it("uses indexes for the common filters", () => {
-    const { sqlite, db, p1 } = setup();
+    const { sqlite, db, p1, services } = setup();
+    const m = services.milestones.create("you", p1.id, { name: "M" });
     expect(plan(sqlite, { project: p1.id, status: ["todo"] }, db)).toContain(
       "issues_project_status",
     );
     expect(plan(sqlite, { assignee: "you", status: ["todo"] }, db)).toContain(
       "issues_assignee",
     );
-    expect(plan(sqlite, { updatedAfter: "2026-01-01" }, db)).toContain(
+    expect(plan(sqlite, { updatedAfter: "2026-01-01T00:00:00.000Z" }, db)).toContain(
       "issues_updated",
     );
     expect(

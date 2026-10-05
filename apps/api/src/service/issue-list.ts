@@ -38,6 +38,8 @@ const ORDER_COLUMNS = {
   sortOrder: issues.sortOrder,
 } as const;
 
+const NUMERIC_ORDERS = new Set<IssueOrderBy>(["priority", "sortOrder"]);
+
 type Cursor = {
   by: IssueOrderBy;
   order: "asc" | "desc";
@@ -60,7 +62,7 @@ function parseCursor(
     payload.by === by &&
     payload.order === order &&
     typeof payload.id === "string" &&
-    (typeof payload.v === "string" || typeof payload.v === "number");
+    typeof payload.v === (NUMERIC_ORDERS.has(by) ? "number" : "string");
   if (!valid) {
     throw new ServiceError(
       "validation_error",

@@ -34,7 +34,7 @@ export const listIssuesInputSchema = z.object({
   priority: prioritySchema.optional(),
   createdBy: actorSchema.optional(),
   /** ISO timestamp; only issues updated strictly after it. */
-  updatedAfter: z.string().min(1).optional(),
+  updatedAfter: z.iso.datetime().optional(),
   includeDeleted: z.boolean().optional(),
   orderBy: z.enum(ISSUE_ORDER_BYS).default("updatedAt"),
   order: z.enum(["asc", "desc"]).default("desc"),
