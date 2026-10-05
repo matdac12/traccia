@@ -315,7 +315,8 @@ describe("change probe (TRC-90)", () => {
       expect(probe(s, created)?.updatedAt).toBe("2026-10-05T10:00:05.000Z");
       expect(rowOf(child.id)?.updatedAt).toBe("2026-10-05T10:00:05.000Z");
       expect(
-        s.db.select().from(comments).where(eq(comments.id, c.id)).get()?.updatedAt,
+        s.db.select().from(comments).where(eq(comments.id, c.id)).get()
+          ?.updatedAt,
       ).toBe("2026-10-05T10:00:05.000Z");
 
       vi.setSystemTime(new Date("2026-10-05T10:00:10.000Z"));
@@ -336,11 +337,17 @@ describe("change probe (TRC-90)", () => {
     try {
       vi.setSystemTime(new Date("2026-10-05T10:00:00.000Z"));
       const s = await setup();
-      const m = s.services.milestones.create("you", s.project.id, { name: "M" });
+      const m = s.services.milestones.create("you", s.project.id, {
+        name: "M",
+      });
       vi.setSystemTime(new Date("2026-10-05T10:00:05.000Z"));
       await s.del("milestone", m.id);
       const at = (t: typeof milestones | typeof projects, id: string) =>
-        (s.db.select().from(t as typeof milestones).where(eq(t.id, id)).get())?.updatedAt;
+        s.db
+          .select()
+          .from(t as typeof milestones)
+          .where(eq(t.id, id))
+          .get()?.updatedAt;
       expect(at(milestones, m.id)).toBe("2026-10-05T10:00:05.000Z");
       vi.setSystemTime(new Date("2026-10-05T10:00:06.000Z"));
       await s.del("project", s.project.id);

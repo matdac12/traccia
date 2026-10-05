@@ -263,6 +263,49 @@ export const tokens = sqliteTable(
     createdAt: text("created_at").notNull(),
     lastUsedAt: text("last_used_at"),
     revokedAt: text("revoked_at"),
+    /** Set on OAuth access tokens (short-lived); null for static tokens. */
+    expiresAt: text("expires_at"),
   },
   () => [actorCheck("tokens_actor_check", "actor")],
+);
+
+/** RFC 7591 public clients registered through `POST /register`. */
+export const oauthClients = sqliteTable("oauth_clients", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  /** JSON array of exact-match redirect URIs. */
+  redirectUris: text("redirect_uris").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const oauthAuthCodes = sqliteTable("oauth_auth_codes", {
+  codeHash: text("code_hash").primaryKey(),
+  clientId: text("client_id")
+    .notNull()
+    .references(() => oauthClients.id),
+  redirectUri: text("redirect_uri").notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  /** The token row this code was exchanged for; revoked if the code is replayed. */
+  tokenId: text("token_id").references(() => tokens.id),
+  createdAt: text("created_at").notNull(),
+});
+
+export const oauthRefreshTokens = sqliteTable(
+  "oauth_refresh_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => oauthClients.id),
+    /** The `tokens` row (the grant) whose access token this refreshes. */
+    tokenId: text("token_id")
+      .notNull()
+      .references(() => tokens.id),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("oauth_refresh_tokens_token_idx").on(t.tokenId)],
 );

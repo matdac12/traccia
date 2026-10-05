@@ -67,20 +67,37 @@ describe("activity feed", () => {
     const other = services.projects.create("you", { name: "Other" });
     const a = make("Alpha");
     make("Beta");
-    const o = services.issues.create("agent", { project: other.id, title: "Elsewhere" });
+    const o = services.issues.create("agent", {
+      project: other.id,
+      title: "Elsewhere",
+    });
     services.issues.update("you", a.identifier, { title: "Alpha 2" });
     const ofP = services.activityFeed.list({ project: project.id });
     expect(ofP.items).toHaveLength(3);
     expect(ofP.items.every((i) => i.identifier !== o.identifier)).toBe(true);
-    expect(services.activityFeed.list({ project: project.name }).items).toHaveLength(3);
+    expect(
+      services.activityFeed.list({ project: project.name }).items,
+    ).toHaveLength(3);
     // Keys are shared by default (ADR 0002), so a key is ambiguous here, as in every other project filter.
-    expect(code(() => services.activityFeed.list({ project: project.key }))).toBe("conflict");
-    expect(services.activityFeed.list({ project: other.id }).items.map((i) => i.identifier)).toEqual([o.identifier]);
+    expect(
+      code(() => services.activityFeed.list({ project: project.key })),
+    ).toBe("conflict");
+    expect(
+      services.activityFeed
+        .list({ project: other.id })
+        .items.map((i) => i.identifier),
+    ).toEqual([o.identifier]);
     const first = services.activityFeed.list({ project: project.id, limit: 2 });
     expect(first.items).toHaveLength(2);
-    const second = services.activityFeed.list({ project: project.id, limit: 2, cursor: first.nextCursor ?? undefined });
+    const second = services.activityFeed.list({
+      project: project.id,
+      limit: 2,
+      cursor: first.nextCursor ?? undefined,
+    });
     expect(second.items).toHaveLength(1);
     expect(second.nextCursor).toBeNull();
-    expect(code(() => services.activityFeed.list({ project: "nope" }))).toBe("not_found");
+    expect(code(() => services.activityFeed.list({ project: "nope" }))).toBe(
+      "not_found",
+    );
   });
 });

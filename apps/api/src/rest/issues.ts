@@ -35,10 +35,15 @@ export function mountIssueRoutes(v1: Hono<AppEnv>, container: AppContainer) {
 
   // Registered before `/issues/:identifier`, which would otherwise take "groups" as an identifier.
   v1.get("/issues/groups", (c) => {
-    const result = issues.listGroups(validateQuery(c, listIssueGroupsQuerySchema));
+    const result = issues.listGroups(
+      validateQuery(c, listIssueGroupsQuerySchema),
+    );
     return c.json({
       ...result,
-      groups: result.groups.map((g) => ({ ...g, items: g.items.map(withLabels) })),
+      groups: result.groups.map((g) => ({
+        ...g,
+        items: g.items.map(withLabels),
+      })),
     });
   });
 

@@ -183,7 +183,9 @@ export type IssueGroup = Page<Issue & { deleted?: boolean }> & {
 };
 
 export function createIssueListService(ctx: ServiceContext) {
-  const list = (input: ListIssuesInput = {}): Page<Issue & { deleted?: boolean }> => {
+  const list = (
+    input: ListIssuesInput = {},
+  ): Page<Issue & { deleted?: boolean }> => {
     const { query, limit, orderBy, order } = buildIssueListQuery(ctx.db, input);
     const rows = query.all();
     const items = flagDeleted(rows.slice(0, limit), input.includeDeleted);

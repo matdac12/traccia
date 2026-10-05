@@ -116,6 +116,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
 | `TRUST_PROXY` | api | `true` | Read the client IP from `X-Forwarded-For` |
 | `SOURCE_URL_EXTRA_PORTS` | api | empty | Comma-separated extra ports MCP `sourceUrl` fetches may use besides 443. Empty means 443 only |
+| `OAUTH_ADMIN_SECRET` | api | unset | Enables the OAuth server (`/register`, `/authorize`, `/token`) for the claude.ai connector. The secret you type on the consent page to approve a client; at least 16 characters, use a long random value. Unset means the OAuth endpoints answer 503 |
 | `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
 | `TRACCIA_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |

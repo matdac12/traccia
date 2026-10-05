@@ -24,15 +24,17 @@ export function bearerChallenge(baseUrl: string): string {
 
 /**
  * OAuth discovery documents (RFC 9728 protected resource, RFC 8414
- * authorization server). The authorize, token and register endpoints they
- * advertise are implemented separately.
+ * authorization server). The endpoints they advertise live in
+ * `oauth-server.ts`.
  */
 export function createOAuthMetadataRoutes(baseUrl: string) {
   const urls = oauthUrls(baseUrl);
   const routes = new Hono<AppEnv>();
 
   // Public documents: browser-based MCP clients fetch them cross-origin.
-  routes.use("*", async (c, next) => {
+  // Scoped: routes are merged into the app, so a bare "*" would also stamp
+  // public caching and CORS onto /token and the rest.
+  routes.use("/.well-known/*", async (c, next) => {
     await next();
     c.header("Access-Control-Allow-Origin", "*");
     c.header("Cache-Control", "public, max-age=300");

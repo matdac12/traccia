@@ -547,7 +547,9 @@ describe("search, activity and trash", () => {
     t.services.issues.create("agent", { project: q.id, title: "Elsewhere" });
     const feed = await t.call("GET", `/activity?project=${t.project.id}`);
     expect(feed.status).toBe(200);
-    expect(feed.json.items.map((i: { identifier: string }) => i.identifier)).toEqual([a.identifier]);
+    expect(
+      feed.json.items.map((i: { identifier: string }) => i.identifier),
+    ).toEqual([a.identifier]);
     expect((await t.call("GET", "/activity?project=nope")).status).toBe(404);
     expect((await t.call("GET", "/activity?project=")).status).toBe(400);
   });
@@ -712,14 +714,23 @@ describe("GET /v1/issues/groups and projects?include=milestones", () => {
     const { call, mk, project } = setup();
     for (let i = 0; i < 3; i++) await mk(`t${i}`, { status: "todo" });
     await mk("d", { status: "done" });
-    const first = await call("GET", "/issues/groups?limit=2&status=todo&status=done");
+    const first = await call(
+      "GET",
+      "/issues/groups?limit=2&status=todo&status=done",
+    );
     expect(first.status).toBe(200);
-    expect(first.json.groups.map((g: any) => g.status)).toEqual(["todo", "done"]);
+    expect(first.json.groups.map((g: any) => g.status)).toEqual([
+      "todo",
+      "done",
+    ]);
     expect(first.json.groups[0].items[0].labels).toEqual([]);
     expect(first.json.syncToken).toEqual(expect.any(String));
     const cursor = first.json.groups[0].nextCursor;
     expect(cursor).toEqual(expect.any(String));
-    const next = await call("GET", `/issues/groups?limit=2&status=todo&cursor=todo:${cursor}&project=${project.id}`);
+    const next = await call(
+      "GET",
+      `/issues/groups?limit=2&status=todo&cursor=todo:${cursor}&project=${project.id}`,
+    );
     expect(next.json.groups).toHaveLength(1);
     expect(next.json.groups[0].items).toHaveLength(1);
     expect(next.json.groups[0].nextCursor).toBeNull();
@@ -728,18 +739,26 @@ describe("GET /v1/issues/groups and projects?include=milestones", () => {
   it("rejects a malformed or unknown-status cursor and needs a token", async () => {
     const { call } = setup();
     expect((await call("GET", "/issues/groups?cursor=nope")).status).toBe(400);
-    expect((await call("GET", "/issues/groups?cursor=bogus:abc")).status).toBe(400);
-    expect((await call("GET", "/issues/groups", { who: "none" })).status).toBe(401);
+    expect((await call("GET", "/issues/groups?cursor=bogus:abc")).status).toBe(
+      400,
+    );
+    expect((await call("GET", "/issues/groups", { who: "none" })).status).toBe(
+      401,
+    );
   });
 
   it("embeds milestones with progress only when asked", async () => {
     const { call, project } = setup();
-    const m = await call("POST", `/projects/${project.id}/milestones`, { body: { name: "Alpha" } });
+    const m = await call("POST", `/projects/${project.id}/milestones`, {
+      body: { name: "Alpha" },
+    });
     expect(m.status).toBe(201);
     const plain = await call("GET", "/projects");
     expect(plain.json.items[0].milestones).toBeUndefined();
     const withM = await call("GET", "/projects?include=milestones");
-    expect(withM.json.items[0].milestones).toEqual([expect.objectContaining({ name: "Alpha", progress: expect.anything() })]);
+    expect(withM.json.items[0].milestones).toEqual([
+      expect.objectContaining({ name: "Alpha", progress: expect.anything() }),
+    ]);
     expect((await call("GET", "/projects?include=nope")).status).toBe(400);
   });
 });

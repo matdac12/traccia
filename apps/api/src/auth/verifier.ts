@@ -3,14 +3,15 @@ import type { Actor } from "@traccia/shared";
 import { eq } from "drizzle-orm";
 import type { Db } from "../db/connection.js";
 import { tokens } from "../db/schema.js";
+import { nowIso } from "../time.js";
 import { hashToken, TOKEN_PREFIX } from "../service/tokens.js";
 
 export type Credential = { actor: Actor; tokenId: string; tokenName: string };
 
 /**
  * Resolves the caller of a request, or null if it carries no valid
- * credential. v1 is bearer tokens; an OAuth access-token verifier can
- * implement the same signature later.
+ * credential. Static and OAuth-issued access tokens share one `tokens` table
+ * and therefore this verifier.
  */
 export type VerifyCredential = (request: Request) => Promise<Credential | null>;
 
@@ -34,6 +35,8 @@ export function createBearerVerifier(db: Db): VerifyCredential {
       .where(eq(tokens.tokenHash, presentedHash))
       .get();
     if (!row || row.revokedAt) return null;
+    // OAuth access tokens are short-lived; static tokens have no expiry.
+    if (row.expiresAt && row.expiresAt <= nowIso()) return null;
 
     // The lookup already matched; compare again in constant time so the
     // decision never rests on a short-circuiting string comparison.

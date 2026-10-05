@@ -16,6 +16,7 @@ const envSchema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
   TRUST_PROXY: bool.default(true),
+  OAUTH_ADMIN_SECRET: z.string().min(16).optional(),
   SOURCE_URL_EXTRA_PORTS: z
     .string()
     .default("")
@@ -53,6 +54,8 @@ export type Config = {
   logLevel: string;
   trustProxy: boolean;
   sourceUrlExtraPorts: number[];
+  /** Consent-page secret; the OAuth server is disabled while unset. */
+  oauthAdminSecret: string | undefined;
 };
 
 export class ConfigError extends Error {
@@ -88,6 +91,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     logLevel: e.LOG_LEVEL,
     trustProxy: e.TRUST_PROXY,
     sourceUrlExtraPorts: e.SOURCE_URL_EXTRA_PORTS,
+    oauthAdminSecret: e.OAUTH_ADMIN_SECRET,
   };
 }
 

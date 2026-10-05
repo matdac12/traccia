@@ -360,7 +360,9 @@ describe("traccia db snapshot", () => {
     writeFileSync(join(dir, "traccia-20200103T000000Z.db"), "old");
     const r = await run(e, "--keep", "2");
     expect(r.code).toBe(0);
-    const files = readdirSync(dir).filter((f) => f.endsWith(".db")).sort();
+    const files = readdirSync(dir)
+      .filter((f) => f.endsWith(".db"))
+      .sort();
     expect(files).toHaveLength(2);
     expect(files[0]).toBe("traccia-20200103T000000Z.db");
   });

@@ -1,8 +1,4 @@
-import {
-  type Actor,
-  type IssueStatus,
-  ServiceError,
-} from "@traccia/shared";
+import { type Actor, type IssueStatus, ServiceError } from "@traccia/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { issueRelations, issues } from "../db/schema.js";
 import { nowIso } from "../time.js";
