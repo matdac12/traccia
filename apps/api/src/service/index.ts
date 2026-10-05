@@ -1,5 +1,6 @@
 import type { Db } from "../db/connection.js";
 import { createServiceContext } from "./context.js";
+import { createAttachmentsService } from "./attachments.js";
 import { createCommentsService } from "./comments.js";
 import { createLabelsService } from "./labels.js";
 import { createIssuesService } from "./issues.js";
@@ -10,6 +11,7 @@ import { createRelationsService } from "./relations.js";
 export { ServiceError } from "@linear-matti/shared";
 export type { DbHandle, ServiceContext, Tx } from "./context.js";
 export { allocateIssueNumber, ensureIssueKey } from "./issue-keys.js";
+export type { Attachment } from "./attachments.js";
 export type { Comment, CommentThread } from "./comments.js";
 export type { Label } from "./labels.js";
 export {
@@ -37,6 +39,7 @@ export function createServices(options: { db: Db; defaultIssueKey: string }) {
     relations: createRelationsService(ctx),
     comments: createCommentsService(ctx),
     labels: createLabelsService(ctx),
+    attachments: createAttachmentsService(ctx),
   };
 }
 
