@@ -109,13 +109,13 @@ function verify(path: string): void {
   }
 }
 
-const stamp = (file: string) => file.slice(file.indexOf("-") + 1);
+const timestampOf = (file: string) => file.slice(file.indexOf("-") + 1);
 
 function applyRetention(dir: string, keep: number): string[] {
   const snapshots = readdirSync(dir)
     .filter((f) => SNAPSHOT_PATTERN.test(f))
     // Sort by timestamp: the two prefixes would otherwise order by name, not age.
-    .sort((a, b) => stamp(a).localeCompare(stamp(b)));
+    .sort((a, b) => timestampOf(a).localeCompare(timestampOf(b)));
   const stale = snapshots.slice(0, Math.max(0, snapshots.length - keep));
   for (const f of stale) rmSync(join(dir, f), { force: true });
   return stale;

@@ -8,7 +8,7 @@ The off-box copy can be stale: anything written since the last pull is lost if `
 
 | Data | Where it lives | How it is backed up |
 |------|----------------|---------------------|
-| Database | `/data/traccia.db` in the `traccia-data` volume | Daily snapshot to `/data/backups/traccia-<UTC timestamp>.db`, last 3 kept |
+| Database | `/data/traccia.db` (or the pre-rename `/data/tracker.db`) in the `traccia-data` volume (omni: `tracker_tracker-data`) | Daily snapshot to `/data/backups/traccia-<UTC timestamp>.db`, last 3 kept |
 | Attachments | `/data/attachments` in the same volume | Copied by the Windows pull; no snapshot on the VPS |
 
 ## How the snapshot works
@@ -113,7 +113,7 @@ ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compo
    curl.exe http://localhost:18787/healthz     # {"ok":true}
    ```
 
-   Startup applies any pending migrations to the scratch copy only. The container runs as uid 1000 (`node`) and must be able to write to the scratch folder; on a Linux host, `chown -R 1000:1000` it if startup fails with a permission error. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never `tracker-data`.
+   Startup applies any pending migrations to the scratch copy only. The container runs as uid 1000 (`node`) and must be able to write to the scratch folder; on a Linux host, `chown -R 1000:1000` it if startup fails with a permission error. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never the production data volume (`traccia-data`, or `tracker_tracker-data` on an install that predates the rename).
 
 4. **Check issues and attachments load.** Mint a token against the scratch data, then read through the API:
 
