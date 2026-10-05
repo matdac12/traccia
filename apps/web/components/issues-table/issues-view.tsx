@@ -64,7 +64,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {error ? (
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
         ) : !data ? null : filters.view === "kanban" ? (
-          <Board key={query} columns={data.groups} query={query} register={sync.register} />
+          <Board key={query} columns={data.groups} labels={lookups.labels} query={query} register={sync.register} />
         ) : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
@@ -75,7 +75,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
           )
         ) : (
-          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
     </div>

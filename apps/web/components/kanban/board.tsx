@@ -5,26 +5,28 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ISSUE_STATUSES, type IssueStatus, type Priority } from "@traccia/shared";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreBoardIssues, moveBoardIssue } from "@/app/(app)/issues/board-actions";
 import { countsOf, sameGroups, type GroupsApplier } from "@/components/issues-table/use-list-sync";
-import { LabelChip } from "@/components/issues-table/label-chip";
-import { PriorityIcon } from "@/components/issues-table/priority";
-import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { InlineEditNotice } from "@/components/inline-edit/notice";
+import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker, type InlineEditor } from "@/components/inline-edit/pickers";
+import { upsertRow } from "@/components/inline-edit/rows";
+import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
+import { AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
-import type { IssueRow } from "@/lib/api/schemas";
+import type { IssueRow, Label } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
 import {
   applyServerIssue, findCard, moveCard, moveErrorMessage, planMove, type BoardColumn, type MoveRequest, type MoveResult,
 } from "./board-model";
 
-const VISIBLE_LABELS = 2;
-
 export type BoardProps = {
   columns: BoardColumn[];
+  /** Labels a card can be given inline (MAT-1753). */
+  labels?: Label[];
   /** The page's search string, so "load more" re-applies the same filters. */
   query: string;
   /** Injectable for tests; defaults to the server actions. */
@@ -34,7 +36,7 @@ export type BoardProps = {
   loadMore?: (input: { query: string; status: IssueStatus; cursor: string }) => Promise<{ items: IssueRow[]; nextCursor: string | null }>;
 };
 
-export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register }: BoardProps) {
+export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register, labels = [] }: BoardProps) {
   const [columns, setColumns] = useState<BoardColumn[]>(initial);
   const [active, setActive] = useState<IssueRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,13 +49,15 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   const inFlight = useRef(0);
   const current = useRef(columns);
   const commit = (next: BoardColumn[]) => { current.current = next; setColumns(next); };
+  const inline = useInlineEdit({ onRow: (row) => commit(upsertRow(current.current, row)) });
+  const editor: InlineEditor = { edit: inline.edit, labels };
 
   // A poll never touches the board while a drag or a move is in progress: it is refused and retried next tick.
   useEffect(() => {
     register?.({
       counts: () => countsOf(current.current),
       apply: (fresh) => {
-        if (snapshot.current || inFlight.current > 0) return false;
+        if (snapshot.current || inFlight.current > 0 || inline.pending.current > 0) return false;
         if (!sameGroups(current.current, fresh)) commit(fresh);
         return true;
       },
@@ -159,6 +163,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
           <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setError(null)}><X className="size-3.5" /></Button>
         </div>
       )}
+      {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       <DndContext
         id="kanban"
         sensors={sensors}
@@ -169,15 +174,15 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         onDragCancel={() => { if (snapshot.current && active) restore(snapshot.current, active.id); setActive(null); snapshot.current = null; }}
       >
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
-          {columns.map((c) => <Column key={c.status} column={c} loading={loading.has(c.status)} onMore={() => more(c)} />)}
+          {columns.map((c) => <Column key={c.status} column={c} editor={editor} loading={loading.has(c.status)} onMore={() => more(c)} />)}
         </div>
-        <DragOverlay>{active && <Card issue={active} overlay />}</DragOverlay>
+        <DragOverlay>{active && <Card issue={active} editor={INERT} overlay />}</DragOverlay>
       </DndContext>
     </div>
   );
 }
 
-function Column({ column, loading, onMore }: { column: BoardColumn; loading: boolean; onMore: () => void }) {
+function Column({ column, editor, loading, onMore }: { column: BoardColumn; editor: InlineEditor; loading: boolean; onMore: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.status });
   return (
     <section aria-label={STATUS_LABEL[column.status]} className="flex w-[280px] shrink-0 flex-col">
@@ -188,7 +193,7 @@ function Column({ column, loading, onMore }: { column: BoardColumn; loading: boo
       </h2>
       <div ref={setNodeRef} className={cn("flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-transparent bg-surface p-1.5 transition-colors", isOver && "border-primary/40 bg-primary/5")}>
         <SortableContext items={column.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          {column.items.map((i) => <SortableCard key={i.id} issue={i} />)}
+          {column.items.map((i) => <SortableCard key={i.id} issue={i} editor={editor} />)}
         </SortableContext>
         {column.items.length === 0 && <p className="m-auto py-4 text-xs text-muted-foreground">No issues</p>}
         {column.nextCursor && (
@@ -202,30 +207,33 @@ function Column({ column, loading, onMore }: { column: BoardColumn; loading: boo
   );
 }
 
-function SortableCard({ issue }: { issue: IssueRow }) {
+function SortableCard({ issue, editor }: { issue: IssueRow; editor: InlineEditor }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
-      <Card issue={issue} dragging={isDragging} />
+      <Card issue={issue} editor={editor} dragging={isDragging} />
     </div>
   );
 }
 
-function Card({ issue, dragging, overlay }: { issue: IssueRow; dragging?: boolean; overlay?: boolean }) {
+/** The drag overlay only shows the card: its pickers do nothing. */
+const INERT: InlineEditor = { edit: () => {}, labels: [] };
+
+function Card({ issue, editor, dragging, overlay }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean }) {
   return (
     <div className={cn("cursor-grab rounded-lg border bg-card p-2.5 shadow-sm transition-colors hover:border-foreground/20", dragging && "opacity-30", overlay && "rotate-1 cursor-grabbing shadow-xl")}>
       <div className="mb-1.5 flex items-center justify-between">
         <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+          <StatusPicker issue={issue} editor={editor} />
           {issue.identifier}
           {issue.createdBy === "agent" && issue.status === "backlog" && <AgentMark />}
         </span>
-        <ActorAvatar who={issue.assignee} size={16} />
+        <AssigneePicker issue={issue} editor={editor} size={16} />
       </div>
       <Link href={`/issues/${issue.identifier}`} draggable={false} className="line-clamp-2 text-[13px] leading-snug hover:underline">{issue.title}</Link>
       <div className="mt-2 flex items-center gap-1.5">
-        <PriorityIcon priority={issue.priority as Priority} />
-        {issue.labels.slice(0, VISIBLE_LABELS).map((l) => <LabelChip key={l.id} name={l.name} color={l.color} />)}
-        {issue.labels.length > VISIBLE_LABELS && <span className="text-[11px] text-muted-foreground">+{issue.labels.length - VISIBLE_LABELS}</span>}
+        <PriorityPicker issue={issue} editor={editor} />
+        <LabelsPicker issue={issue} editor={editor} />
         {issue.estimate != null && <span className="ml-auto font-mono text-[11px] text-muted-foreground">{issue.estimate}pt</span>}
       </div>
     </div>
