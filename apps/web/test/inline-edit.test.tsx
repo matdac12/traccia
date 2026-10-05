@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), use
 vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 vi.mock("../app/(app)/issues/actions", () => ({ loadMoreIssues: vi.fn() }));
 const update = vi.fn();
-vi.mock("../app/(app)/issues/[identifier]/actions", () => ({ updateIssueAction: (...a: unknown[]) => update(...a) }));
+vi.mock("../app/(app)/issues/[identifier]/actions", () => ({ updateIssueAction: (...a: unknown[]) => update(...a), deleteIssueAction: vi.fn(), restoreIssueAction: vi.fn(), createSubIssueAction: vi.fn(), searchIssuesAction: vi.fn() }));
 
 const bug = { id: "l1", name: "bug", color: "#f00", projectId: null };
 const ux = { id: "l2", name: "ux", color: "#0f0", projectId: "p1" };

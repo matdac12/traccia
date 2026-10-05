@@ -13,11 +13,13 @@ import { loadMoreBoardIssues, moveBoardIssue } from "@/app/(app)/issues/board-ac
 import { countsOf, sameGroups, type GroupsApplier } from "@/components/issues-table/use-list-sync";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
 import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker, type InlineEditor } from "@/components/inline-edit/pickers";
-import { upsertRow } from "@/components/inline-edit/rows";
+import { insertRow, removeRow, upsertRow } from "@/components/inline-edit/rows";
 import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
+import { IssueContextMenu, IssueMenuButton, type IssueMenuContext } from "@/components/issue-menu/issue-context-menu";
+import { useIssueDelete } from "@/components/issue-menu/use-issue-delete";
 import { AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
-import type { IssueRow, Label } from "@/lib/api/schemas";
+import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
 import {
   applyServerIssue, findCard, moveCard, moveErrorMessage, planMove, type BoardColumn, type MoveRequest, type MoveResult,
@@ -27,6 +29,9 @@ export type BoardProps = {
   columns: BoardColumn[];
   /** Labels a card can be given inline (MAT-1753). */
   labels?: Label[];
+  /** For the card menu's Project and Milestone submenus (MAT-1762). */
+  projects?: Project[];
+  milestones?: Milestone[];
   /** The page's search string, so "load more" re-applies the same filters. */
   query: string;
   /** Injectable for tests; defaults to the server actions. */
@@ -36,7 +41,7 @@ export type BoardProps = {
   loadMore?: (input: { query: string; status: IssueStatus; cursor: string }) => Promise<{ items: IssueRow[]; nextCursor: string | null }>;
 };
 
-export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register, labels = [] }: BoardProps) {
+export function Board({ columns: initial, query, move = moveBoardIssue, loadMore = loadMoreBoardIssues, register, labels = [], projects = [], milestones = [] }: BoardProps) {
   const [columns, setColumns] = useState<BoardColumn[]>(initial);
   const [active, setActive] = useState<IssueRow | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,13 +56,15 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   const commit = (next: BoardColumn[]) => { current.current = next; setColumns(next); };
   const inline = useInlineEdit({ onRow: (row) => commit(upsertRow(current.current, row)) });
   const editor: InlineEditor = { edit: inline.edit, labels };
+  const del = useIssueDelete({ onRemove: (row) => commit(removeRow(current.current, row.id)), onRestore: (row) => commit(insertRow(current.current, row)) });
+  const menu: IssueMenuContext = { editor, projects, milestones, onDelete: (row) => void del.deleteIssue(row) };
 
   // A poll never touches the board while a drag or a move is in progress: it is refused and retried next tick.
   useEffect(() => {
     register?.({
       counts: () => countsOf(current.current),
       apply: (fresh) => {
-        if (snapshot.current || inFlight.current > 0 || inline.pending.current > 0) return false;
+        if (snapshot.current || inFlight.current > 0 || inline.pending.current > 0 || del.pending.current > 0) return false;
         if (!sameGroups(current.current, fresh)) commit(fresh);
         return true;
       },
@@ -164,6 +171,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         </div>
       )}
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
+      {del.notice}
       <DndContext
         id="kanban"
         sensors={sensors}
@@ -174,7 +182,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         onDragCancel={() => { if (snapshot.current && active) restore(snapshot.current, active.id); setActive(null); snapshot.current = null; }}
       >
         <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
-          {columns.map((c) => <Column key={c.status} column={c} editor={editor} loading={loading.has(c.status)} onMore={() => more(c)} />)}
+          {columns.map((c) => <Column key={c.status} column={c} editor={editor} menu={menu} loading={loading.has(c.status)} onMore={() => more(c)} />)}
         </div>
         <DragOverlay>{active && <Card issue={active} editor={INERT} overlay />}</DragOverlay>
       </DndContext>
@@ -182,7 +190,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   );
 }
 
-function Column({ column, editor, loading, onMore }: { column: BoardColumn; editor: InlineEditor; loading: boolean; onMore: () => void }) {
+function Column({ column, editor, menu, loading, onMore }: { column: BoardColumn; editor: InlineEditor; menu: IssueMenuContext; loading: boolean; onMore: () => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.status });
   return (
     <section aria-label={STATUS_LABEL[column.status]} className="flex w-[280px] shrink-0 flex-col">
@@ -193,7 +201,7 @@ function Column({ column, editor, loading, onMore }: { column: BoardColumn; edit
       </h2>
       <div ref={setNodeRef} className={cn("flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-transparent bg-surface p-1.5 transition-colors", isOver && "border-primary/40 bg-primary/5")}>
         <SortableContext items={column.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          {column.items.map((i) => <SortableCard key={i.id} issue={i} editor={editor} />)}
+          {column.items.map((i) => <SortableCard key={i.id} issue={i} editor={editor} menu={menu} />)}
         </SortableContext>
         {column.items.length === 0 && <p className="m-auto py-4 text-xs text-muted-foreground">No issues</p>}
         {column.nextCursor && (
@@ -207,19 +215,21 @@ function Column({ column, editor, loading, onMore }: { column: BoardColumn; edit
   );
 }
 
-function SortableCard({ issue, editor }: { issue: IssueRow; editor: InlineEditor }) {
+function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: InlineEditor; menu: IssueMenuContext }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: issue.id });
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
-      <Card issue={issue} editor={editor} dragging={isDragging} />
-    </div>
+    <IssueContextMenu issue={issue} menu={menu}>
+      <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
+        <Card issue={issue} editor={editor} dragging={isDragging} showMenuButton />
+      </div>
+    </IssueContextMenu>
   );
 }
 
 /** The drag overlay only shows the card: its pickers do nothing. */
 const INERT: InlineEditor = { edit: () => {}, labels: [] };
 
-function Card({ issue, editor, dragging, overlay }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean }) {
+function Card({ issue, editor, dragging, overlay, showMenuButton }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean; showMenuButton?: boolean }) {
   return (
     <div className={cn("cursor-grab rounded-lg border bg-card p-2.5 shadow-sm transition-colors hover:border-foreground/20", dragging && "opacity-30", overlay && "rotate-1 cursor-grabbing shadow-xl")}>
       <div className="mb-1.5 flex items-center justify-between">
@@ -228,7 +238,10 @@ function Card({ issue, editor, dragging, overlay }: { issue: IssueRow; editor: I
           {issue.identifier}
           {issue.createdBy === "agent" && issue.status === "backlog" && <AgentMark />}
         </span>
-        <AssigneePicker issue={issue} editor={editor} size={16} />
+        <span className="flex items-center gap-1">
+          {showMenuButton && <IssueMenuButton issue={issue} />}
+          <AssigneePicker issue={issue} editor={editor} size={16} />
+        </span>
       </div>
       <Link href={`/issues/${issue.identifier}`} draggable={false} className="line-clamp-2 text-[13px] leading-snug hover:underline">{issue.title}</Link>
       <div className="mt-2 flex items-center gap-1.5">

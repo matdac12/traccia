@@ -65,7 +65,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {error ? (
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
         ) : !data ? null : filters.view === "kanban" ? (
-          <Board key={query} columns={data.groups} labels={lookups.labels} query={query} register={sync.register} />
+          <Board key={query} columns={data.groups} labels={lookups.labels} projects={lookups.projects} milestones={lookups.milestones} query={query} register={sync.register} />
         ) : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
