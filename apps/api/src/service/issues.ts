@@ -13,17 +13,16 @@ import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { activity, issues, milestones } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
+import { type Attachment, listIssueAttachments } from "./attachments.js";
+import { type CommentThread, listIssueComments } from "./comments.js";
 import {
   type DbHandle,
   parseInput,
   type ServiceContext,
   type Tx,
 } from "./context.js";
-import { type Attachment, listIssueAttachments } from "./attachments.js";
-import { type CommentThread, listIssueComments } from "./comments.js";
 import { assertValidParent } from "./hierarchy.js";
 import { allocateIssueNumber } from "./issue-keys.js";
-import { indexIssue } from "./search-index.js";
 import { applyStructureChanges } from "./issue-structure.js";
 import { setIssueLabels } from "./labels.js";
 import { resolveProject } from "./projects.js";
@@ -32,6 +31,7 @@ import {
   loadRelations,
   NO_RELATIONS,
 } from "./relations.js";
+import { indexIssue } from "./search-index.js";
 
 export type Issue = typeof issues.$inferSelect;
 export type Activity = typeof activity.$inferSelect;

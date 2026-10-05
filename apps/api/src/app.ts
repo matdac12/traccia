@@ -1,11 +1,16 @@
 import { Hono } from "hono";
-import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
-import type { AppContainer, AppEnv } from "./rest/env.js";
+import { createMcpRoute } from "./mcp/route.js";
+import { mountActivityRoutes } from "./rest/activity.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
+import { mountCommentRoutes } from "./rest/comments.js";
+import type { AppContainer, AppEnv } from "./rest/env.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
+import { mountIssueRoutes } from "./rest/issues.js";
 import { requestContext } from "./rest/request-context.js";
+import { mountSearchRoutes } from "./rest/search.js";
+import { mountTrashRoutes } from "./rest/trash.js";
 
 /**
  * Builds the Hono app. Unauthenticated routes (/healthz) are mounted on the
@@ -31,6 +36,11 @@ export function createApp(container: AppContainer) {
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
   mountAttachmentRoutes(app, v1, container, auth);
+  mountIssueRoutes(v1, container);
+  mountCommentRoutes(v1, container);
+  mountSearchRoutes(v1, container);
+  mountActivityRoutes(v1, container);
+  mountTrashRoutes(v1, container);
   app.route("/v1", v1);
   app.route("/mcp", createMcpRoute(container));
 
