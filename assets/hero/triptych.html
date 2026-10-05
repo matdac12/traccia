@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Traccia hero - triptych</title>
+    <style>
+      :root {
+        --ink: #0b0f14;
+        --amber: #ff9e0b;
+        --cyan: #06b6d4;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        width: 1600px;
+        height: 900px;
+        overflow: hidden;
+        background: var(--ink);
+        font-family: ui-monospace, "Geist Mono", "JetBrains Mono", monospace;
+      }
+
+      .scene {
+        position: relative;
+        width: 1600px;
+        height: 900px;
+        display: grid;
+        place-items: center;
+      }
+
+      /* Warm amber above, cool cyan below, both barely there. */
+      .glow {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(900px 520px at 22% -6%, rgba(255, 158, 11, 0.12), transparent 62%),
+          radial-gradient(1000px 620px at 84% 108%, rgba(6, 182, 212, 0.12), transparent 64%);
+        pointer-events: none;
+      }
+
+      /* A faint trail threading behind the panels: amber into cyan. */
+      .trail {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1300px;
+        height: 220px;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(90deg, rgba(255, 158, 11, 0.5), rgba(255, 158, 11, 0.06) 42%, rgba(6, 182, 212, 0.06) 58%, rgba(6, 182, 212, 0.5));
+        filter: blur(70px);
+        opacity: 0.5;
+        pointer-events: none;
+      }
+
+      .stage {
+        position: relative;
+        perspective: 2600px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+      }
+
+      .panel {
+        position: relative;
+        width: 484px;
+        height: 600px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background-image: url("./dashboard-source.png");
+        background-size: 300% 100%;
+        background-repeat: no-repeat;
+        box-shadow:
+          0 44px 90px -24px rgba(0, 0, 0, 0.75),
+          0 12px 34px -10px rgba(0, 0, 0, 0.55);
+        will-change: transform;
+      }
+
+      .panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 14%, transparent 82%, rgba(0, 0, 0, 0.28));
+      }
+
+      .panel.left {
+        background-position: 0% 50%;
+        transform: rotateY(9deg) translateZ(-24px);
+      }
+
+      .panel.mid {
+        background-position: 50% 50%;
+        transform: translateZ(18px);
+      }
+
+      .panel.right {
+        background-position: 100% 50%;
+        transform: rotateY(-9deg) translateZ(-24px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scene">
+      <div class="glow"></div>
+      <div class="trail"></div>
+      <div class="stage">
+        <div class="panel left"></div>
+        <div class="panel mid"></div>
+        <div class="panel right"></div>
+      </div>
+    </div>
+  </body>
+</html>
