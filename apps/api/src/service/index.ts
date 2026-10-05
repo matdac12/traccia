@@ -15,7 +15,7 @@ import { createSearchService } from "./search.js";
 import { createStatsService } from "./stats.js";
 import { createTrashService } from "./trash.js";
 
-export { ServiceError } from "@linear-matti/shared";
+export { ServiceError } from "@traccia/shared";
 export type { ActivityFeedItem } from "./activity-feed.js";
 export type { Attachment } from "./attachments.js";
 export type { Comment, CommentThread } from "./comments.js";

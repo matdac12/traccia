@@ -32,11 +32,11 @@ describe("Markdown sanitization", () => {
     expect(html("![x](javascript:alert(1))")).not.toMatch(/javascript:/i);
   });
   it("does not render remote images", () => {
-    expect(html("![t](https://tracker.example/p.png)")).not.toMatch(/<img|tracker\.example/);
+    expect(html("![t](https://traccia.example/p.png)")).not.toMatch(/<img|tracker\.example/);
   });
   it("rewrites <BASE_URL>/files/<id> images to the proxy route", () => {
     const id = "01J9ZZZZZZZZZZZZZZZZZZZZZZ";
-    for (const url of [`https://tracker.example/files/${id}`, `http://100.64.0.1:8787/files/${id}`, `/files/${id}`]) {
+    for (const url of [`https://traccia.example/files/${id}`, `http://100.64.0.1:8787/files/${id}`, `/files/${id}`]) {
       const out = html(`![shot](${url})`);
       expect(out).toContain(`src="/api/files/${id}"`);
       expect(out).toContain('alt="shot"');

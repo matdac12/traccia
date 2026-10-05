@@ -1,5 +1,5 @@
 "use client";
-import type { IssueStatus } from "@linear-matti/shared";
+import type { IssueStatus } from "@traccia/shared";
 import { Columns3, Rows3 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";

@@ -1,4 +1,4 @@
-import type { Actor } from "@linear-matti/shared";
+import type { Actor } from "@traccia/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/connection.js";
 import type { Logger } from "../logger.js";

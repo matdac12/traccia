@@ -1,4 +1,4 @@
-import { type Actor, ServiceError } from "@linear-matti/shared";
+import { type Actor, ServiceError } from "@traccia/shared";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import {

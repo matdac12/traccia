@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { applyPragmas, createDb } from "../../src/db/connection.js";
@@ -69,7 +69,7 @@ describe("issue key allocation", () => {
   });
 
   it("interleaved transactions from two connections get unique numbers", () => {
-    const dir = mkdtempSync(join(tmpdir(), "tracker-keys-"));
+    const dir = mkdtempSync(join(tmpdir(), "traccia-keys-"));
     onCleanup(() => rmSync(dir, { recursive: true, force: true }));
     const path = join(dir, "t.db");
     const open = () => {
@@ -92,7 +92,7 @@ describe("issue key allocation", () => {
   });
 
   it("concurrent writers racing in separate threads never collide", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "tracker-race-"));
+    const dir = mkdtempSync(join(tmpdir(), "traccia-race-"));
     onCleanup(() => rmSync(dir, { recursive: true, force: true }));
     const path = join(dir, "t.db");
     const seed = new Database(path);

@@ -1,5 +1,5 @@
 "use server";
-import { ISSUE_STATUSES, issuePositionBodySchema } from "@linear-matti/shared";
+import { ISSUE_STATUSES, issuePositionBodySchema } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError } from "@/lib/api/client";
 import { listBoardPage, moveIssue } from "@/lib/api/issues";

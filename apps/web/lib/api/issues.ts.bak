@@ -1,7 +1,7 @@
 import "server-only";
-import { ISSUE_STATUSES, type IssueStatus } from "@linear-matti/shared";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { filtersToApiQuery, type IssueFilters } from "../issue-filters";
-import type { CreateIssueInput } from "@linear-matti/shared";
+import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError, api } from "./client";
 import { issueDetailSchema, issueRefSchema, issueSchema, labelSchema, milestoneSchema, pageOf, restoreResultSchema, searchHitSchema } from "./schemas";

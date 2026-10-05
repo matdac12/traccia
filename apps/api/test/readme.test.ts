@@ -20,11 +20,21 @@ describe("README", () => {
   it("documents no api variable that config.ts does not read", () => {
     const apiRows = readme
       .split("\n")
-      .filter((l) => /^\|\s*`[A-Z][A-Z0-9_]*`\s*\|[^|]*\|\s*api\s*\|/.test(l))
+      .filter((l) => /^\|\s*`[A-Z][A-Z0-9_]*`\s*\|\s*api\s*\|/.test(l))
       .map((l) => l.match(/`([A-Z0-9_]+)`/)?.[1]);
     expect(apiRows.filter((v) => !CONFIG_ENV_VARS.includes(v ?? ""))).toEqual(
       [],
     );
+  });
+
+  it("documents the web variables under their TRACCIA_* names", () => {
+    const webRows = readme
+      .split("\n")
+      .filter((l) => /^\|\s*`[A-Z][A-Z0-9_]*`\s*\|\s*web\s*\|/.test(l))
+      .map((l) => l.match(/`([A-Z0-9_]+)`/)?.[1]);
+    expect(webRows).toContain("TRACCIA_API_URL");
+    expect(webRows).toContain("TRACCIA_API_TOKEN");
+    expect(webRows.filter((v) => v?.startsWith("TRACKER_"))).toEqual([]);
   });
 
   it("has relative links that resolve to files in the repo", () => {

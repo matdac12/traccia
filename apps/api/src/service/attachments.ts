@@ -1,4 +1,4 @@
-import { type Actor, ServiceError } from "@linear-matti/shared";
+import { type Actor, ServiceError } from "@traccia/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { attachments, comments } from "../db/schema.js";
 import { newId } from "../ids.js";

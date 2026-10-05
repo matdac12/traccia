@@ -1,4 +1,4 @@
-import { ISSUE_STATUSES } from "@linear-matti/shared";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import { FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { PROJECT_STATUS_TONE } from "@/components/project/project-status-select";
@@ -16,7 +16,7 @@ export default async function ProjectsPage() {
     <>
       <PageHeader title="Projects" />
       {projects.length === 0 ? (
-        <EmptyState icon={FolderKanban} title="No projects yet">Create one with the tracker CLI, REST or an agent over MCP.</EmptyState>
+        <EmptyState icon={FolderKanban} title="No projects yet">Create one with the traccia CLI, REST or an agent over MCP.</EmptyState>
       ) : (
         <ul className="divide-y overflow-y-auto">
           {projects.map((p) => {

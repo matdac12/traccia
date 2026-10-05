@@ -1,5 +1,5 @@
 "use client";
-import { ISSUE_STATUSES, type IssueStatus } from "@linear-matti/shared";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { useCallback, useRef } from "react";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll, type PollOptions } from "@/lib/polling/use-poll";

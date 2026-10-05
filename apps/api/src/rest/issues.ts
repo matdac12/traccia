@@ -5,7 +5,7 @@ import {
   issuePositionBodySchema,
   listIssuesQuerySchema,
   patchIssueBodySchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import type { Hono } from "hono";
 import { type Issue, listIssueLabels, type Tx } from "../service/index.js";
 import { setBlockersTx } from "../service/relations.js";

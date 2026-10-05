@@ -1,5 +1,5 @@
 import "server-only";
-import type { UpdateProjectInput } from "@linear-matti/shared";
+import type { UpdateProjectInput } from "@traccia/shared";
 import { api } from "./client";
 import { pageOf, projectSchema } from "./schemas";
 

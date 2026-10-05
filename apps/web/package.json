@@ -8,13 +8,13 @@
     "start": "node .next/standalone/apps/web/server.js",
     "typecheck": "tsc -p .",
     "test": "vitest run",
-    "check:bundle": "TRACKER_API_TOKEN=trk_bundle_check_sample_0123456789 next build --webpack && TRACKER_API_TOKEN=trk_bundle_check_sample_0123456789 node scripts/check-client-bundle.mjs"
+    "check:bundle": "TRACCIA_API_TOKEN=trk_bundle_check_sample_0123456789 next build --webpack && TRACCIA_API_TOKEN=trk_bundle_check_sample_0123456789 node scripts/check-client-bundle.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@linear-matti/shared": "workspace:*",
+    "@traccia/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "geist": "^1.7.2",

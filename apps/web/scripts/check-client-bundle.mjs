@@ -1,16 +1,16 @@
 // Build-time guard: the API token must never reach the browser.
 // Greps the client assets (.next/static) for the token env var name and for a token value.
-// Usage: pnpm --filter web check:bundle, or TRACKER_API_TOKEN=<value used for the build> node scripts/check-client-bundle.mjs
+// Usage: pnpm --filter web check:bundle, or TRACCIA_API_TOKEN=<value used for the build> node scripts/check-client-bundle.mjs
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../.next/static", import.meta.url));
-const needles = ["TRACKER_API_TOKEN", "TRACKER_API_URL"];
+const needles = ["TRACCIA_API_TOKEN", "TRACCIA_API_URL", "TRACKER_API_TOKEN", "TRACKER_API_URL"];
 // The value the build ran with (`pnpm check:bundle` builds with a sample token).
-const tokenValue = process.env.TRACKER_API_TOKEN;
+const tokenValue = process.env.TRACCIA_API_TOKEN;
 if (!tokenValue) {
-  console.error("Set TRACKER_API_TOKEN to the value the build used (or run `pnpm check:bundle`).");
+  console.error("Set TRACCIA_API_TOKEN to the value the build used (or run `pnpm check:bundle`).");
   process.exit(2);
 }
 needles.push(tokenValue);

@@ -37,15 +37,19 @@ step() {
 echo "tag: $TAG  host: $HOST  dir: $REMOTE_DIR"
 
 for app in api web; do
-  step "build tracker-$app (linux/amd64)" \
-    "docker buildx build --platform linux/amd64 --load -f apps/$app/Dockerfile -t tracker-$app:$TAG -t tracker-$app:latest ."
+  step "build traccia-$app (linux/amd64)" \
+    "docker buildx build --platform linux/amd64 --load -f apps/$app/Dockerfile -t traccia-$app:$TAG -t traccia-$app:latest ."
 done
 
 step "check the VPS is ready (.env present)" \
   "$SSH 'test -f $REMOTE_DIR/.env' || { echo 'missing $REMOTE_DIR/.env on $HOST (see deploy/.env.example)' >&2; exit 1; }"
 
+# The pre-rename compose project is called `tracker`; starting `traccia` beside it would fight over the ports.
+step "check the pre-rename stack is not running" \
+  "[ -z \"\$($SSH 'docker ps -q --filter label=com.docker.compose.project=tracker')\" ] || { echo 'the old tracker compose project is still running on $HOST; stop it first (see the rename runbook in the PR / deploy/README.md)' >&2; exit 1; }"
+
 step "ship images" \
-  "docker save tracker-api:$TAG tracker-web:$TAG tracker-api:latest tracker-web:latest | $SSH docker load"
+  "docker save traccia-api:$TAG traccia-web:$TAG traccia-api:latest traccia-web:latest | $SSH docker load"
 
 step "copy compose file" \
   "$SSH 'cat > $REMOTE_DIR/docker-compose.yml' < deploy/docker-compose.yml"
@@ -59,7 +63,7 @@ step "wait for /healthz" \
 
 # Keep the newest $KEEP_TAGS healthy tags and drop older images. rmi fails (ignored) for an image still in use.
 step "prune old images" \
-  "$SSH 'cd $REMOTE_DIR && keep=\$(tail -n $KEEP_TAGS deployed-tags) && for img in tracker-api tracker-web; do docker images \$img --format \"{{.Tag}}\" | grep -vx latest | while read -r t; do echo \"\$keep\" | grep -qx \"\$t\" || docker rmi \$img:\$t || true; done; done'"
+  "$SSH 'cd $REMOTE_DIR && keep=\$(tail -n $KEEP_TAGS deployed-tags) && for img in traccia-api traccia-web; do docker images \$img --format \"{{.Tag}}\" | grep -vx latest | while read -r t; do echo \"\$keep\" | grep -qx \"\$t\" || docker rmi \$img:\$t || true; done; done'"
 
 echo "done: $TAG"
 echo "rollback: $SSH 'cd $REMOTE_DIR && TAG=<previous tag> docker compose up -d'"

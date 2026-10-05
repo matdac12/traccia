@@ -1,4 +1,4 @@
-import { SHARED_PLACEHOLDER } from "@linear-matti/shared";
+import { SHARED_PLACEHOLDER } from "@traccia/shared";
 import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -254,7 +254,7 @@ describe("TRUST_PROXY", () => {
 });
 
 describe("workspace wiring", () => {
-  it("imports from @linear-matti/shared", () => {
+  it("imports from @traccia/shared", () => {
     expect(SHARED_PLACEHOLDER).toBe("shared-ok");
   });
 });

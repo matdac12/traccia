@@ -5,7 +5,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ISSUE_STATUSES, type IssueStatus, type Priority } from "@linear-matti/shared";
+import { ISSUE_STATUSES, type IssueStatus, type Priority } from "@traccia/shared";
 import { Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";

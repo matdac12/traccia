@@ -26,7 +26,7 @@
   ssh host. Default omni.
 
 .PARAMETER RemoteDir
-  Compose directory on the host. Default /opt/tracker.
+  Compose directory on the host. Default /opt/tracker (the directory keeps its pre-rename name on omni).
 
 .EXAMPLE
   .\pull-from-omni.ps1 -WhatIf     # print the steps, touch nothing
@@ -51,7 +51,7 @@ $sshOpts = @('-o', 'RemoteCommand=none', '-o', 'RequestTTY=no', '-o', 'BatchMode
 
 # Remote commands contain no double quotes, so Windows PowerShell's argument
 # quoting passes them through intact.
-$listCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'ls -1 /data/backups/tracker-*.db'"
+$listCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'ls -1 /data/backups'"
 $tarCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'cd /data && tar -cf - backups/{0} `$(test -d attachments && echo attachments)'"
 
 # Git for Windows puts a GNU tar first on PATH; it reads "C:\..." as host:path
@@ -63,7 +63,7 @@ $target = Join-Path $Destination "omni-$stamp"
 $tarFile = Join-Path $Destination ".omni-$stamp.tar.partial"
 
 if ($WhatIfPreference) {
-  Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$listCmd`"   (pick the newest tracker-<UTC>.db)"
+  Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$listCmd`"   (pick the newest traccia-<UTC>.db or pre-rename tracker-<UTC>.db)"
   Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$($tarCmd -f '<newest>')`" > $tarFile"
   Write-Host "[WhatIf] $tarExe -xf $tarFile -C $target"
   Write-Host "[WhatIf] keep the newest $Keep omni-* folders in $Destination, delete older ones (local only)"
@@ -77,10 +77,10 @@ $names = & ssh @sshOpts $HostName $listCmd
 if ($LASTEXITCODE -ne 0) { throw "Listing snapshots on $HostName failed (exit $LASTEXITCODE)." }
 $latest = $names |
   ForEach-Object { Split-Path -Leaf ([string]$_).Trim() } |
-  Where-Object { $_ -match '^tracker-\d{8}T\d{6}Z\.db$' } |
-  Sort-Object |
+  Where-Object { $_ -match '^(traccia|tracker)-\d{8}T\d{6}Z\.db$' } |
+  Sort-Object { $_ -replace '^[a-z]+-', '' } |
   Select-Object -Last 1
-if (-not $latest) { throw "No tracker-<UTC>.db snapshot found in /data/backups on $HostName. Has the daily job run?" }
+if (-not $latest) { throw "No traccia-<UTC>.db snapshot found in /data/backups on $HostName. Has the daily job run?" }
 Write-Host "Latest snapshot on ${HostName}: $latest"
 
 # 2. Stream snapshot + attachments as a tar into a local temp file.

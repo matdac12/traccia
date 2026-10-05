@@ -1,4 +1,4 @@
-import { ISSUE_STATUSES, type IssueStatus } from "@linear-matti/shared";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { and, count, inArray, isNull } from "drizzle-orm";
 import { issues } from "../db/schema.js";
 import type { ServiceContext } from "./context.js";

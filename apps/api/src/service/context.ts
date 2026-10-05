@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import type { z } from "zod";
 import type { Db } from "../db/connection.js";
 import type { AttachmentStorage } from "../storage/storage.js";

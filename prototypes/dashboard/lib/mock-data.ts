@@ -1,4 +1,4 @@
-/** PROTOTYPE: mock data shaped like tracker-spec.md section 6. */
+/** PROTOTYPE: mock data shaped like traccia-spec.md section 6. */
 export type Status = "backlog" | "todo" | "in_progress" | "in_review" | "done" | "canceled";
 export type Priority = 0 | 1 | 2 | 3 | 4; // 0 none, 1 urgent, 2 high, 3 medium, 4 low
 export type Actor = "you" | "agent";

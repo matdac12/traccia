@@ -1,5 +1,5 @@
 "use server";
-import { ISSUE_STATUSES } from "@linear-matti/shared";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import { z } from "zod";
 import { listIssuePage } from "@/lib/api/issues";
 import { parseFilters } from "@/lib/issue-filters";

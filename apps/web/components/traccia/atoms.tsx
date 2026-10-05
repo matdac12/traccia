@@ -1,4 +1,4 @@
-import type { Actor, IssueStatus } from "@linear-matti/shared";
+import type { Actor, IssueStatus } from "@traccia/shared";
 import { Bot, User } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";

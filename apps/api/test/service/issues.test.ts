@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { activity } from "../../src/db/schema.js";
 import { code, setupServices } from "./helpers.js";

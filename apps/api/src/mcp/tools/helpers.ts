@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { z } from "zod";
 import { decodeCursor, encodeCursor } from "../../rest/pagination.js";
