@@ -110,7 +110,7 @@ describe("comment actions", () => {
 
 describe("delete and undo", () => {
   it("soft-deletes then restores through the API", async () => {
-    fetchMock.mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b" })).mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b" }));
+    fetchMock.mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b" })).mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b", counts: { projects: 0, milestones: 0, issues: 1, comments: 0, attachments: 0 } }));
     const { deleteIssueAction, restoreIssueAction } = await actions();
     expect((await deleteIssueAction("PIL-1")).ok).toBe(true);
     expect((await restoreIssueAction("PIL-1")).ok).toBe(true);

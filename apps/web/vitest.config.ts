@@ -9,5 +9,6 @@ export default defineConfig({
       "server-only": fileURLToPath(new URL("./test/server-only-stub.ts", import.meta.url)),
     },
   },
-  test: { include: ["test/**/*.test.ts"] },
+  esbuild: { jsx: "automatic" },
+  test: { include: ["test/**/*.test.{ts,tsx}"], setupFiles: ["./test/setup.ts"] },
 });

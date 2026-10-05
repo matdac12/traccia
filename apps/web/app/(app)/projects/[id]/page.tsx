@@ -1,20 +1,43 @@
+import { Plus } from "lucide-react";
 import { notFound } from "next/navigation";
+import { LabelsPanel } from "@/components/project/labels-panel";
+import { MilestonesPanel } from "@/components/project/milestones-panel";
+import { ProjectDescription } from "@/components/project/project-description";
+import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
+import { ProjectStatusSelect } from "@/components/project/project-status-select";
+import { NewIssueButton } from "@/components/project/new-issue-button";
 import { PageHeader } from "@/components/traccia/page-header";
 import { ApiError } from "@/lib/api/client";
+import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { getProject } from "@/lib/api/projects";
+import { parseFilters } from "@/lib/issue-filters";
 
-export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const project = await getProject(id).catch((err) => {
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
   });
+  // The issue list is scoped to this project whatever `?project=` says.
+  const filters = { ...parseFilters(query), project: project.id };
+  const [milestones, labels, groups] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters)]);
+  const issues: IssuesData = { groups, projects: [project], labels, milestones };
   return (
-    <>
-      <PageHeader title={project.name} />
-      <div className="p-4 text-[13px] text-muted-foreground">
-        {project.description || "No description."}
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <PageHeader title={project.name}>
+        <ProjectStatusSelect projectId={project.id} status={project.status} />
+        <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
+      </PageHeader>
+      <div className="grid gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
+        <ProjectDescription projectId={project.id} description={project.description} />
+        <div className="space-y-6">
+          <MilestonesPanel projectId={project.id} milestones={milestones} />
+          <LabelsPanel projectId={project.id} labels={labels} />
+        </div>
       </div>
-    </>
+      <div className="h-[560px] shrink-0 border-t">
+        <IssuesView filters={filters} data={issues} lockProject title="Issues" />
+      </div>
+    </div>
   );
 }

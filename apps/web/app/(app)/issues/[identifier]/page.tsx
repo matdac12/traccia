@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { IssueDetail } from "@/components/issue-detail/issue-detail";
 import { ApiError } from "@/lib/api/client";
-import { getIssue, getIssueDetail, listLabelOptions, listMilestoneOptions } from "@/lib/api/issues";
+import { getIssue, getIssueDetail, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { listProjects } from "@/lib/api/projects";
 
 export async function generateMetadata({ params }: { params: Promise<{ identifier: string }> }) {
@@ -18,8 +18,8 @@ export default async function IssuePage({ params }: { params: Promise<{ identifi
   // Pickers are secondary: the page still works when one of them fails.
   const [projects, labels, milestones, parent] = await Promise.all([
     listProjects().catch(() => []),
-    listLabelOptions(issue.key).catch(() => []),
-    listMilestoneOptions(issue.key).catch(() => []),
+    listLabels(issue.key).catch(() => []),
+    listProjectMilestones(issue.projectId).catch(() => []),
     issue.parentId ? getIssue(issue.parentId).catch(() => null) : null,
   ]);
   return (

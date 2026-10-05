@@ -39,7 +39,34 @@ export const errorBodySchema = z.object({
   }),
 });
 
-// ---- Issue detail (MAT-1721) ----
+export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment"] as const;
+export type TrashType = (typeof TRASH_TYPES)[number];
+
+export const trashItemSchema = z.object({
+  type: z.enum(TRASH_TYPES),
+  id: z.string(),
+  /** Project/milestone name, "KEY-1 title" for issues, comment excerpt, attachment filename. */
+  label: z.string(),
+  deletedAt: z.string(),
+  deletedBatch: z.string().nullable(),
+  /** Owning issue (id) for comments and attachments. */
+  issueId: z.string().nullable(),
+});
+export type TrashItem = z.infer<typeof trashItemSchema>;
+
+const countsSchema = z.object({
+  projects: z.number().int(),
+  milestones: z.number().int(),
+  issues: z.number().int(),
+  comments: z.number().int(),
+  attachments: z.number().int(),
+});
+export type TrashCounts = z.infer<typeof countsSchema>;
+
+export const restoreResultSchema = z.object({ type: z.enum(TRASH_TYPES), id: z.string(), counts: countsSchema });
+export type RestoreResult = z.infer<typeof restoreResultSchema>;
+
+export const purgeResultSchema = z.object({ purged: z.literal(true) });
 
 export const labelSchema = z.object({
   id: z.string(),
@@ -49,15 +76,20 @@ export const labelSchema = z.object({
 });
 export type Label = z.infer<typeof labelSchema>;
 
+export const milestoneProgressSchema = z.object({ done: z.number().int(), total: z.number().int() });
+export type MilestoneProgress = z.infer<typeof milestoneProgressSchema>;
+
 export const milestoneSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   name: z.string(),
+  description: z.string().optional(),
   targetDate: z.string().nullable(),
+  /** Done issues out of live, non-canceled ones. */
+  progress: milestoneProgressSchema.optional(),
 });
 export type Milestone = z.infer<typeof milestoneSchema>;
 
-/** Issues carry their full label objects. */
 export const issueSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -77,7 +109,12 @@ export const issueSchema = z.object({
   updatedAt: z.string(),
   labels: z.array(labelSchema),
 });
-export type Issue = z.infer<typeof issueSchema>;
+export type IssueRow = z.infer<typeof issueSchema>;
+export type Issue = IssueRow;
+
+export const deletedResultSchema = z.object({ deleted: z.literal(true) }).loose();
+
+// ---- Issue detail (MAT-1721) ----
 
 const commentBaseSchema = z.object({
   id: z.string(),

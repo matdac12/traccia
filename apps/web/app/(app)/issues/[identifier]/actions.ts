@@ -67,7 +67,7 @@ export async function createSubIssueAction(parentIdentifier: string, title: stri
   if (!t.success) return invalid(t.error.issues[0]!.message);
   try {
     const parent = await getIssue(ref.data);
-    const issue = await createIssue({ project: parent.key, title: t.data, parentId: parent.id });
+    const { issue } = await createIssue({ project: parent.key, title: t.data, parentId: parent.id }, []);
     refresh(parent.identifier);
     return { ok: true, issue };
   } catch (err) {
