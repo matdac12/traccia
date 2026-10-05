@@ -54,7 +54,7 @@ Cron alternative, if you prefer it: `30 3 * * * cd /opt/tracker && docker compos
 
 Script: `deploy/backup/pull-from-omni.ps1` (PowerShell, Windows 10 1803+ or 11).
 
-> **Not yet run for real.** It was written on a Mac and reviewed but never executed. The first real run happens in the P5 human issue. Run it with `-WhatIf` first.
+> **Run with `-WhatIf` first.** The first real run on Windows (MAT-1716) failed because Git for Windows' GNU `tar` comes first on `PATH` and reads `C:\...` as `host:path`; the script now calls `%SystemRoot%\System32\tar.exe` explicitly.
 
 ```powershell
 .\pull-from-omni.ps1 -WhatIf   # print the steps, touch nothing

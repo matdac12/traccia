@@ -13,8 +13,8 @@
   The tar is streamed with Start-Process -RedirectStandardOutput because
   PowerShell's own pipeline would corrupt binary data.
 
-  NOT YET RUN FOR REAL: written on a Mac and only reviewed, not executed. The
-  first real run happens in the P5 human issue; use -WhatIf first.
+  First real run (MAT-1716) found that Git's GNU tar breaks on C:\ paths, so
+  the script calls %SystemRoot%\System32\tar.exe explicitly. Use -WhatIf first.
 
 .PARAMETER Destination
   Folder that holds the pulled copies. Default: $HOME\traccia-backups.
@@ -54,6 +54,10 @@ $sshOpts = @('-o', 'RemoteCommand=none', '-o', 'RequestTTY=no', '-o', 'BatchMode
 $listCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'ls -1 /data/backups/tracker-*.db'"
 $tarCmd = "cd $RemoteDir && docker compose exec -T api sh -c 'cd /data && tar -cf - backups/{0} `$(test -d attachments && echo attachments)'"
 
+# Git for Windows puts a GNU tar first on PATH; it reads "C:\..." as host:path
+# and fails. Use the bsdtar that ships with Windows.
+$tarExe = Join-Path $env:SystemRoot 'System32\tar.exe'
+
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $target = Join-Path $Destination "omni-$stamp"
 $tarFile = Join-Path $Destination ".omni-$stamp.tar.partial"
@@ -61,7 +65,7 @@ $tarFile = Join-Path $Destination ".omni-$stamp.tar.partial"
 if ($WhatIfPreference) {
   Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$listCmd`"   (pick the newest tracker-<UTC>.db)"
   Write-Host "[WhatIf] ssh $($sshOpts -join ' ') $HostName `"$($tarCmd -f '<newest>')`" > $tarFile"
-  Write-Host "[WhatIf] tar.exe -xf $tarFile -C $target"
+  Write-Host "[WhatIf] $tarExe -xf $tarFile -C $target"
   Write-Host "[WhatIf] keep the newest $Keep omni-* folders in $Destination, delete older ones (local only)"
   return
 }
@@ -89,10 +93,10 @@ try {
   if ((Get-Item -LiteralPath $tarFile).Length -eq 0) { throw 'Pulled tar is empty.' }
 
   # 3. Extract into the dated folder; tar -t first catches a truncated stream.
-  & tar.exe -tf $tarFile | Out-Null
+  & $tarExe -tf $tarFile | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'Pulled tar is corrupt or truncated.' }
   New-Item -ItemType Directory -Path $target | Out-Null
-  & tar.exe -xf $tarFile -C $target
+  & $tarExe -xf $tarFile -C $target
   if ($LASTEXITCODE -ne 0) { throw 'Extracting the pulled tar failed.' }
 }
 catch {
