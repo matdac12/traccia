@@ -1,4 +1,4 @@
-# Tracker (working name): a minimal self-hosted Linear replacement for solo dev + agents
+# Traccia (formerly "Tracker"): a minimal self-hosted Linear replacement for solo dev + agents
 
 Status: draft v0.1 (spec phase)
 Owner: Mattia

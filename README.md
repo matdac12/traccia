@@ -1,6 +1,6 @@
 # linear-matti
 
-Self-hosted issue tracker replacing Linear for personal use. The source of truth is [`tracker-spec.md`](tracker-spec.md).
+Traccia: a self-hosted issue tracker replacing Linear for personal use. The source of truth is [`tracker-spec.md`](tracker-spec.md).
 
 ## Layout
 
