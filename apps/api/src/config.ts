@@ -11,6 +11,7 @@ const envSchema = z.object({
   DEFAULT_ISSUE_KEY: z.string().min(1).default("MAT"),
   ALLOW_AGENT_PURGE: bool.default(false),
   RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_YOU_PER_MIN: z.coerce.number().int().positive().default(1200),
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
@@ -48,6 +49,7 @@ export type Config = {
   defaultIssueKey: string;
   allowAgentPurge: boolean;
   rateLimitPerMin: number;
+  rateLimitYouPerMin: number;
   logLevel: string;
   trustProxy: boolean;
   sourceUrlExtraPorts: number[];
@@ -82,6 +84,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     defaultIssueKey: e.DEFAULT_ISSUE_KEY,
     allowAgentPurge: e.ALLOW_AGENT_PURGE,
     rateLimitPerMin: e.RATE_LIMIT_PER_MIN,
+    rateLimitYouPerMin: e.RATE_LIMIT_YOU_PER_MIN,
     logLevel: e.LOG_LEVEL,
     trustProxy: e.TRUST_PROXY,
     sourceUrlExtraPorts: e.SOURCE_URL_EXTRA_PORTS,
