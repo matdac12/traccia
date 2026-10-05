@@ -9,7 +9,7 @@ import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { Loader2, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreBoardIssues, moveBoardIssue } from "@/app/(app)/issues/board-actions";
 import { useOptionalCreateIssue } from "@/components/create-issue/provider";
 import { countsOf, sameGroups, type GroupsApplier } from "@/components/issues-table/use-list-sync";
@@ -60,6 +60,8 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     const el = scroller.current;
     if (el) setHiddenRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 4);
   }, []);
+  // Re-measure when the column count changes (a status appears or disappears), not only on resize.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: columns.length is the intended trigger; measure is stable
   useEffect(() => {
     measure();
     window.addEventListener("resize", measure);
@@ -70,7 +72,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   /** Moves in flight; a new drag waits for them so a failed move can be undone on its own. */
   const inFlight = useRef(0);
   const current = useRef(columns);
-  const commit = (next: BoardColumn[]) => { current.current = next; setColumns(next); };
+  const commit = useCallback((next: BoardColumn[]) => { current.current = next; setColumns(next); }, []);
   const inline = useInlineEdit({ onRow: (row) => commit(upsertRow(current.current, row)) });
   const editor: InlineEditor = { edit: inline.edit, labels };
   const del = useIssueDelete({ onRemove: (row) => commit(removeRow(current.current, row.id)), onRestore: (row) => commit(insertRow(current.current, row)) });
@@ -87,8 +89,7 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
       },
     });
     return () => register?.(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [register]);
+  }, [register, commit, inline.pending, del.pending]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -245,6 +246,7 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
   const router = useRouter();
   /** A drag ends with a click on the card; it must not open the issue. */
   const dragged = useRef(false);
+  const node = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (isDragging) { dragged.current = true; return; }
     const t = setTimeout(() => { dragged.current = false; }, 0);
@@ -252,17 +254,24 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
   }, [isDragging]);
   // The whole card opens the issue, except its own controls. Menus and pickers render in portals, whose events
   // still bubble through React: only clicks whose DOM target is inside the card count.
-  const open = (e: MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (dragged.current || e.defaultPrevented || !e.currentTarget.contains(target)) return;
-    if (target.closest("a, button, input, textarea, select, [role=menu], [role=menuitem], [role=combobox], [role=dialog]")) return;
-    if (window.getSelection()?.toString()) return;
-    if (e.metaKey || e.ctrlKey || e.shiftKey) window.open(`/issues/${issue.identifier}`, "_blank", "noopener");
-    else router.push(`/issues/${issue.identifier}`);
-  };
+  useEffect(() => {
+    const el = node.current;
+    if (!el) return;
+    const open = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (dragged.current || e.defaultPrevented || !el.contains(target)) return;
+      if (target.closest("a, button, input, textarea, select, [role=menu], [role=menuitem], [role=combobox], [role=dialog]")) return;
+      if (window.getSelection()?.toString()) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey) window.open(`/issues/${issue.identifier}`, "_blank", "noopener");
+      else router.push(`/issues/${issue.identifier}`);
+    };
+    el.addEventListener("click", open);
+    return () => el.removeEventListener("click", open);
+  }, [issue.identifier, router]);
+  const setRef = useCallback((el: HTMLDivElement | null) => { node.current = el; setNodeRef(el); }, [setNodeRef]);
   return (
     <IssueContextMenu issue={issue} menu={menu}>
-      <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} onClick={open} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
+      <div ref={setRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
         <Card issue={issue} editor={editor} dragging={isDragging} showMenuButton />
       </div>
     </IssueContextMenu>

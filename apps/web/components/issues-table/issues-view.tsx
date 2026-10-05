@@ -57,10 +57,10 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} />}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
         <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="sm:ml-auto" />
-        <div className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" role="group" aria-label="View">
+        <fieldset className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" aria-label="View">
           {viewButton("table", "Table", <Rows3 className="size-3.5" />)}
           {viewButton("kanban", "Board", <Columns3 className="size-3.5" />)}
-        </div>
+        </fieldset>
       </header>
       <ActiveChips filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
       <div className={`min-h-0 flex-1 overflow-auto transition-opacity ${pending ? "opacity-60" : ""}`}>

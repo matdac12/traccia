@@ -11,7 +11,7 @@ const UNIT_MS = [604_800_000, 86_400_000, 3_600_000, 60_000, 1000] as const;
  */
 export function resolveUpdatedAfter(value: string, now = new Date()): string {
   const m = DURATION.exec(value.trim());
-  if (m && m.slice(2).some((g) => g !== undefined)) {
+  if (m?.slice(2).some((g) => g !== undefined)) {
     const ms = [m[2], m[3], m[4], m[5], m[6]].reduce(
       (sum, g, i) => sum + Number(g ?? 0) * (UNIT_MS[i] ?? 0),
       0,

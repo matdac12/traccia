@@ -4,7 +4,6 @@ import {
   desc,
   eq,
   inArray,
-  isNotNull,
   isNull,
   or,
   sql,
@@ -107,14 +106,6 @@ type Counts = {
   comments: number;
   attachments: number;
 };
-const emptyCounts = (): Counts => ({
-  projects: 0,
-  milestones: 0,
-  issues: 0,
-  comments: 0,
-  attachments: 0,
-});
-
 export type TrashItem = {
   type: TrashType;
   id: string;

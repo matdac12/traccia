@@ -12,7 +12,7 @@ import {
   sanitizeFilename,
   storeUpload,
 } from "../../storage/index.js";
-import { normalizeMimeType, sniffType } from "../../storage/validation.js";
+import { sniffType } from "../../storage/validation.js";
 import { runTool, toolResult } from "../errors.js";
 import { explainPurgeDenied } from "./helpers.js";
 import type { McpContext } from "../server.js";

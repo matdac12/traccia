@@ -153,7 +153,7 @@ describe("query plans", () => {
   };
   it("uses indexes for the common filters", () => {
     const { sqlite, db, p1, services } = setup();
-    const m = services.milestones.create("you", p1.id, { name: "M" });
+    services.milestones.create("you", p1.id, { name: "M" });
     expect(plan(sqlite, { project: p1.id, status: ["todo"] }, db)).toContain(
       "issues_project_status",
     );

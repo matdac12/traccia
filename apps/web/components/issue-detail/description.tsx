@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -25,6 +25,10 @@ export function MarkdownEditor({
   label: string;
 }) {
   const [tab, setTab] = useState<"write" | "preview">("write");
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (autoFocus) textarea.current?.focus();
+  }, [autoFocus]);
   return (
     <div className="rounded-md border bg-background">
       <div className="flex gap-1 border-b px-1.5 py-1" role="tablist">
@@ -36,9 +40,9 @@ export function MarkdownEditor({
       </div>
       {tab === "write" ? (
         <textarea
+          ref={textarea}
           aria-label={label}
           value={value}
-          autoFocus={autoFocus}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {

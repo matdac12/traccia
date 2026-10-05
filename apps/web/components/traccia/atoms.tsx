@@ -24,20 +24,20 @@ export const STATUS_LABEL: Record<IssueStatus, string> = {
 
 export function StatusIcon({ status, className }: { status: IssueStatus; className?: string }) {
   const c = STATUS_COLOR[status];
-  const common = { width: 14, height: 14, viewBox: "0 0 14 14", fill: "none", className: cn("shrink-0", className), "aria-label": STATUS_LABEL[status], role: "img" } as const;
+  const common = { width: 14, height: 14, viewBox: "0 0 14 14", fill: "none", className: cn("shrink-0", className), role: "img" } as const;
   switch (status) {
     case "backlog":
-      return <svg {...common}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" strokeDasharray="1.8 1.8" /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" strokeDasharray="1.8 1.8" /></svg>;
     case "todo":
-      return <svg {...common}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /></svg>;
     case "in_progress":
-      return <svg {...common}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /><path d="M7 3.5a3.5 3.5 0 0 1 0 7z" fill={c} /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /><path d="M7 3.5a3.5 3.5 0 0 1 0 7z" fill={c} /></svg>;
     case "in_review":
-      return <svg {...common}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /><path d="M7 3.5a3.5 3.5 0 1 1-3.5 3.5L7 7z" fill={c} /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="5.75" stroke={c} strokeWidth="1.5" /><path d="M7 3.5a3.5 3.5 0 1 1-3.5 3.5L7 7z" fill={c} /></svg>;
     case "done":
-      return <svg {...common}><circle cx="7" cy="7" r="6.5" fill={c} /><path d="M4.4 7.2l1.9 1.9 3.3-3.8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="6.5" fill={c} /><path d="M4.4 7.2l1.9 1.9 3.3-3.8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
     case "canceled":
-      return <svg {...common}><circle cx="7" cy="7" r="6.5" fill={c} /><path d="M4.8 4.8l4.4 4.4M9.2 4.8L4.8 9.2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" /></svg>;
+      return <svg {...common} aria-label={STATUS_LABEL[status]}><circle cx="7" cy="7" r="6.5" fill={c} /><path d="M4.8 4.8l4.4 4.4M9.2 4.8L4.8 9.2" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" /></svg>;
   }
 }
 

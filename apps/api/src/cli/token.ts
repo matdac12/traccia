@@ -112,7 +112,10 @@ export function runTokenCommand(
     if (positionals.length)
       throw new UsageError(`Unexpected argument: ${positionals[0]}`);
     const rows = listTokens(db);
-    if (!rows.length) return out("No tokens.");
+    if (!rows.length) {
+      out("No tokens.");
+      return;
+    }
     out(
       table(
         ["ID", "NAME", "ACTOR", "CREATED", "LAST USED", "REVOKED"],

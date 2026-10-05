@@ -51,8 +51,7 @@ export function IssuesTable({
       },
     });
     return () => register?.(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [register]);
+  }, [register, inline.pending, del.pending]);
   const milestoneName = new Map(milestones.map((m) => [m.id, m.name]));
   const sections = buildSections(groups, filters.groupBy, filters, { projects, milestones });
   const everyRow = groups.flatMap((g) => g.items);

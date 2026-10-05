@@ -38,7 +38,8 @@ export function zodDetails(err: ZodError): Record<string, unknown> {
   const fields: Record<string, string[]> = {};
   for (const issue of err.issues) {
     const key = issue.path.map(String).join(".") || "_";
-    (fields[key] ??= []).push(issue.message);
+    fields[key] ??= [];
+    fields[key].push(issue.message);
   }
   return { fields };
 }

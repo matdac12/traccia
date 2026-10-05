@@ -1,7 +1,6 @@
 import type { Actor } from "@traccia/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import pkg from "../../package.json" with { type: "json" };
-import { errorFields } from "../logger.js";
 import type { AppContainer } from "../rest/env.js";
 import { runTool, toolResult } from "./errors.js";
 import {

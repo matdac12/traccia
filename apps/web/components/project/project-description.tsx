@@ -41,7 +41,7 @@ export function ProjectDescription({ projectId, description, updatedAt }: { proj
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [description, editing]);
+  }, [editing]);
 
   const save = () =>
     start(async () => {

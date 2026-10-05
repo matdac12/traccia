@@ -62,10 +62,10 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
       )}
       {adding && (
         <div className="mt-2 space-y-1">
-          <div className="flex gap-1 text-xs" role="group" aria-label="Add sub-issue">
+          <fieldset className="flex gap-1 text-xs" aria-label="Add sub-issue">
             <Button size="xs" variant={adding === "create" ? "secondary" : "ghost"} aria-pressed={adding === "create"} onClick={() => { setAdding("create"); setError(null); }}>Create new</Button>
             <Button size="xs" variant={adding === "link" ? "secondary" : "ghost"} aria-pressed={adding === "link"} onClick={() => { setAdding("link"); setError(null); }}>Link existing</Button>
-          </div>
+          </fieldset>
           {adding === "create" ? (
             <div className="flex gap-2">
               <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") setAdding(null); }} placeholder="Sub-issue title" aria-label="Sub-issue title" className="h-8 text-[13px] md:text-[13px]" />

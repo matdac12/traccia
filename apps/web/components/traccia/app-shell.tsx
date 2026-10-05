@@ -2,7 +2,7 @@
 import { Check, ChevronsUpDown, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NewProjectButton } from "@/components/project/new-project-button";
 import { useCreateIssue } from "@/components/create-issue/provider";
@@ -163,7 +163,27 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useMediaQuery("(min-width: 768px)");
   // Navigation (including back/forward) and growing past md close the drawer.
-  useEffect(() => setDrawerOpen(false), [path, desktop]);
+  const lastPath = useRef(path);
+  const lastDesktop = useRef(desktop);
+  useEffect(() => {
+    if (lastPath.current !== path || lastDesktop.current !== desktop) {
+      lastPath.current = path;
+      lastDesktop.current = desktop;
+      setDrawerOpen(false);
+    }
+  }, [path, desktop]);
+
+  // A click on any link in the mobile drawer closes it. Wired natively through the node state below so the
+  // drawer body stays a plain layout element (an interactive role on the wrapper would be wrong).
+  const [drawerBody, setDrawerBody] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!drawerOpen || !drawerBody) return;
+    const onClick = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest("a")) setDrawerOpen(false);
+    };
+    drawerBody.addEventListener("click", onClick);
+    return () => drawerBody.removeEventListener("click", onClick);
+  }, [drawerOpen, drawerBody]);
 
   // Desktop only: the mobile drawer is unaffected by (and never changes) the collapsed choice.
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
@@ -203,7 +223,7 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">Menu</DialogTitle>
-          <div className="flex min-h-0 flex-1 flex-col" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setDrawerOpen(false); }}>
+          <div ref={setDrawerBody} className="flex min-h-0 flex-1 flex-col">
             <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
           </div>
         </DialogContent>

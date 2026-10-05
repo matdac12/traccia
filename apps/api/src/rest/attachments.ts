@@ -3,11 +3,7 @@ import { Readable } from "node:stream";
 import Busboy from "busboy";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
-import {
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-} from "../service/errors.js";
+import { NotFoundError, ValidationError } from "../service/errors.js";
 import { createServices } from "../service/index.js";
 import {
   type AttachmentStorage,

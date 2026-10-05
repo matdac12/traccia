@@ -16,11 +16,11 @@ const trigger = "inline-flex items-center gap-1 rounded-md outline-none hover:bg
 export const Tick = ({ on }: { on: boolean }) => (on ? <Check className="ml-auto size-3.5 text-primary" /> : null);
 
 /**
- * Wraps a trigger so that neither its key presses nor the (portaled) menu's reach a parent: on a board card
- * the sortable wrapper would otherwise start a keyboard drag from Space/Enter.
+ * Keeps a trigger's key presses and the (portaled) menu's from reaching a parent: on a board card the sortable
+ * wrapper would otherwise start a keyboard drag from Space/Enter. The trigger and the menu content both stop them.
  */
 function Isolated({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={cn("relative z-[1] inline-flex", className)} onKeyDown={(e) => e.stopPropagation()}>{children}</span>;
+  return <span className={cn("relative z-[1] inline-flex", className)}>{children}</span>;
 }
 
 function Picker({ label, triggerClass, trigger: shown, children, className }: { label: string; triggerClass?: string; trigger: ReactNode; children: ReactNode; className?: string }) {
@@ -28,9 +28,9 @@ function Picker({ label, triggerClass, trigger: shown, children, className }: { 
     <Isolated className={className}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={label} className={cn(trigger, triggerClass)}>{shown}</button>
+          <button type="button" aria-label={label} onKeyDown={(e) => e.stopPropagation()} className={cn(trigger, triggerClass)}>{shown}</button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">{children}</DropdownMenuContent>
+        <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto" onKeyDown={(e) => e.stopPropagation()}>{children}</DropdownMenuContent>
       </DropdownMenu>
     </Isolated>
   );

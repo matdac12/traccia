@@ -14,7 +14,7 @@ export async function createProjectAction(values: CreateProjectValues): Promise<
     status: values.status,
   });
   if (!parsed.success) return failure("Fix the highlighted fields.", zodFieldErrors(parsed.error.issues));
-  let project;
+  let project: Awaited<ReturnType<typeof createProject>>;
   try {
     project = await createProject(parsed.data);
   } catch (err) {

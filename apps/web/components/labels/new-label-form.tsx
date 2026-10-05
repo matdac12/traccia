@@ -36,7 +36,7 @@ export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: st
 
   // Not a <form>: the dialog and dropdown that host this swallow nested submits, so Enter and Escape are handled here.
   return (
-    <div
+    <fieldset
       className="space-y-1.5 p-2"
       onKeyDown={(e) => {
         e.stopPropagation();
@@ -60,6 +60,6 @@ export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: st
       {fields.name ? <p className="text-xs text-destructive">Name {fields.name}</p> : null}
       {fields.color ? <p className="text-xs text-destructive">Color {fields.color}</p> : null}
       {error && !fields.name && !fields.color ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
-    </div>
+    </fieldset>
   );
 }

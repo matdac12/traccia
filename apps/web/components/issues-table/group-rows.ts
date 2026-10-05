@@ -39,10 +39,10 @@ export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }
   const keyOf = (i: IssueRow) =>
     groupBy === "priority" ? String(i.priority) : groupBy === "assignee" ? (i.assignee ?? "none") : groupBy === "project" ? i.projectId : (i.milestoneId ?? "none");
   const titles = new Map<string, string>();
-  if (groupBy === "priority") PRIORITY_ORDER.forEach((p) => titles.set(String(p), PRIORITY_TITLE[p]!));
-  else if (groupBy === "assignee") Object.entries(ASSIGNEE_TITLE).forEach(([k, v]) => titles.set(k, v));
-  else if (groupBy === "project") lookups.projects.forEach((p) => titles.set(p.id, p.name));
-  else { lookups.milestones.forEach((m) => titles.set(m.id, m.name)); titles.set("none", "No milestone"); }
+  if (groupBy === "priority") PRIORITY_ORDER.forEach((p) => { titles.set(String(p), PRIORITY_TITLE[p]!); });
+  else if (groupBy === "assignee") Object.entries(ASSIGNEE_TITLE).forEach(([k, v]) => { titles.set(k, v); });
+  else if (groupBy === "project") lookups.projects.forEach((p) => { titles.set(p.id, p.name); });
+  else { lookups.milestones.forEach((m) => { titles.set(m.id, m.name); }); titles.set("none", "No milestone"); }
   const out = new Map<string, IssueRow[]>();
   for (const r of rows) out.set(keyOf(r), [...(out.get(keyOf(r)) ?? []), r]);
   // Keys the lookups do not know (a deleted project) still get a section, after the known ones.

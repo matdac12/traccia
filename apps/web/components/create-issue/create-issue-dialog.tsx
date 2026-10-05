@@ -77,7 +77,7 @@ export function CreateIssueDialog({
     setError(null);
     setFieldErrors({});
     setCreated(null);
-  }, [open]);
+  }, [open, defaults?.projectId, defaults?.status, projects[0]?.id]);
 
   useEffect(() => {
     if (!open || !project) return;
@@ -224,7 +224,7 @@ export function CreateIssueDialog({
                 {[err("project") && `Project ${err("project")}`, err("milestoneId") && `Milestone ${err("milestoneId")}`, err("status") && `Status ${err("status")}`, err("priority") && `Priority ${err("priority")}`, err("assignee") && `Assignee ${err("assignee")}`, err("estimate") && `Estimate ${err("estimate")}`, err("parentId") && `Parent ${err("parentId")}`].filter(Boolean).join(". ")}
               </p>
             ) : null}
-            <div className="flex flex-wrap gap-1.5 border-t px-4 py-2.5" aria-label="Labels">
+            <fieldset className="flex flex-wrap gap-1.5 border-t px-4 py-2.5" aria-label="Labels">
               {optionsError ? <span className="text-xs text-destructive">Could not load labels: {optionsError}</span> : null}
               {!optionsError && options.labels.length === 0 ? <span className="text-xs text-muted-foreground">No labels yet.</span> : null}
               {options.labels.map((l) => {
@@ -245,7 +245,7 @@ export function CreateIssueDialog({
               {project && !newLabel ? (
                 <button type="button" onClick={() => setNewLabel(true)} className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] text-muted-foreground hover:bg-accent"><Plus className="size-3" />Create label</button>
               ) : null}
-            </div>
+            </fieldset>
             {newLabel ? (
               <div className="border-t">
                 <NewLabelForm

@@ -148,12 +148,14 @@ function SubIssueDialog({ issue, open, onClose }: { issue: IssueRow; open: boole
  */
 export function IssueMenuButton({ issue, className }: { issue: IssueRow; className?: string }) {
   return (
-    <span className={cn("relative z-[1] inline-flex", className)} onKeyDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+    <span className={cn("relative z-[1] inline-flex", className)}>
       <button
         type="button"
         aria-label={`Actions for ${issue.identifier}`}
         aria-haspopup="menu"
         className="inline-flex size-5 items-center justify-center rounded text-muted-foreground opacity-0 outline-none hover:bg-accent focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 data-[state=open]:opacity-100"
+        onKeyDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           e.currentTarget.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: r.left, clientY: r.bottom }));
