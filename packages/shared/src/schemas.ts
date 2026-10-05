@@ -160,3 +160,24 @@ export const ISSUE_INCLUDES = [
   "relations",
 ] as const;
 export type IssueInclude = (typeof ISSUE_INCLUDES)[number];
+
+// ---- Comments ----
+
+const commentBodySchema = z.string().trim().min(1, "must not be empty");
+
+export const createCommentInputSchema = z.object({
+  body: commentBodySchema,
+  /** A top-level comment on the same issue. Replying to a reply is rejected. */
+  parentId: z.string().min(1).nullable().optional(),
+});
+export type CreateCommentInput = z.input<typeof createCommentInputSchema>;
+
+export const updateCommentInputSchema = z.object({
+  body: commentBodySchema,
+});
+export type UpdateCommentInput = z.input<typeof updateCommentInputSchema>;
+
+export const listCommentsInputSchema = z.object({
+  includeDeleted: z.boolean().optional(),
+});
+export type ListCommentsInput = z.input<typeof listCommentsInputSchema>;

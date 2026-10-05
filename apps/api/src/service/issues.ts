@@ -19,6 +19,7 @@ import {
   type ServiceContext,
   type Tx,
 } from "./context.js";
+import { listIssueComments } from "./comments.js";
 import { allocateIssueNumber } from "./issue-keys.js";
 import { resolveProject } from "./projects.js";
 
@@ -179,7 +180,9 @@ export function createIssuesService(ctx: ServiceContext) {
       const issue = resolveIssue(ctx.db, ref);
       return {
         ...issue,
-        comments: [],
+        comments: include.includes("comments")
+          ? listIssueComments(ctx.db, issue.id)
+          : [],
         attachments: [],
         relations: [],
         activity: include.includes("activity")
