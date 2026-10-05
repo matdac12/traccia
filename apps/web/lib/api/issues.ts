@@ -1,6 +1,6 @@
 import "server-only";
-import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
-import { filtersToApiQuery, type IssueFilters } from "../issue-filters";
+import type { IssueStatus } from "@traccia/shared";
+import { filtersToApiQuery, visibleStatuses, type IssueFilters } from "../issue-filters";
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError, api } from "./client";
@@ -19,7 +19,7 @@ export function listIssuePage(filters: IssueFilters, status: IssueStatus, cursor
 /** The first page of every status group, fetched in parallel. */
 export async function listIssueGroups(filters: IssueFilters) {
   return Promise.all(
-    ISSUE_STATUSES.map(async (status) => ({ status, ...(await listIssuePage(filters, status)) })),
+    visibleStatuses(filters).map(async (status) => ({ status, ...(await listIssuePage(filters, status)) })),
   );
 }
 
@@ -33,7 +33,7 @@ const MAX_REFRESH_PAGES = 5;
 export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<Record<IssueStatus, number>>, board: boolean) {
   const page = board ? listBoardPage : listIssuePage;
   return Promise.all(
-    ISSUE_STATUSES.map(async (status) => {
+    visibleStatuses(filters).map(async (status) => {
       const items: z.output<typeof issueSchema>[] = [];
       let cursor: string | undefined;
       let nextCursor: string | null = null;

@@ -42,6 +42,7 @@ const ORDER_COLUMNS = {
   createdAt: issues.createdAt,
   priority: issues.priority,
   sortOrder: issues.sortOrder,
+  title: issues.title,
 } as const;
 
 const NUMERIC_ORDERS = new Set<IssueOrderBy>(["priority", "sortOrder"]);

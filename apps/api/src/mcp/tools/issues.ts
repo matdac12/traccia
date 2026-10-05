@@ -121,7 +121,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
           .optional()
           .describe("Include soft-deleted issues."),
         orderBy: z
-          .enum(["updatedAt", "createdAt", "priority", "sortOrder"])
+          .enum(["updatedAt", "createdAt", "priority", "sortOrder", "title"])
           .optional()
           .describe("Default updatedAt."),
         limit: z
