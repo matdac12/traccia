@@ -1,10 +1,13 @@
+import path from "node:path";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { requireAuth } from "../auth/middleware.js";
 import { createBearerVerifier } from "../auth/verifier.js";
 import type { AppContainer, AppEnv } from "../rest/env.js";
+import { type AttachmentStorage, LocalDiskStorage } from "../storage/index.js";
 import { createMcpServer } from "./server.js";
+import { createSourceFetcher, type SourceFetcher } from "./ssrf-fetch.js";
 
 /** Room for the JSON-RPC envelope around a base64 upload. */
 const ENVELOPE_BYTES = 64 * 1024;
@@ -19,8 +22,17 @@ export function mcpBodyLimit(maxMcpUploadBytes: number): number {
  * and transport, and replies with plain JSON (no SSE). GET and DELETE are
  * 405 because there is no stream to open and no session to end.
  */
-export function createMcpRoute(container: AppContainer) {
+export function createMcpRoute(
+  container: AppContainer,
+  deps: { storage?: AttachmentStorage; fetchSource?: SourceFetcher } = {},
+) {
   const { config, db } = container;
+  const attachments = {
+    storage:
+      deps.storage ??
+      new LocalDiskStorage(path.join(config.dataDir, "attachments")),
+    fetchSource: deps.fetchSource ?? createSourceFetcher(),
+  };
   const maxBytes = mcpBodyLimit(config.maxMcpUploadBytes);
   const mcp = new Hono<AppEnv>();
 
@@ -54,11 +66,14 @@ export function createMcpRoute(container: AppContainer) {
     }),
     async (c) => {
       c.header("WWW-Authenticate", undefined);
-      const server = createMcpServer({
-        container,
-        actor: c.get("actor"),
-        tokenName: c.get("tokenName"),
-      });
+      const server = createMcpServer(
+        {
+          container,
+          actor: c.get("actor"),
+          tokenName: c.get("tokenName"),
+        },
+        { attachments },
+      );
       const transport = new WebStandardStreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,

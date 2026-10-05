@@ -1,3 +1,4 @@
+import { ServiceError as SharedServiceError } from "@linear-matti/shared";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError } from "zod";
 import { ServiceError } from "../service/errors.js";
@@ -19,7 +20,9 @@ export async function runTool(
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof ServiceError) return toolError(err.message);
+    // Two classes share the name: the shared one is thrown by most services.
+    if (err instanceof ServiceError || err instanceof SharedServiceError)
+      return toolError(err.message);
     if (err instanceof ZodError) {
       return toolError(
         err.issues
