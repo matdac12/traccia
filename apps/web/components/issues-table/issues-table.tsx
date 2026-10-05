@@ -98,9 +98,9 @@ export function IssuesTable({
             <h2 className="m-0 flex h-8 items-center border-b bg-surface px-4 text-[13px] font-medium">
               <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.key)} className="flex items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-                {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.key) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.key === "none" ? null : (g.key as "you" | "agent")} size={16} /> : null}
+                {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.raw) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.raw === "none" ? null : (g.raw as "you" | "agent")} size={16} /> : null}
                 <span>{g.status ? STATUS_LABEL[g.status] : g.title}</span>
-                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{g.items.length}{group?.nextCursor ? "+" : ""}</span>
+                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{g.items.length}{(group ? group.nextCursor : pagedGroups.length > 0) ? "+" : ""}</span>
               </button>
             </h2>
             <div>
@@ -119,7 +119,7 @@ export function IssuesTable({
                     <Link href={`/issues/${i.identifier}`} className="truncate rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{i.title}</Link>
                     {i.parentId && (
                       <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
-                        <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent}
+                        <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent ?? "parent"}
                       </span>
                     )}
                     {sub && (

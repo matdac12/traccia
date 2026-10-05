@@ -76,7 +76,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
           )
         ) : (
-          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
     </div>

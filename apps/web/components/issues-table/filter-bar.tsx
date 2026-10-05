@@ -1,11 +1,11 @@
 "use client";
 import { ListFilter, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
-import { ISSUE_STATUSES } from "@traccia/shared";
 import type { IssueFilters } from "@/lib/issue-filters";
 import { PRIORITY_LABEL, PriorityIcon } from "./priority";
 import { ActorAvatar, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
@@ -25,7 +25,7 @@ export function FilterMenu({ filters, lookups, onChange, hideProject = false }: 
     { key: "project", title: "Project", selected: filters.project ? [filters.project] : [], toggle: single("project"), options: lookups.projects.map((p) => ({ value: p.id, label: p.name })) },
     {
       key: "status", title: "Status", selected: filters.status,
-      toggle: (s) => onChange({ ...filters, status: filters.status.includes(s as never) ? filters.status.filter((x) => x !== s) : ISSUE_STATUSES.filter((x) => x === s || filters.status.includes(x)) }),
+      toggle: (s) => onChange({ ...filters, status: filters.status.includes(s as IssueStatus) ? filters.status.filter((x) => x !== s) : ISSUE_STATUSES.filter((x) => x === s || filters.status.includes(x)) }),
       options: ISSUE_STATUSES.map((s) => ({ value: s, label: <><StatusIcon status={s} /> {STATUS_LABEL[s]}</> })),
     },
     {

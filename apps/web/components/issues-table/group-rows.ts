@@ -2,7 +2,8 @@ import type { IssueStatus } from "@traccia/shared";
 import type { IssueRow, Milestone, Project } from "@/lib/api/schemas";
 import type { GroupBy, IssueFilters } from "@/lib/issue-filters";
 
-export type Section = { key: string; status?: IssueStatus; title: string; items: IssueRow[] };
+/** `key` is unique across groupings (collapse state is shared); `raw` is the grouped value (priority, assignee, id). */
+export type Section = { key: string; raw?: string; status?: IssueStatus; title: string; items: IssueRow[] };
 
 type Lookups = { projects: Project[]; milestones: Milestone[] };
 
@@ -28,7 +29,7 @@ export function compareRows({ orderBy, order }: Pick<IssueFilters, "orderBy" | "
 export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }[], groupBy: GroupBy, filters: IssueFilters, lookups: Lookups): Section[] {
   if (groupBy === "status") return groups.filter((g) => g.items.length).map((g) => ({ key: g.status, status: g.status, title: g.status, items: g.items }));
   const rows = groups.flatMap((g) => g.items).sort(compareRows(filters));
-  if (groupBy === "none") return rows.length ? [{ key: "all", title: "All issues", items: rows }] : [];
+  if (groupBy === "none") return rows.length ? [{ key: "none:all", title: "All issues", items: rows }] : [];
   const keyOf = (i: IssueRow) =>
     groupBy === "priority" ? String(i.priority) : groupBy === "assignee" ? (i.assignee ?? "none") : groupBy === "project" ? i.projectId : (i.milestoneId ?? "none");
   const titles = new Map<string, string>();
@@ -40,7 +41,7 @@ export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }
   for (const r of rows) out.set(keyOf(r), [...(out.get(keyOf(r)) ?? []), r]);
   // Keys the lookups do not know (a deleted project) still get a section, after the known ones.
   const keys = [...titles.keys(), ...[...out.keys()].filter((k) => !titles.has(k))];
-  return keys.filter((k) => out.has(k)).map((k) => ({ key: k, title: titles.get(k) ?? k, items: out.get(k)! }));
+  return keys.filter((k) => out.has(k)).map((k) => ({ key: `${groupBy}:${k}`, raw: k, title: titles.get(k) ?? k, items: out.get(k)! }));
 }
 
 /** Finished / total of each parent's loaded sub-issues (a filtered or paged list only knows part of them). */
