@@ -12,7 +12,8 @@ import { z } from "zod";
 import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { createLabel, deleteLabel, updateLabel } from "@/lib/api/labels";
 import { createMilestone, deleteMilestone, updateMilestone } from "@/lib/api/milestones";
-import { updateProject } from "@/lib/api/projects";
+import { deleteProject, updateProject } from "@/lib/api/projects";
+import { restoreItem } from "@/lib/api/trash";
 
 const noInput = z.object({});
 
@@ -40,6 +41,34 @@ export async function updateProjectDescriptionAction(projectId: string, descript
 
 export async function updateProjectStatusAction(projectId: string, status: string, expectedUpdatedAt: string) {
   return run(projectId, z.object({ status: projectStatusSchema, expectedUpdatedAt: z.string() }), { status, expectedUpdatedAt }, (d) => updateProject(projectId, d));
+}
+
+/** The project's key is not editable (ADR 0002): only the name is sent. */
+export async function updateProjectNameAction(projectId: string, name: string, expectedUpdatedAt: string) {
+  return run(projectId, updateProjectInputSchema.pick({ name: true, expectedUpdatedAt: true }), { name, expectedUpdatedAt }, (d) => updateProject(projectId, d));
+}
+
+/**
+ * Soft delete (Trash). Like issue delete, nothing is revalidated here: re-rendering this page now would 404 and
+ * replace the undo notice. `restoreProjectAction` refreshes the layout (sidebar, project picker) again.
+ */
+export async function deleteProjectAction(projectId: string): Promise<ActionResult> {
+  try {
+    await deleteProject(projectId);
+  } catch (err) {
+    return toFailure(err);
+  }
+  return success(undefined);
+}
+
+export async function restoreProjectAction(projectId: string): Promise<ActionResult> {
+  try {
+    await restoreItem("project", projectId);
+  } catch (err) {
+    return toFailure(err);
+  }
+  revalidatePath("/", "layout");
+  return success(undefined);
 }
 
 export type MilestoneFormValues = { name: string; /** `YYYY-MM-DD`, or empty for none. */ targetDate: string };

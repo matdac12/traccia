@@ -9,6 +9,7 @@ export const ISSUE_ORDER_BYS = [
   "createdAt",
   "priority",
   "sortOrder",
+  "title",
 ] as const;
 export type IssueOrderBy = (typeof ISSUE_ORDER_BYS)[number];
 

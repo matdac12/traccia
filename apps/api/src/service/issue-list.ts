@@ -1,5 +1,7 @@
 import {
+  ISSUE_STATUSES,
   type IssueOrderBy,
+  type IssueStatus,
   type ListIssuesInput,
   listIssuesInputSchema,
   ServiceError,
@@ -37,11 +39,15 @@ import { resolveIssue } from "./issues.js";
 import { resolveProject } from "./projects.js";
 import { issueMatchesCondition } from "./search.js";
 
+/** The sync token of an empty database, so the very first issue created is noticed. */
+const EPOCH = "1970-01-01T00:00:00.000Z";
+
 const ORDER_COLUMNS = {
   updatedAt: issues.updatedAt,
   createdAt: issues.createdAt,
   priority: issues.priority,
   sortOrder: issues.sortOrder,
+  title: issues.title,
 } as const;
 
 const NUMERIC_ORDERS = new Set<IssueOrderBy>(["priority", "sortOrder"]);
@@ -172,29 +178,70 @@ export function buildIssueListQuery(db: DbHandle, input: ListIssuesInput) {
   return { query, limit, orderBy: f.orderBy, order: f.order };
 }
 
+export type IssueGroup = Page<Issue & { deleted?: boolean }> & {
+  status: IssueStatus;
+};
+
 export function createIssueListService(ctx: ServiceContext) {
+  const list = (input: ListIssuesInput = {}): Page<Issue & { deleted?: boolean }> => {
+    const { query, limit, orderBy, order } = buildIssueListQuery(ctx.db, input);
+    const rows = query.all();
+    const items = flagDeleted(rows.slice(0, limit), input.includeDeleted);
+    const last = items[items.length - 1];
+    return {
+      items,
+      nextCursor:
+        rows.length > limit && last
+          ? encodeCursor({
+              by: orderBy,
+              order,
+              v: last[orderBy],
+              id: last.id,
+            } satisfies Cursor)
+          : null,
+    };
+  };
+  const latestChange = (since?: string): string | null => {
+    const row = ctx.db
+      .select({ at: issues.updatedAt })
+      .from(issues)
+      .where(since ? gt(issues.updatedAt, since) : undefined)
+      .orderBy(desc(issues.updatedAt))
+      .limit(1)
+      .get();
+    return row?.at ?? null;
+  };
   return {
     /** Cursor-paginated issue list; see `buildIssueListQuery` for the filter rules. */
-    list(input: ListIssuesInput = {}): Page<Issue & { deleted?: boolean }> {
-      const { query, limit, orderBy, order } = buildIssueListQuery(
-        ctx.db,
-        input,
+    list,
+
+    /**
+     * One page per status group in a single call (the dashboard's table and board). `status` narrows the groups
+     * (default: all, in workflow order); `limit` is per group; `cursors` continues individual groups. Each group
+     * is exactly `list({ ...filters, status: [status], cursor })`. `syncToken` is read first (see `latestChange`).
+     */
+    listGroups(
+      input: Omit<ListIssuesInput, "cursor"> & {
+        cursors?: Partial<Record<IssueStatus, string>>;
+      } = {},
+    ): { groups: IssueGroup[]; syncToken: string } {
+      const { cursors = {}, status, ...filters } = input;
+      const picked = ([] as unknown[]).concat(status ?? []) as IssueStatus[];
+      const wanted = picked.length ? new Set(picked) : null;
+      const syncToken = latestChange() ?? EPOCH;
+      const groups = ISSUE_STATUSES.filter((s) => !wanted || wanted.has(s)).map(
+        (s) => ({
+          status: s,
+          ...list({ ...filters, status: [s], cursor: cursors[s] }),
+        }),
       );
-      const rows = query.all();
-      const items = flagDeleted(rows.slice(0, limit), input.includeDeleted);
-      const last = items[items.length - 1];
-      return {
-        items,
-        nextCursor:
-          rows.length > limit && last
-            ? encodeCursor({
-                by: orderBy,
-                order,
-                v: last[orderBy],
-                id: last.id,
-              } satisfies Cursor)
-            : null,
-      };
+      return { groups, syncToken };
     },
+
+    /**
+     * Newest `updatedAt` among all issues changed after `since`, soft-deleted ones included, unfiltered; null
+     * when there is none. The dashboard's change probe: a card that moved out of a filtered view must still count.
+     */
+    latestChange,
   };
 }

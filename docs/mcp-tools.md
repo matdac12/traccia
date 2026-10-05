@@ -55,7 +55,7 @@ List issues, newest update first. Compact items (description truncated; use get_
 | `createdBy` | `agent` \| `you` | no |  |
 | `updatedAfter` | string | no | ISO 8601 timestamp or duration like -P1D. |
 | `includeDeleted` | boolean | no | Include soft-deleted issues. |
-| `orderBy` | `updatedAt` \| `createdAt` \| `priority` \| `sortOrder` | no | Default updatedAt. |
+| `orderBy` | `updatedAt` \| `createdAt` \| `priority` \| `sortOrder` \| `title` | no | Default updatedAt. |
 | `limit` | integer | no | Default 50. |
 | `cursor` | string | no | From a previous nextCursor. |
 

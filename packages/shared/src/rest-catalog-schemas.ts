@@ -9,6 +9,8 @@ export const queryBooleanSchema = z
 export const listProjectsQuerySchema = z.object({
   status: projectStatusSchema.optional(),
   includeDeleted: queryBooleanSchema.optional(),
+  /** `include=milestones` embeds each project's milestones (with progress). */
+  include: z.enum(["milestones"]).optional(),
 });
 
 export const getProjectQuerySchema = z.object({

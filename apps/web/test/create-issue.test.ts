@@ -13,7 +13,7 @@ vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePa
 const { createIssueAction, loadCreateIssueOptions } = await import("../components/create-issue/actions");
 const { parseCreateIssue } = await import("../components/create-issue/form");
 
-const values = { title: "Fix it", description: "", project: "P1", status: "todo", priority: 2, assignee: null, milestoneId: null, labels: ["bug"] } as const;
+const values = { title: "Fix it", description: "", project: "P1", status: "todo", priority: 2, assignee: null, milestoneId: null, estimate: null, parentId: null, labels: ["bug"] } as const;
 
 beforeEach(() => {
   createIssue.mockReset();
@@ -25,6 +25,14 @@ describe("create-issue form validation", () => {
     const res = parseCreateIssue({ ...values, labels: [...values.labels] });
     expect(res).toMatchObject({ ok: true, labels: ["bug"], input: { project: "P1", title: "Fix it", status: "todo", priority: 2, assignee: null } });
     if (res.ok) expect(res.input.description).toBeUndefined();
+  });
+  it("passes estimate and parent through to the API input", () => {
+    const res = parseCreateIssue({ ...values, labels: [], estimate: 5, parentId: "i9" });
+    expect(res).toMatchObject({ ok: true, input: { estimate: 5, parentId: "i9" } });
+  });
+  it("rejects a negative or fractional estimate", () => {
+    expect(parseCreateIssue({ ...values, labels: [], estimate: -1 })).toMatchObject({ ok: false, fieldErrors: { estimate: expect.any(String) } });
+    expect(parseCreateIssue({ ...values, labels: [], estimate: 1.5 })).toMatchObject({ ok: false, fieldErrors: { estimate: expect.any(String) } });
   });
   it("rejects a blank title with a field error", () => {
     const res = parseCreateIssue({ ...values, labels: [], title: "   " });

@@ -56,7 +56,8 @@ names and the token value; run it before changing anything around the client.
   the input schemas from `@traccia/shared` (parse them in the server action before sending).
 - Failures throw `ApiError` (`status`, `code`, `details`). `code` is the API's error code (`not_found`, `conflict`,
   `validation_error`, ...) or `unreachable`, `bad_response`. For a stale write, `conflict` carries
-  `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft.
+  `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft. The project header (`components/project/project-title.tsx`, `project-delete.tsx`) renames inline (the key is read-only, ADR 0002) and soft-deletes with an Undo notice; delete deliberately does not revalidate, because re-rendering the deleted project's page would 404 over the notice (same as issue delete).
+- **Request budget (MAT-1761):** `/issues` loads in three API requests: `GET /issues/groups` (one page per status plus the `syncToken`), `GET /projects?include=milestones` and `GET /labels`. `listProjects` is wrapped in React `cache`, so the layout's sidebar and the page share one fetch per render. The live refresh (`refreshIssueGroups`) is one `/issues/groups` request, plus follow-ups only for groups whose "load more" was opened. "Load more" on a single group still uses `GET /issues`.
 - Lists return `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
 - Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId?, expectedUpdatedAt? }` (the board sends the card's `updatedAt`; a 409 rolls the move back); a column is (project, status).
   `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified
@@ -118,6 +119,7 @@ e2e/                   Playwright smoke tests (support/ boots the API + dashboar
   `app/(app)/projects/[id]/actions.ts` (validate with the shared Zod schema, call `lib/api`, `revalidatePath`).
   Actions return `ActionResult` (`lib/action-result.ts`): `{ ok, data }` or `{ error, fieldErrors }` for inline errors.
 - The issue list there is the shared `IssuesView` (MAT-1720) locked to the project (`lockProject`), with filters in the page URL.
+- **List filters and display (MAT-1758).** `lib/issue-filters.ts` holds all list state in the URL: `status` (repeatable, empty = all; the table and the board only fetch the chosen statuses), `group` (`status` default, `none`, `priority`, `assignee`, `project`, `milestone`; table only) and `sort` (now also `title`). Any grouping other than status pools the rows loaded so far (per-status pages) and re-sorts them client-side (`group-rows.ts`), with one "Load more" per status below. Sub-issue markers (parent identifier, finished/total) are computed from the loaded rows only. Estimate is not sortable yet (nullable cursor in the API).
 - `components/create-issue/` is reusable: `CreateIssueProvider` (mounted in the `(app)` layout) exposes
   `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project
   through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only
@@ -163,6 +165,15 @@ comparison).
 
 `next dev` serves HTML before React hydrates, so `visit()` waits for hydration (reloading if the bundle came out
 half-compiled) before a test clicks. Failure traces and screenshots land in `e2e/.results/` (git-ignored).
+
+## Inline edit (table rows and board cards, MAT-1753)
+
+`components/inline-edit/`: `StatusPicker`, `PriorityPicker`, `AssigneePicker`, `LabelsPicker` (dropdowns, same options as the detail panel) and
+`useInlineEdit`, which saves through the detail page's `updateIssueAction` with the row's `updatedAt` as `If-Match`. The change shows at once;
+a failure restores the row, a conflict swaps in the current issue and `InlineEditNotice` offers "Re-apply my change" (the patch is rebuilt against
+the fresh row). `upsertRow` puts the saved row back into the table groups or board columns (a status change moves it). The live refresh is
+refused while a save is in flight. Table rows are a link overlay with the pickers above it; on cards the pickers stop key events so Space/Enter
+never starts a keyboard drag.
 
 ## Docker
 

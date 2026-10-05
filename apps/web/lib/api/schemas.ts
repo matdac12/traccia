@@ -98,6 +98,10 @@ export const milestoneSchema = z.object({
 });
 export type Milestone = z.infer<typeof milestoneSchema>;
 
+/** A project as `GET /projects?include=milestones` returns it. */
+export const projectWithMilestonesSchema = projectSchema.extend({ milestones: z.array(milestoneSchema) });
+export type ProjectWithMilestones = z.infer<typeof projectWithMilestonesSchema>;
+
 export const issueSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -119,6 +123,12 @@ export const issueSchema = z.object({
 });
 export type IssueRow = z.infer<typeof issueSchema>;
 export type Issue = IssueRow;
+
+/** `GET /issues/groups`: one page per status plus the sync token read just before them. */
+export const issueGroupsSchema = z.object({
+  groups: z.array(z.object({ status: z.enum(ISSUE_STATUSES), items: z.array(issueSchema), nextCursor: z.string().nullable() })),
+  syncToken: z.string(),
+});
 
 export const deletedResultSchema = z.object({ deleted: z.literal(true) }).loose();
 

@@ -4,11 +4,13 @@ import { LabelsPanel } from "@/components/project/labels-panel";
 import { MilestonesPanel } from "@/components/project/milestones-panel";
 import { ProjectDescription } from "@/components/project/project-description";
 import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
+import { DeleteProjectButton, ProjectDeletedGate } from "@/components/project/project-delete";
+import { ProjectTitle } from "@/components/project/project-title";
 import { ProjectStatusSelect } from "@/components/project/project-status-select";
 import { NewIssueButton } from "@/components/project/new-issue-button";
 import { PageHeader } from "@/components/traccia/page-header";
 import { ApiError } from "@/lib/api/client";
-import { initialSyncToken, listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
+import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { getProject } from "@/lib/api/projects";
 import { parseFilters } from "@/lib/issue-filters";
 
@@ -20,13 +22,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   });
   // The issue list is scoped to this project whatever `?project=` says.
   const filters = { ...parseFilters(query), project: project.id };
-  const syncToken = await initialSyncToken();
-  const [milestones, labels, groups] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters)]);
+  const [milestones, labels, { groups, syncToken }] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters)]);
   const issues: IssuesData = { groups, projects: [project], labels, milestones, syncToken };
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <PageHeader title={project.name}>
+    <ProjectDeletedGate projectId={project.id} projectKey={project.key} name={project.name}>
+      <PageHeader title={<ProjectTitle projectId={project.id} name={project.name} projectKey={project.key} updatedAt={project.updatedAt} />}>
         <ProjectStatusSelect projectId={project.id} status={project.status} updatedAt={project.updatedAt} />
+        <DeleteProjectButton projectId={project.id} />
         <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
       </PageHeader>
       <div className="grid gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
@@ -39,6 +41,6 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <div className="h-[560px] shrink-0 border-t">
         <IssuesView filters={filters} data={issues} lockProject title="Issues" />
       </div>
-    </div>
+    </ProjectDeletedGate>
   );
 }

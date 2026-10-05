@@ -90,6 +90,7 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key prefix for new projects |
 | `ALLOW_AGENT_PURGE` | api | `false` | Whether agent tokens may purge |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Per token |
+| `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Per `you` token (dashboard) |
 | `LOG_LEVEL` | api | `info` | |
 | `TRUST_PROXY` | api | `true` | Read client IP from `X-Forwarded-For` |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
@@ -99,9 +100,36 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 
 ## Moving an install that predates the Traccia rename
 
-The images, Compose project and data volume were called `tracker` before the rename ([ADR 0012](../docs/adr/0012-rename-to-traccia-with-legacy-aliases.md)). An existing install keeps its data and its `.env`:
+The images, Compose project and data volume were called `tracker` before the rename ([ADR 0012](../docs/adr/0012-rename-to-traccia-with-legacy-aliases.md)). An existing install keeps its data and its `.env`. Run these in order (MAT-1746 did so on omni). Every command goes through `ssh -o RemoteCommand=none -o RequestTTY=no omni '...'`.
 
-- Add `TRACCIA_DATA_VOLUME=tracker_tracker-data` to `.env` (the volume the old Compose project created; check the name with `docker volume ls`). Without it Compose creates a new, empty `traccia-data` volume.
-- `TRACKER_API_TOKEN` in `.env` still works; rename it to `TRACCIA_API_TOKEN` when convenient.
-- The Compose project name changed from `tracker` to `traccia`, so stop the old stack once (`docker compose -p tracker down`, which keeps volumes) before the first deploy. `deploy.sh` refuses to continue while the old project is running.
-- `dist/tracker.js` and the installed `tracker-snapshot` systemd units keep working for one release. Install the renamed `traccia-snapshot` units from `deploy/backup/` and remove the old ones when convenient.
+1. **Record the before state.** `docker volume ls` (expect `tracker_tracker-data`), `docker ps`, the issue and project counts, and `tail /opt/tracker/deployed-tags`.
+2. **Take a snapshot and check it.** `cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot` (the exception to the `traccia.js` naming: the old image only has `tracker.js`; it prints `integrity_check ok`).
+3. **Keep the old compose file.** `deploy.sh` overwrites `/opt/tracker/docker-compose.yml`, so rollback needs a copy: `cp -p /opt/tracker/docker-compose.yml /opt/tracker/docker-compose.tracker.yml.bak`.
+4. **Pin the volume.** First check that `.env` ends with a newline (`tail -c1 /opt/tracker/.env | xxd` shows `0a`), or the new line is glued to the last variable. Then `echo TRACCIA_DATA_VOLUME=tracker_tracker-data >> /opt/tracker/.env`. Without it Compose creates a new, empty `traccia-data` volume.
+5. **Install the renamed snapshot units without enabling them.** `scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/`, then `install -m 644` them into `/etc/systemd/system/` and `systemctl daemon-reload`. omni logs in as root; otherwise use `sudo`.
+6. **Stop the old project, then deploy.** `cd /opt/tracker && docker compose -p tracker down` (keeps volumes), then `deploy/deploy.sh` from the Mac. `deploy.sh` refuses to continue while the old project is running. Compose prints a warning that `tracker_tracker-data` "was created for project tracker"; it is expected and harmless.
+7. **Verify.** `/healthz` through the tailnet URL, the dashboard (`/issues` returns 200), unauthenticated `/mcp` returns 401, the same issue and project counts, and `ss -ltn` shows only `127.0.0.1:8787` and `127.0.0.1:3000`. On omni, `docker compose exec -T api node dist/traccia.js token list` shows the dashboard token's `last used` updating after you load a dashboard page, so the web reached the api.
+8. **Switch the snapshot timer.** `systemctl enable --now traccia-snapshot.timer`, `systemctl disable --now tracker-snapshot.timer`, `systemctl start traccia-snapshot.service` once, check the journal and `systemctl list-timers`. Do not leave both enabled. The old unit fails while no api is running (between the `down` and the deploy), so switch the same day.
+
+Notes:
+
+- `TRACKER_API_TOKEN` in `.env` still works through the legacy alias; rename it to `TRACCIA_API_TOKEN` when convenient.
+- `dist/tracker.js` stays in the image for one release.
+- `deploy.sh` prunes only `traccia-*` images. The old `tracker-*` images and the `tracker-snapshot` unit files stay until you remove them (`docker rmi`, `rm /etc/systemd/system/tracker-snapshot.*`).
+
+### Rolling back the cutover
+
+Before the old images and volume are removed:
+
+```sh
+cd /opt/tracker && docker compose -p traccia down       # the new project
+cp docker-compose.tracker.yml.bak docker-compose.yml
+TAG=<last tracker-* tag> docker compose -p tracker up -d   # tag from the line before the first traccia one in deployed-tags
+systemctl disable --now traccia-snapshot.timer && systemctl enable --now tracker-snapshot.timer
+```
+
+`deploy.sh` prints `rollback: ... TAG=<previous tag>`; that only works for `traccia-*` tags, so after this one-time move use the commands above. The volume is shared by both projects and the data stays in place, so nothing moves; the old compose file ignores the extra `TRACCIA_DATA_VOLUME` line in `.env`.
+
+### Agent machines
+
+The `tracker` entry in Claude Code can sit in the local scope of the project folder rather than the user scope. Look in `~/.claude.json` (keys only, never print the header) or run `claude mcp list` from that folder, then `claude mcp remove tracker --scope <scope>` from the same folder. Re-add it as `traccia` with the same scope, following [`docs/agent-setup.md`](../docs/agent-setup.md). `TRACCIA_TOKEN` must be set in the environment that launches `claude`, otherwise the server fails with 401; restart the Claude Code session to pick up the new entry.

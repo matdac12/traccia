@@ -37,6 +37,7 @@ export function createApp(
     verify: createBearerVerifier(container.db),
     db: container.db,
     rateLimitPerMin: container.config.rateLimitPerMin,
+    rateLimitYouPerMin: container.config.rateLimitYouPerMin,
   });
   v1.use(auth);
   v1.get("/me", (c) =>

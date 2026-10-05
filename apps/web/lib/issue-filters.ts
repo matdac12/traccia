@@ -1,4 +1,4 @@
-import { ACTORS, ISSUE_ORDER_BYS, PRIORITIES, type Actor, type IssueOrderBy, type Priority } from "@traccia/shared";
+import { ACTORS, ISSUE_ORDER_BYS, ISSUE_STATUSES, PRIORITIES, type Actor, type IssueOrderBy, type IssueStatus, type Priority } from "@traccia/shared";
 
 /**
  * Filter, sort and view state of the issues page. It lives in the URL (`?project=&label=...`) so views are
@@ -9,9 +9,14 @@ import { ACTORS, ISSUE_ORDER_BYS, PRIORITIES, type Actor, type IssueOrderBy, typ
 export type AssigneeFilter = Actor | "none";
 export type IssueView = "table" | "kanban";
 export type SortOrder = "asc" | "desc";
+/** How the table splits its rows into sections (the board is always columns by status). */
+export const GROUP_BYS = ["status", "none", "priority", "assignee", "project", "milestone"] as const;
+export type GroupBy = (typeof GROUP_BYS)[number];
 
 export type IssueFilters = {
   project?: string;
+  /** Statuses to show (OR-ed); empty means all. */
+  status: IssueStatus[];
   assignee?: AssigneeFilter;
   /** Label names; an issue must have ALL of them (API semantics). */
   labels: string[];
@@ -22,9 +27,10 @@ export type IssueFilters = {
   orderBy: IssueOrderBy;
   order: SortOrder;
   view: IssueView;
+  groupBy: GroupBy;
 };
 
-export const DEFAULT_FILTERS: IssueFilters = { labels: [], q: "", orderBy: "updatedAt", order: "desc", view: "table" };
+export const DEFAULT_FILTERS: IssueFilters = { status: [], labels: [], q: "", orderBy: "updatedAt", order: "desc", view: "table", groupBy: "status" };
 
 type RawParams = URLSearchParams | Record<string, string | string[] | undefined>;
 
@@ -43,6 +49,7 @@ export function parseFilters(raw: RawParams): IssueFilters {
   const order = one("order");
   return {
     project: one("project"),
+    status: ISSUE_STATUSES.filter((s) => all(raw, "status").some((v) => v.trim() === s)),
     assignee: assignee && [...ACTORS, "none"].includes(assignee) ? (assignee as AssigneeFilter) : undefined,
     labels: [...new Set(all(raw, "label").map((l) => l.trim()).filter(Boolean))],
     priority: one("priority") !== undefined && (PRIORITIES as readonly number[]).includes(priority) ? (priority as Priority) : undefined,
@@ -51,6 +58,7 @@ export function parseFilters(raw: RawParams): IssueFilters {
     orderBy: orderBy && (ISSUE_ORDER_BYS as readonly string[]).includes(orderBy) ? (orderBy as IssueOrderBy) : DEFAULT_FILTERS.orderBy,
     order: order === "asc" ? "asc" : "desc",
     view: one("view") === "kanban" ? "kanban" : "table",
+    groupBy: (GROUP_BYS as readonly string[]).includes(one("group") ?? "") ? (one("group") as GroupBy) : DEFAULT_FILTERS.groupBy,
   };
 }
 
@@ -58,6 +66,7 @@ export function parseFilters(raw: RawParams): IssueFilters {
 export function filtersToSearchParams(f: IssueFilters): URLSearchParams {
   const p = new URLSearchParams();
   if (f.project) p.set("project", f.project);
+  for (const s of f.status) p.append("status", s);
   if (f.assignee) p.set("assignee", f.assignee);
   for (const l of f.labels) p.append("label", l);
   if (f.priority !== undefined) p.set("priority", String(f.priority));
@@ -66,8 +75,12 @@ export function filtersToSearchParams(f: IssueFilters): URLSearchParams {
   if (f.orderBy !== DEFAULT_FILTERS.orderBy) p.set("sort", f.orderBy);
   if (f.order !== DEFAULT_FILTERS.order) p.set("order", f.order);
   if (f.view !== DEFAULT_FILTERS.view) p.set("view", f.view);
+  if (f.groupBy !== DEFAULT_FILTERS.groupBy) p.set("group", f.groupBy);
   return p;
 }
+
+/** The statuses whose groups are listed: the selected ones, or all of them. */
+export const visibleStatuses = (f: IssueFilters): readonly IssueStatus[] => (f.status.length ? f.status : ISSUE_STATUSES);
 
 /** Query for `GET /v1/issues` (without status/limit/cursor, which the caller adds). */
 export function filtersToApiQuery(f: IssueFilters) {
@@ -85,9 +98,9 @@ export function filtersToApiQuery(f: IssueFilters) {
 
 /** Number of narrowing filters (search counts, sort and view do not). */
 export function activeFilterCount(f: IssueFilters): number {
-  return [f.project, f.assignee, f.priority, f.milestone].filter((v) => v !== undefined).length + f.labels.length + (f.q.trim() ? 1 : 0);
+  return [f.project, f.assignee, f.priority, f.milestone].filter((v) => v !== undefined).length + f.status.length + f.labels.length + (f.q.trim() ? 1 : 0);
 }
 
 export function clearFilters(f: IssueFilters): IssueFilters {
-  return { ...DEFAULT_FILTERS, orderBy: f.orderBy, order: f.order, view: f.view };
+  return { ...DEFAULT_FILTERS, orderBy: f.orderBy, order: f.order, view: f.view, groupBy: f.groupBy };
 }
