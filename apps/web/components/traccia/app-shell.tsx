@@ -3,6 +3,7 @@ import { Check, ChevronsUpDown, ListTodo, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { NewProjectButton } from "@/components/project/new-project-button";
 import { useCreateIssue } from "@/components/create-issue/provider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,10 @@ export function AppShell({ projects, projectsUnavailable = false, login, childre
           </button>
           <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")}>Issues</NavItem>
           <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"}>Trash</NavItem>
-          <Link href="/projects" className="block px-2 pb-1 pt-4 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>
+          <div className="flex items-center justify-between pb-1 pt-4">
+            <Link href="/projects" className="px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>
+            <NewProjectButton size="icon" variant="ghost" className="size-5 text-muted-foreground"><Plus className="size-3.5" /><span className="sr-only">New project</span></NewProjectButton>
+          </div>
           {projectsUnavailable ? <p className="px-2 text-[12px] text-destructive">Could not load projects. Is the API running?</p> : projects.length === 0 ? <p className="px-2 text-[12px] text-muted-foreground">No projects yet.</p> : null}
           {projects.map((p) => (
             <NavItem key={p.id} href={`/projects/${p.id}`} active={path === `/projects/${p.id}`} icon={<span className="size-2.5 rounded-[3px] bg-muted-foreground/50" />}>
