@@ -24,7 +24,7 @@ If you use the optional environment variable, name it `TRACCIA_TOKEN`. Claude Co
 Traccia only checks the `Authorization` header. Pick one of these per tool and machine:
 
 - **File reference (OpenCode).** Write the token to a small file next to the OpenCode config and reference it as `{file:./traccia-token}`. Nothing secret sits in the config, and GUI-launched OpenCode reads it. See [Section 5](#5-opencode).
-- **Literal header (Codex, Claude Code).** Put `Authorization = "Bearer <token>"` directly in that tool's own per-machine config. Simplest, and it works on every launch; the trade-off is the token is stored in plain text in that file (the decision taken in MAT-1764). See [Section 4](#4-codex).
+- **Literal header (Codex, Claude Code).** Put `Authorization = "Bearer <token>"` directly in that tool's own per-machine config. Simplest, and it works on every launch; the trade-off is the token is stored in plain text in that file (the decision taken in TRC-89). See [Section 4](#4-codex).
 - **Environment variable (optional).** All three tools can read `TRACCIA_TOKEN` from the environment instead, but a desktop app or IDE launcher often does not inherit shell variables and the server then answers `401`. If you set it:
 
   ```bash
@@ -72,7 +72,7 @@ claude mcp add --transport http --scope user traccia https://<your-tailnet-host>
 
 Check it: `claude mcp get traccia` (or `claude mcp list`) should show it connected.
 
-If Claude Code is launched from a GUI and does not see `TRACCIA_TOKEN`, put the token in literally instead (`--header 'Authorization: Bearer <paste the token>'`); that is the trade-off taken for `claude-code-mac` in MAT-1764. A `.mcp.json` with a literal token must not be committed.
+If Claude Code is launched from a GUI and does not see `TRACCIA_TOKEN`, put the token in literally instead (`--header 'Authorization: Bearer <paste the token>'`); that is the trade-off taken for `claude-code-mac` in TRC-89. A `.mcp.json` with a literal token must not be committed.
 
 ## 4. Codex
 
@@ -86,7 +86,7 @@ url = "https://<your-tailnet-host>/mcp"
 Authorization = "Bearer <paste the token>"
 ```
 
-The token is stored in plain text in `config.toml`; that is the accepted trade-off (MAT-1764) and the reason no `TRACCIA_TOKEN` variable is needed. If you would rather keep it in the environment, replace the `http_headers` block with `bearer_token_env_var = "TRACCIA_TOKEN"` and set the variable in the shell that launches Codex. If you run Codex inside WSL, edit the config (or set the variable) inside WSL, which has its own home folder.
+The token is stored in plain text in `config.toml`; that is the accepted trade-off (TRC-89) and the reason no `TRACCIA_TOKEN` variable is needed. If you would rather keep it in the environment, replace the `http_headers` block with `bearer_token_env_var = "TRACCIA_TOKEN"` and set the variable in the shell that launches Codex. If you run Codex inside WSL, edit the config (or set the variable) inside WSL, which has its own home folder.
 
 On Windows this appends the server without disturbing the rest of the file:
 
@@ -149,7 +149,7 @@ Check it: `opencode mcp list` should show `traccia` as `connected`. If it says `
 
 ## 6. GUI-launched agents
 
-Agents started from a desktop app, an IDE, or a launcher (rather than from a terminal) may not inherit variables set in `~/.zshrc` or similar shell profiles, so an environment-based config (such as Claude Code's `${TRACCIA_TOKEN}` header) arrives empty and the server answers `401`. The file reference (OpenCode) and the literal header (Codex, and the `claude-code-mac` setup from MAT-1764) avoid this because nothing is read from the environment. If you must use the environment variable, set it where the GUI can see it: on Windows the `User` scope above is enough after restarting the app; on macOS run `launchctl setenv TRACCIA_TOKEN '<paste the token>'` and restart the app (this does not survive a reboot).
+Agents started from a desktop app, an IDE, or a launcher (rather than from a terminal) may not inherit variables set in `~/.zshrc` or similar shell profiles, so an environment-based config (such as Claude Code's `${TRACCIA_TOKEN}` header) arrives empty and the server answers `401`. The file reference (OpenCode) and the literal header (Codex, and the `claude-code-mac` setup from TRC-89) avoid this because nothing is read from the environment. If you must use the environment variable, set it where the GUI can see it: on Windows the `User` scope above is enough after restarting the app; on macOS run `launchctl setenv TRACCIA_TOKEN '<paste the token>'` and restart the app (this does not survive a reboot).
 
 ## 7. Verify
 
@@ -193,6 +193,6 @@ Verified end to end with `whoami` on 2026-10-05:
 | OpenCode 1.18.34 | macOS | `opencode-mac` | `opencode mcp list` shows `connected`; `whoami` → `{ "actor": "agent", "tokenName": "opencode-mac" }` |
 | OpenCode 1.18.34 | Windows (native PowerShell) | `opencode-windows` | `opencode mcp list` shows `connected`; `whoami` → `opencode-windows` |
 | Codex 0.160.0 | Windows (native PowerShell) | `codex-windows` | `codex mcp list` lists `traccia` as `Bearer token`; `codex exec` `whoami` → `codex-windows` |
-| Claude Code | macOS | `claude-code-mac` | connected via a literal header (MAT-1764) |
+| Claude Code | macOS | `claude-code-mac` | connected via a literal header (TRC-89) |
 
 Still unverified: Codex on macOS, and Claude Code on Windows end to end (the `claude-code-windows` token exists but has not been exercised here). The macOS `launchctl setenv` advice is general macOS knowledge, not tested here. When you connect another tool or machine, correct this page if a step did not work as written.

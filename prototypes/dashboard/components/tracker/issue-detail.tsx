@@ -70,7 +70,7 @@ export function IssueDetail({ id }: { id: string }) {
               )}
             </div>
 
-            {/* Attachments slot (MAT-1725) */}
+            {/* Attachments slot (TRC-51) */}
             <section className="mt-8">
               <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium"><Paperclip className="size-3.5 text-muted-foreground" />Attachments <span className="text-xs font-normal text-muted-foreground">{issue.attachments.length}</span></h3>
               <div className="flex flex-wrap gap-2">

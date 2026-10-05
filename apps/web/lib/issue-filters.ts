@@ -2,8 +2,8 @@ import { ACTORS, ISSUE_ORDER_BYS, ISSUE_STATUSES, PRIORITIES, type Actor, type I
 
 /**
  * Filter, sort and view state of the issues page. It lives in the URL (`?project=&label=...`) so views are
- * shareable and survive a reload; this module is the single place that reads and writes it. The table (MAT-1720)
- * and the Kanban board (MAT-1724) both use it. Pure: safe in server and client components.
+ * shareable and survive a reload; this module is the single place that reads and writes it. The table (TRC-46)
+ * and the Kanban board (TRC-50) both use it. Pure: safe in server and client components.
  */
 
 export type AssigneeFilter = Actor | "none";

@@ -26,7 +26,7 @@ export const sameGroups = (a: IssueGroup[], b: IssueGroup[]) =>
 const sameCounts = (a: Counts, b: Counts) => ISSUE_STATUSES.every((s) => (a[s] ?? 0) === (b[s] ?? 0));
 
 /**
- * MAT-1726: live refresh of the issue list. Each tick asks `/api/issues/changes` for the newest change after
+ * TRC-52: live refresh of the issue list. Each tick asks `/api/issues/changes` for the newest change after
  * the last one seen (one row). Only when something changed does it re-read the groups on screen and hand them
  * to the registered table / board. The token advances only once the update was taken, so a refused one (drag
  * in progress, "load more" racing the poll) is retried on the next tick instead of lost.

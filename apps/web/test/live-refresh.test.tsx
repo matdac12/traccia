@@ -144,7 +144,7 @@ describe("Board live refresh", () => {
   });
 });
 
-describe("external delete (MAT-1765)", () => {
+describe("external delete (TRC-90)", () => {
   it("a poll after an external delete removes the card", async () => {
     const sync = renderHook(() => useListSync({ query: "", syncToken: "2026-01-01T00:00:00.000Z" }));
     render(<Board columns={cols([issue(1, "todo"), issue(2, "todo")])} query="" register={sync.result.current.register} />);

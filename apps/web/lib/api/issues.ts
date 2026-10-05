@@ -117,7 +117,7 @@ export async function createIssue(body: CreateIssueInput, labels: string[]) {
   }
 }
 
-// ---- Issue detail (MAT-1721) ----
+// ---- Issue detail (TRC-47) ----
 
 const DETAIL_INCLUDES = ["comments", "activity", "attachments", "children", "relations"];
 

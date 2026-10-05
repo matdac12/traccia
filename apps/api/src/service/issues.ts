@@ -120,7 +120,7 @@ export function statusTimestamps(
 
 /**
  * Hook run inside the update transaction after the field changes, so other
- * services (labels, MAT-1695) can attach/detach in the same commit. Return
+ * services (labels, TRC-21) can attach/detach in the same commit. Return
  * true if it changed anything, so the issue's `updated_at` is bumped.
  */
 export type IssueUpdateHook = (tx: Tx, issue: Issue, actor: Actor) => boolean;

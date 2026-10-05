@@ -10,7 +10,7 @@ import type { Issue } from "./issues.js";
  * back with the write that changed it. Rows are `kind` = `issue` | `comment`;
  * comments carry the owning `issue_id` and an empty title.
  *
- * Soft delete / restore / purge (MAT-1701) call `removeFromSearchIndex` and
+ * Soft delete / restore / purge (TRC-27) call `removeFromSearchIndex` and
  * `reindexIssues` from the same transaction as the `deleted_at` change.
  */
 

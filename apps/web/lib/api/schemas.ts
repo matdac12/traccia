@@ -132,7 +132,7 @@ export const issueGroupsSchema = z.object({
 
 export const deletedResultSchema = z.object({ deleted: z.literal(true) }).loose();
 
-// ---- Issue detail (MAT-1721) ----
+// ---- Issue detail (TRC-47) ----
 
 const commentBaseSchema = z.object({
   id: z.string(),
@@ -174,7 +174,7 @@ export type ActivityRow = z.infer<typeof activitySchema>;
 export const activityFeedItemSchema = activitySchema.extend({ identifier: z.string(), title: z.string() });
 export type ActivityFeedItem = z.infer<typeof activityFeedItemSchema>;
 
-/** A file on an issue (MAT-1725). `actor` and `createdAt` come with every attachment the API returns. */
+/** A file on an issue (TRC-51). `actor` and `createdAt` come with every attachment the API returns. */
 export const attachmentSchema = z.object({
   id: z.string(),
   filename: z.string(),

@@ -12,7 +12,7 @@ export type InlineNotice = { identifier: string; label: string; message: string;
 type Update = (identifier: string, patch: unknown, expectedUpdatedAt: string) => Promise<ActionResult<{ issue: Issue }>>;
 
 /**
- * Inline edits of one row (MAT-1753), same rules as the issue detail: the patch goes out with the row's last seen
+ * Inline edits of one row (TRC-78), same rules as the issue detail: the patch goes out with the row's last seen
  * `updatedAt` as `If-Match`. The change shows at once; a failure puts the row back, and a conflict swaps in the
  * current issue and offers "Re-apply my change". One save per issue at a time. `pending` is non-zero while a save
  * is in flight: the live refresh must not replace rows then.

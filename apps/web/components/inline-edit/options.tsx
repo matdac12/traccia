@@ -9,7 +9,7 @@ import type { Edit } from "./use-inline-edit";
 /** What the pickers need besides the issue: how to save, and which labels exist. */
 export type InlineEditor = { edit: Edit; labels: Label[] };
 
-/** One choice of a picker, independent of the menu primitive that shows it (dropdown or context menu, MAT-1762). */
+/** One choice of a picker, independent of the menu primitive that shows it (dropdown or context menu, TRC-87). */
 export type PickOption = { key: string; text: string; icon: ReactNode; checked: boolean; onSelect: (e: Event) => void; keepOpen?: boolean };
 
 /** Global labels plus the ones of the issue's own project. */

@@ -41,7 +41,7 @@ const copy = (text: string) => void navigator.clipboard?.writeText(text);
 type Dialogs = "parent" | "sub" | null;
 
 /**
- * Right-click menu of an issue row or card (MAT-1762). Wrap the row (or card) element: it becomes the trigger, so
+ * Right-click menu of an issue row or card (TRC-87). Wrap the row (or card) element: it becomes the trigger, so
  * right-click, long press on touch and Shift+F10 / the context-menu key on a focused child all open it. Every
  * change goes through `editor.edit` (optimistic, `If-Match`, conflict notice), same as the inline pickers.
  */

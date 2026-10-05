@@ -31,7 +31,7 @@ const SPEC_TOOLS = [
 ];
 
 /**
- * Plumbing tool kept on purpose, outside the A.8 count (MAT-1697): the
+ * Plumbing tool kept on purpose, outside the A.8 count (TRC-23): the
  * cheapest way to confirm a token works and which actor it writes as.
  */
 const WHOAMI = "whoami";
