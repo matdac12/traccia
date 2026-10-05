@@ -95,7 +95,7 @@ function assertMilestoneInProject(
 }
 
 /** Timestamp columns implied by entering `status`, applied on top of `current`. */
-function statusTimestamps(
+export function statusTimestamps(
   status: IssueStatus,
   current: Pick<Issue, "startedAt" | "completedAt" | "canceledAt">,
   now: string,
