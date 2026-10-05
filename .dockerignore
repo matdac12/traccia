@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.next
+**/*.tsbuildinfo
+**/next-env.d.ts
+.git
+.claude
+.agents
+.env
+.env.*
+data
+*.db
+*.db-wal
+*.db-shm
+docs
+deploy

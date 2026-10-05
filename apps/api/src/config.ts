@@ -1,0 +1,70 @@
+import { z } from "zod";
+
+const bool = z.enum(["true", "false"]).transform((v) => v === "true");
+
+const envSchema = z.object({
+  PORT: z.coerce.number().int().min(1).max(65535).default(8787),
+  DATA_DIR: z.string().min(1).default("/data"),
+  BASE_URL: z.url(),
+  MAX_ATTACHMENT_BYTES: z.coerce.number().int().positive().default(10485760),
+  MAX_MCP_UPLOAD_BYTES: z.coerce.number().int().positive().default(5242880),
+  DEFAULT_ISSUE_KEY: z.string().min(1).default("MAT"),
+  ALLOW_AGENT_PURGE: bool.default(false),
+  RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(120),
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+    .default("info"),
+  TRUST_PROXY: bool.default(true),
+});
+
+export type Config = {
+  port: number;
+  dataDir: string;
+  baseUrl: string;
+  maxAttachmentBytes: number;
+  maxMcpUploadBytes: number;
+  defaultIssueKey: string;
+  allowAgentPurge: boolean;
+  rateLimitPerMin: number;
+  logLevel: string;
+  trustProxy: boolean;
+};
+
+export class ConfigError extends Error {
+  override name = "ConfigError";
+}
+
+/** Validates an env-like record. Throws ConfigError naming each bad variable. */
+export function loadConfig(env: Record<string, string | undefined>): Config {
+  // Treat empty strings as unset so `PORT=` falls back to the default.
+  const cleaned = Object.fromEntries(
+    Object.entries(env).filter(([, v]) => v !== undefined && v !== ""),
+  );
+  const result = envSchema.safeParse(cleaned);
+  if (!result.success) {
+    const problems = result.error.issues.map(
+      (i) => `${String(i.path[0])}: ${i.message}`,
+    );
+    throw new ConfigError(
+      `Invalid configuration:\n${problems.map((p) => `  - ${p}`).join("\n")}`,
+    );
+  }
+  const e = result.data;
+  return {
+    port: e.PORT,
+    dataDir: e.DATA_DIR,
+    baseUrl: e.BASE_URL,
+    maxAttachmentBytes: e.MAX_ATTACHMENT_BYTES,
+    maxMcpUploadBytes: e.MAX_MCP_UPLOAD_BYTES,
+    defaultIssueKey: e.DEFAULT_ISSUE_KEY,
+    allowAgentPurge: e.ALLOW_AGENT_PURGE,
+    rateLimitPerMin: e.RATE_LIMIT_PER_MIN,
+    logLevel: e.LOG_LEVEL,
+    trustProxy: e.TRUST_PROXY,
+  };
+}
+
+/** The only place that reads process.env. */
+export function loadConfigFromEnv(): Config {
+  return loadConfig(process.env);
+}

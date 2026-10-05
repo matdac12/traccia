@@ -3,7 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "node .next/standalone/apps/web/server.js",
     "typecheck": "echo 'web: placeholder, Next.js comes in P8'",
     "test": "echo 'web: placeholder, no tests yet'"
+  },
+  "dependencies": {
+    "next": "^16.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0"
   }
 }

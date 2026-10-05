@@ -1,0 +1,38 @@
+# Lives in /opt/tracker on omni, next to the .env file (never committed).
+# Images are built on the Mac and loaded with `docker load`; nothing is pulled or built here.
+# TAG selects the image tag. deploy.sh sets it; rollback = set the previous TAG and `up -d`.
+name: tracker
+
+services:
+  api:
+    image: tracker-api:${TAG:-latest}
+    pull_policy: never
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8787"
+      DATA_DIR: /data
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - tracker-data:/data
+    mem_limit: 256m
+
+  web:
+    image: tracker-web:${TAG:-latest}
+    pull_policy: never
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      TRACKER_API_URL: http://api:8787
+      TRACKER_API_TOKEN: ${TRACKER_API_TOKEN:-}
+      DASHBOARD_ALLOWED_LOGINS: ${DASHBOARD_ALLOWED_LOGINS:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    mem_limit: 512m
+
+volumes:
+  tracker-data:

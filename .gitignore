@@ -10,3 +10,6 @@ dist
 *.db-wal
 *.db-shm
 .claude/worktrees/
+
+next-env.d.ts
+*.tsbuildinfo
