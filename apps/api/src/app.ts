@@ -4,6 +4,10 @@ import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import type { AppContainer, AppEnv } from "./rest/env.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
+import { mountLabelRoutes } from "./rest/labels.js";
+import { mountMilestoneRoutes } from "./rest/milestones.js";
+import { mountProjectRoutes } from "./rest/projects.js";
+import { mountRestoreRoutes } from "./rest/restore.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
 import { requestContext } from "./rest/request-context.js";
 
@@ -31,6 +35,10 @@ export function createApp(container: AppContainer) {
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
   mountAttachmentRoutes(app, v1, container, auth);
+  mountProjectRoutes(v1, container);
+  mountMilestoneRoutes(v1, container);
+  mountLabelRoutes(v1, container);
+  mountRestoreRoutes(v1, container);
   app.route("/v1", v1);
   app.route("/mcp", createMcpRoute(container));
 

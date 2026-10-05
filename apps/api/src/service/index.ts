@@ -11,6 +11,7 @@ import { createMilestonesService } from "./milestones.js";
 import { createProjectsService } from "./projects.js";
 import { createRelationsService } from "./relations.js";
 import { createSearchService } from "./search.js";
+import { createStatsService } from "./stats.js";
 import { createTrashService } from "./trash.js";
 
 export { ServiceError } from "@linear-matti/shared";
@@ -73,6 +74,7 @@ export function createServices(options: {
     trash: createTrashService(ctx),
     attachments: createAttachmentsService(ctx),
     search: createSearchService(ctx),
+    stats: createStatsService(ctx),
   };
 }
 
