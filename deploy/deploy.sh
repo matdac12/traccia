@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Build both images on this Mac for linux/amd64, ship them to the VPS, restart the stack.
 # Usage: deploy/deploy.sh [--dry-run]
-# Env:   DEPLOY_HOST (ssh alias, default omni), DEPLOY_DIR (default /opt/tracker)
+# Env:   DEPLOY_HOST (required: ssh alias or hostname of your server), DEPLOY_DIR (default /opt/tracker)
 set -euo pipefail
 
-HOST="${DEPLOY_HOST:-omni}"
+HOST="${DEPLOY_HOST:?set DEPLOY_HOST to the ssh alias or hostname of your server}"
 REMOTE_DIR="${DEPLOY_DIR:-/opt/tracker}"
 DRY_RUN=0
 KEEP_TAGS=3
@@ -23,7 +23,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
   echo "warning: working tree has uncommitted changes, deploying as $TAG" >&2
 fi
 
-# The omni ssh config sets RemoteCommand and RequestTTY; both break scripted use.
+# An ssh config entry may set RemoteCommand and RequestTTY; both break scripted use.
 SSH="ssh -o RemoteCommand=none -o RequestTTY=no $HOST"
 
 step() {

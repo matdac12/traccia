@@ -1,0 +1,9 @@
+# Gitleaks config. Run: gitleaks git . (history) and gitleaks dir . (working tree).
+title = "Traccia gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "apps/api/test/fixtures/test-key.pem is a throwaway private key generated only for the API tests. It protects nothing."
+paths = ['''apps/api/test/fixtures/test-key\.pem''']

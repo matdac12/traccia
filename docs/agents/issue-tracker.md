@@ -1,8 +1,8 @@
 # Issue tracker: Traccia
 
-Issues and specs for this repo live in Traccia (this project's own tracker, deployed on `omni`), not in the repo and not on GitHub. Use the `traccia` MCP tools (`mcp__traccia__*`, see `docs/mcp-tools.md`); connect with `docs/agent-setup.md`. Writes are recorded as the `agent` actor.
+Issues and specs for this repo live in Traccia (this project's own tracker, self-hosted on a private tailnet), not in the repo and not on GitHub. Use the `traccia` MCP tools (`mcp__traccia__*`, see `docs/mcp-tools.md`); connect with `docs/agent-setup.md`. Writes are recorded as the `agent` actor.
 
-- Server: https://omni.tail2b3fbf.ts.net (MCP at `/mcp`, tailnet only)
+- Server: `https://<your-tailnet-host>` (MCP at `/mcp`, tailnet only). The real URL lives in your local MCP configuration, not in the repo.
 - Project: `Traccia`, key `TRC`. File every issue in it.
 
 ## Conventions
@@ -18,7 +18,7 @@ Issues and specs for this repo live in Traccia (this project's own tracker, depl
 
 ## Linear archive
 
-Until the cutover this project's issues lived in Linear (workspace `matdac6`, team `Matdac6`, project `MATTI-TRACKER`, identifiers `MAT-nnn`). All 91 were imported once into `TRC`; each imported description starts with `Migrated from Linear MAT-nnn`, and `MAT-nnn` mentions in text read `TRC-m (was MAT-nnn)`. Linear is now a **read-only archive**: do not create or edit issues there. To look up an old identifier, search Traccia for `MAT-nnn`.
+Until the cutover this project's issues lived in Linear (identifiers `MAT-nnn`). All 91 were imported once into `TRC`; each imported description starts with `Migrated from Linear MAT-nnn`, and `MAT-nnn` mentions in text read `TRC-m (was MAT-nnn)`. Linear is now a **read-only archive**: do not create or edit issues there. To look up an old identifier, search Traccia for `MAT-nnn`.
 
 ## When a skill says "publish to the issue tracker"
 

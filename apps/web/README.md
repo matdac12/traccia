@@ -1,6 +1,6 @@
 # Traccia dashboard (`apps/web`)
 
-Next.js 16 (App Router, React 19, TypeScript strict), Tailwind 4, shadcn/ui, `output: "standalone"`. It runs on `omni`
+Next.js 16 (App Router, React 19, TypeScript strict), Tailwind 4, shadcn/ui, `output: "standalone"`. It runs on `<your-server>`
 behind `tailscale serve` (ADR 0007) and talks to `apps/api` over the compose network. The look is the approved
 "Linear-calm" prototype in `prototypes/dashboard` (MAT-1686): re-implement from it, never import it.
 

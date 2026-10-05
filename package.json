@@ -1,6 +1,7 @@
 {
   "name": "traccia",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@10.20.0",
   "engines": {
     "node": ">=22"
