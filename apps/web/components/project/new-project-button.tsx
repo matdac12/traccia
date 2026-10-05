@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 
 /** Opens the "New project" dialog. `children` is the trigger's content; `className`/`variant` style the trigger. */
-export function NewProjectButton({ children, className, variant, size = "sm" }: { children: ReactNode; className?: string; variant?: "default" | "ghost" | "outline"; size?: "sm" | "icon" }) {
+export function NewProjectButton({ children, className, variant, size = "sm" }: { children: ReactNode; className?: string; variant?: "default" | "ghost"; size?: "sm" | "icon" }) {
   const [open, setOpen] = useState(false);
   return (
     <>
