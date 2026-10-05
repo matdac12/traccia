@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * "Linear-calm" theme (approved in the MAT-1686 prototype). Neutral base, one accent,
+ * color only in status/priority/labels and the agent mark.
+ *
+ * ACCENT: the accent is driven by three variables only (--brand, --brand-foreground,
+ * --brand-ring). Everything accent-colored (primary, ring, sidebar-primary) derives from
+ * them, so a selectable accent (MAT-1731) overrides just these on <html>. Status and
+ * agent colors (--st-*, --agent) stay fixed so they never clash with the accent.
+ */
+:root {
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #1c1d21;
+  --card: #ffffff;
+  --card-foreground: #1c1d21;
+  --popover: #ffffff;
+  --popover-foreground: #1c1d21;
+  --brand: #f5a30a;
+  --brand-foreground: #1a1203;
+  --brand-ring: #d98a00;
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --secondary: #f4f4f6;
+  --secondary-foreground: #1c1d21;
+  --muted: #f4f4f6;
+  --muted-foreground: #6e717a;
+  --accent: #f1f1f4;
+  --accent-foreground: #1c1d21;
+  --destructive: #e5484d;
+  --border: #e8e8ec;
+  --input: #dcdce2;
+  --ring: var(--brand-ring);
+  --surface: #fafafb;
+  --sidebar: #f7f7f9;
+  --sidebar-foreground: #4b4e57;
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: #ececf0;
+  --sidebar-accent-foreground: #1c1d21;
+  --sidebar-border: #e8e8ec;
+  --sidebar-ring: var(--brand-ring);
+  --agent: #0e9fb3;
+  --st-backlog: #9a9ea8;
+  --st-todo: #7b7f89;
+  --st-progress: #e2a72e;
+  --st-review: #2fa66a;
+  --st-done: #3b6fe0;
+  --st-canceled: #9a9ea8;
+}
+
+.dark {
+  --background: #0f1012;
+  --foreground: #e7e8ec;
+  --card: #141517;
+  --card-foreground: #e7e8ec;
+  --popover: #17181b;
+  --popover-foreground: #e7e8ec;
+  --brand: #f5a30a;
+  --brand-foreground: #1a1203;
+  --brand-ring: #f5a30a;
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --secondary: #1a1b1e;
+  --secondary-foreground: #e7e8ec;
+  --muted: #1a1b1e;
+  --muted-foreground: #878b95;
+  --accent: #1d1e22;
+  --accent-foreground: #e7e8ec;
+  --destructive: #f2555a;
+  --border: #212226;
+  --input: #2b2c31;
+  --ring: var(--brand-ring);
+  --surface: #121315;
+  --sidebar: #0b0b0d;
+  --sidebar-foreground: #a0a4ae;
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: #17181b;
+  --sidebar-accent-foreground: #e7e8ec;
+  --sidebar-border: #1b1c20;
+  --sidebar-ring: var(--brand-ring);
+  --agent: #3cc9dc;
+  --st-backlog: #6b6f79;
+  --st-todo: #9a9ea8;
+  --st-progress: #f2c14e;
+  --st-review: #4cc38a;
+  --st-done: #5b8def;
+  --st-canceled: #6b6f79;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-agent: var(--agent);
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  button { cursor: default; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+}
+
+@keyframes agent-flash {
+  0% { background-color: color-mix(in oklab, var(--agent) 22%, transparent); }
+  100% { background-color: transparent; }
+}
+.agent-flash { animation: agent-flash 2.4s ease-out; }
+@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+.md { font-size: 14px; line-height: 1.65; color: var(--foreground); }
+.md h1, .md h2, .md h3 { font-weight: 600; margin: 1.1em 0 .4em; letter-spacing: -0.01em; }
+.md h1 { font-size: 1.25em; } .md h2 { font-size: 1.1em; } .md h3 { font-size: 1em; }
+.md p { margin: .5em 0; } .md ul { list-style: disc; padding-left: 1.3em; margin: .5em 0; } .md ol { list-style: decimal; padding-left: 1.3em; }
+.md code { font-family: var(--font-mono); font-size: .85em; background: var(--muted); padding: .1em .35em; border-radius: 4px; }
+.md blockquote { border-left: 2px solid var(--border); padding-left: .9em; color: var(--muted-foreground); margin: .6em 0; }
+.md strong { font-weight: 600; } .md a { color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
+.md input[type="checkbox"] { margin-right: .5em; accent-color: var(--primary); }
+.md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }

@@ -5,6 +5,16 @@ const nextConfig = {
   output: "standalone",
   // Trace files from the monorepo root so standalone output includes workspace deps.
   outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
+  // packages/shared ships TypeScript source.
+  transpilePackages: ["@linear-matti/shared"],
+  poweredByHeader: false,
+  agentRules: false,
+  // packages/shared is TypeScript source that imports siblings as "./x.js" (NodeNext style).
+  // Webpack needs the alias to find the .ts files; Turbopack does not support it yet.
+  webpack(config) {
+    config.resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"] };
+    return config;
+  },
 };
 
 export default nextConfig;
