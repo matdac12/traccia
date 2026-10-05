@@ -74,6 +74,17 @@ function setup(env: Record<string, string> = {}) {
 }
 
 describe("upload and download", () => {
+  it("keeps attachment URLs on BASE_URL when OAUTH_PUBLIC_URL is set", async () => {
+    const { upload, issue } = setup({
+      BASE_URL: "https://files.example.ts.net",
+      OAUTH_PUBLIC_URL: "https://public.example.ts.net:8443",
+    });
+    const res = await upload(issue.identifier, PNG);
+    expect(res.status).toBe(201);
+    const meta = (await res.json()) as any;
+    expect(meta.url).toBe(`https://files.example.ts.net/files/${meta.id}`);
+  });
+
   it("round-trips a png with inline headers", async () => {
     const { app, upload, issue, auth } = setup();
     const res = await upload(issue.identifier, PNG);

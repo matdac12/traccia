@@ -45,7 +45,10 @@ export function createMcpRoute(
     "/",
     // Set before auth so a thrown 401 carries it; cleared again on success.
     async (c, next) => {
-      c.header("WWW-Authenticate", bearerChallenge(config.baseUrl));
+      c.header(
+        "WWW-Authenticate",
+        bearerChallenge(config.oauthPublicUrl ?? config.baseUrl),
+      );
       await next();
     },
     requireAuth({

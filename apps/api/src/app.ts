@@ -36,7 +36,12 @@ export function createApp(
 
   app.get("/healthz", (c) => c.json({ ok: true }));
 
-  app.route("/", createOAuthMetadataRoutes(container.config.baseUrl));
+  app.route(
+    "/",
+    createOAuthMetadataRoutes(
+      container.config.oauthPublicUrl ?? container.config.baseUrl,
+    ),
+  );
   app.route("/", createOAuthServerRoutes(oauthHardening));
 
   const v1 = new Hono<AppEnv>();

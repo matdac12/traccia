@@ -40,6 +40,25 @@ describe("loadConfig", () => {
     });
   });
 
+  it("leaves oauthPublicUrl unset by default and accepts an https URL", () => {
+    expect(loadConfig(valid).oauthPublicUrl).toBeUndefined();
+    expect(
+      loadConfig({
+        ...valid,
+        OAUTH_PUBLIC_URL: "https://omni.example.ts.net:8443/",
+      }).oauthPublicUrl,
+    ).toBe("https://omni.example.ts.net:8443/");
+  });
+
+  it.each(["http://omni.example.ts.net:8443", "nope"])(
+    "rejects OAUTH_PUBLIC_URL=%s",
+    (value) => {
+      expect(() => loadConfig({ ...valid, OAUTH_PUBLIC_URL: value })).toThrow(
+        /OAUTH_PUBLIC_URL/,
+      );
+    },
+  );
+
   it("parses SOURCE_URL_EXTRA_PORTS as a port list", () => {
     expect(
       loadConfig({ ...valid, SOURCE_URL_EXTRA_PORTS: "8443, 9443" })
