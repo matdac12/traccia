@@ -18,9 +18,9 @@ afterEach(() => {
 });
 
 describe("overflowsCollapsed", () => {
-  it("only collapses text that is clearly taller than the collapsed height", () => {
+  it("collapses exactly the text that the clip would cut off", () => {
     expect(overflowsCollapsed(COLLAPSED_HEIGHT)).toBe(false);
-    expect(overflowsCollapsed(COLLAPSED_HEIGHT + 10)).toBe(false);
+    expect(overflowsCollapsed(COLLAPSED_HEIGHT + 1)).toBe(true);
     expect(overflowsCollapsed(COLLAPSED_HEIGHT + 200)).toBe(true);
   });
 });
@@ -52,6 +52,21 @@ describe("collapsible description", () => {
 
     await user.click(less);
     expect(screen.getByRole("button", { name: "Show more" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it.each([COLLAPSED_HEIGHT + 1, COLLAPSED_HEIGHT + 24, COLLAPSED_HEIGHT + 25])("never clips silently: a %ipx text gets the fade and Show more", async (px) => {
+    contentHeight(px);
+    render(<ProjectDescription projectId="p1" description="in the old dead band" updatedAt="T1" />);
+    const toggle = await screen.findByRole("button", { name: "Show more" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("description-fade")).toBeInTheDocument();
+  });
+
+  it("does not clip or fade a text exactly at the collapsed height", () => {
+    contentHeight(COLLAPSED_HEIGHT);
+    render(<ProjectDescription projectId="p1" description="fits" updatedAt="T1" />);
+    expect(screen.queryByRole("button", { name: /Show more/ })).toBeNull();
+    expect(screen.queryByTestId("description-fade")).toBeNull();
   });
 
   it("is operable from the keyboard", async () => {
