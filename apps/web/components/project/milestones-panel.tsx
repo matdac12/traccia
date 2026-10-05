@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/action-result";
 import type { Milestone } from "@/lib/api/schemas";
-import { MilestoneSummary } from "./milestone-card";
+import { MilestoneRow } from "./milestone-row";
 import { ConfirmButton } from "./confirm-button";
 
 function MilestoneForm({ initial, submitLabel, onSubmit, onCancel }: { initial: MilestoneFormValues; submitLabel: string; onSubmit: (v: MilestoneFormValues) => Promise<ActionResult>; onCancel: () => void }) {
@@ -55,9 +55,9 @@ function MilestoneItem({ projectId, milestone }: { projectId: string; milestone:
       const res = await deleteMilestoneAction(projectId, milestone.id);
       if (!res.ok) setError(res.error);
     });
-  return (
-    <div className="group relative rounded-lg border bg-card p-3">
-      {editing ? (
+  if (editing) {
+    return (
+      <li className="py-2.5">
         <MilestoneForm
           initial={{ name: milestone.name, targetDate: milestone.targetDate ?? "" }}
           submitLabel="Save"
@@ -68,17 +68,21 @@ function MilestoneItem({ projectId, milestone }: { projectId: string; milestone:
             return res;
           }}
         />
-      ) : (
-        <>
-          <MilestoneSummary milestone={milestone} />
-          <div className="absolute -top-3 right-2 flex items-center gap-1 rounded-md border bg-card px-0.5 shadow-sm opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-            <Button type="button" variant="ghost" size="xs" className="text-muted-foreground" onClick={() => setEditing(true)}><Pencil />Edit</Button>
-            <ConfirmButton label="Delete milestone" disabled={pending} onConfirm={remove}><Trash2 />Delete</ConfirmButton>
-          </div>
-          {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}
-        </>
-      )}
-    </div>
+      </li>
+    );
+  }
+  return (
+    <li className="group relative">
+      <div className="flex items-center gap-2.5 py-2">
+        <MilestoneRow milestone={milestone} href={`/projects/${projectId}/issues?milestone=${encodeURIComponent(milestone.id)}`} />
+        {/* Always visible without hover (touch), faded in on hover or focus where hover exists. */}
+        <div className="relative z-10 flex shrink-0 items-center transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
+          <Button type="button" variant="ghost" size="icon-xs" aria-label={`Edit ${milestone.name}`} className="text-muted-foreground" onClick={() => setEditing(true)}><Pencil /></Button>
+          <ConfirmButton label={`Delete ${milestone.name}`} disabled={pending} onConfirm={remove}><Trash2 className="size-3" /></ConfirmButton>
+        </div>
+      </div>
+      {error ? <p role="alert" className="pb-2 pl-6 text-xs text-destructive">{error}</p> : null}
+    </li>
   );
 }
 
@@ -86,28 +90,31 @@ export function MilestonesPanel({ projectId, milestones }: { projectId: string; 
   const [adding, setAdding] = useState(false);
   return (
     <section aria-label="Milestones">
-      <div className="mb-2 flex items-center">
+      <div className="mb-1 flex h-6 items-center">
         <h2 className="text-[13px] font-medium">Milestones</h2>
-        <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Add milestone" onClick={() => setAdding(true)}><Plus className="size-3.5" /></Button>
+        {milestones.length ? <span className="ml-2 text-xs tabular-nums text-muted-foreground">{milestones.length}</span> : null}
+        <Button variant="ghost" size="icon-xs" className="ml-auto text-muted-foreground" aria-label="Add milestone" onClick={() => setAdding(true)}><Plus /></Button>
       </div>
-      <div className="space-y-2">
-        {adding ? (
-          <div className="rounded-lg border bg-card p-3">
-            <MilestoneForm
-              initial={{ name: "", targetDate: "" }}
-              submitLabel="Add milestone"
-              onCancel={() => setAdding(false)}
-              onSubmit={async (v) => {
-                const res = await createMilestoneAction(projectId, v);
-                if (res.ok) setAdding(false);
-                return res;
-              }}
-            />
-          </div>
-        ) : null}
-        {milestones.map((m) => <MilestoneItem key={m.id} projectId={projectId} milestone={m} />)}
-        {milestones.length === 0 && !adding ? <p className="text-xs text-muted-foreground">No milestones yet.</p> : null}
-      </div>
+      {milestones.length > 0 || adding ? (
+        <ul className="divide-y border-y">
+          {adding ? (
+            <li className="py-2.5">
+              <MilestoneForm
+                initial={{ name: "", targetDate: "" }}
+                submitLabel="Add milestone"
+                onCancel={() => setAdding(false)}
+                onSubmit={async (v) => {
+                  const res = await createMilestoneAction(projectId, v);
+                  if (res.ok) setAdding(false);
+                  return res;
+                }}
+              />
+            </li>
+          ) : null}
+          {milestones.map((m) => <MilestoneItem key={m.id} projectId={projectId} milestone={m} />)}
+        </ul>
+      ) : null}
+      {milestones.length === 0 && !adding ? <p className="pt-2 text-xs text-muted-foreground">No milestones yet. Use + to add one.</p> : null}
     </section>
   );
 }

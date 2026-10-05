@@ -1,46 +1,30 @@
-import { Plus } from "lucide-react";
-import { notFound } from "next/navigation";
 import { LabelsPanel } from "@/components/project/labels-panel";
 import { MilestonesPanel } from "@/components/project/milestones-panel";
+import { ProgressSummary } from "@/components/project/progress-summary";
 import { ProjectDescription } from "@/components/project/project-description";
-import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
-import { DeleteProjectButton, ProjectDeletedGate } from "@/components/project/project-delete";
-import { ProjectTitle } from "@/components/project/project-title";
-import { ProjectStatusSelect } from "@/components/project/project-status-select";
-import { NewIssueButton } from "@/components/project/new-issue-button";
-import { PageHeader } from "@/components/traccia/page-header";
 import { ApiError } from "@/lib/api/client";
-import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
-import { getProject, listProjects } from "@/lib/api/projects";
-import { parseFilters } from "@/lib/issue-filters";
+import { listLabels, listProjectMilestones } from "@/lib/api/issues";
+import { getProject } from "@/lib/api/projects";
+import { notFound } from "next/navigation";
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const [{ id }, query] = await Promise.all([params, searchParams]);
+/** Overview: description, progress and milestones; labels sit in the side rail. */
+export default async function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const project = await getProject(id).catch((err) => {
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
   });
-  // The issue list is scoped to this project whatever `?project=` says.
-  const filters = { ...parseFilters(query), project: project.id };
-  const [milestones, labels, { groups, syncToken }, projects] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters), listProjects()]);
-  const issues: IssuesData = { groups, projects: projects.some((p) => p.id === project.id) ? projects : [project, ...projects], labels, milestones, syncToken };
+  const [milestones, labels] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id)]);
   return (
-    <ProjectDeletedGate projectId={project.id} projectKey={project.key} name={project.name}>
-      <PageHeader title={<ProjectTitle projectId={project.id} name={project.name} projectKey={project.key} updatedAt={project.updatedAt} />}>
-        <ProjectStatusSelect projectId={project.id} status={project.status} updatedAt={project.updatedAt} />
-        <DeleteProjectButton projectId={project.id} />
-        <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
-      </PageHeader>
-      <div className="grid items-start gap-6 px-4 py-4 lg:grid-cols-[1fr_340px]">
+    <div className="grid items-start gap-x-12 gap-y-8 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="min-w-0 space-y-8">
         <ProjectDescription projectId={project.id} description={project.description} updatedAt={project.updatedAt} />
-        <div className="space-y-4">
-          <MilestonesPanel projectId={project.id} milestones={milestones} />
-          <LabelsPanel projectId={project.id} labels={labels} />
-        </div>
+        <MilestonesPanel projectId={project.id} milestones={milestones} />
       </div>
-      <div className="h-[560px] shrink-0 border-t">
-        <IssuesView filters={filters} data={issues} lockProject title="Issues" />
-      </div>
-    </ProjectDeletedGate>
+      <aside aria-label="Project details" className="min-w-0 space-y-8">
+        <ProgressSummary milestones={milestones} />
+        <LabelsPanel projectId={project.id} labels={labels} />
+      </aside>
+    </div>
   );
 }

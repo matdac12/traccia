@@ -27,7 +27,7 @@ All routes live under `/v1` and need a bearer token; every write is stamped with
 
 ## Activity feed
 
-`GET /v1/activity?limit=&cursor=`: newest first, each row with `identifier`, `title`, `actor`, `type` and parsed `data`. Activity of deleted issues is hidden until restore.
+`GET /v1/activity?project=&limit=&cursor=`: newest first, each row with `identifier`, `title`, `actor`, `type` and parsed `data`. `project` (id, name or key, resolved like the issue list's `project` filter) limits it to that project's issues; an unknown project is a 404. Activity of deleted issues is hidden until restore.
 
 ## Trash
 

@@ -22,9 +22,8 @@ export const listProjects = cache(async () => {
   return projects;
 });
 
-export function getProject(idOrKey: string) {
-  return api().request(`/projects/${encodeURIComponent(idOrKey)}`, { schema: projectSchema });
-}
+/** `cache` shares one fetch between the project layout and its pages in the same request. */
+export const getProject = cache((idOrKey: string) => api().request(`/projects/${encodeURIComponent(idOrKey)}`, { schema: projectSchema }));
 
 export function updateProject(id: string, body: UpdateProjectInput) {
   return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", body });
