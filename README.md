@@ -1,6 +1,6 @@
 <div align="center">
   <img src="assets/brand/mark/traccia-mark.png" width="84" alt="Traccia">
-  <h1>Traccia</h1>
+  <h1><samp>Traccia</samp></h1>
   <p><em>You and your agents, on the same page.</em></p>
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-ff9e0b?style=flat&amp;labelColor=0b0f14">
 </div>
