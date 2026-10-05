@@ -78,7 +78,19 @@ It never writes to or deletes anything on the VPS. Retention touches only folder
 
 Do this into a scratch location, not over production. The first time is the restore test (once, before the pilot ends). For a real disaster, the same steps apply but the final data goes into the `traccia-data` volume on the new host.
 
-Use the newest folder from the Windows pull: `omni-<timestamp>\backups\traccia-<UTC>.db` and `omni-<timestamp>\attachments\`. You need Docker, and an API image: `traccia-api:latest` built per `deploy/README.md` (or `docker load` a saved one). The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
+Use the newest folder from the Windows pull: `omni-<timestamp>\backups\traccia-<UTC>.db` (or the pre-rename `tracker-<UTC>.db`) and `omni-<timestamp>\attachments\`.
+
+The restore machine needs Docker and the `traccia-api:latest` image. If it doesn't have the image, either build it there from the repo root (`docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile -t traccia-api:latest .`), or save it on the machine that has it and move the tar over (tailnet/Taildrop or a share), then load it:
+
+```sh
+docker save traccia-api:latest -o traccia-api.tar   # on the machine that has the image
+```
+
+```powershell
+docker load -i traccia-api.tar                       # on the restore machine
+```
+
+The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
 
 The snapshot lives inside the `traccia-data` volume, not at a host path, so `scp omni:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
 

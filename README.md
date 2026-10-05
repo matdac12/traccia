@@ -127,7 +127,7 @@ Allowlist format: the plain Tailscale login (an email address, e.g. `you@gmail.c
 
 ## Backup and restore
 
-A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has not yet been run for real, and the restore test is still to be done.
+A daily SQLite snapshot on the VPS (`traccia db snapshot`, last 3 kept), a manual pull of the newest snapshot plus attachments to the Windows machine, and a step-by-step restore procedure: see [`docs/backup-restore.md`](docs/backup-restore.md) and [ADR 0010](docs/adr/0010-backups-online-snapshot-manual-pull.md). The off-box copy can be stale; that is accepted for v1. The Windows pull script has been run for real (MAT-1716) and the restore procedure has been exercised from a pulled copy (MAT-1729).
 
 ## Security notes
 
