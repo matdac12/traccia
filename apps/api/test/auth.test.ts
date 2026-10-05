@@ -177,6 +177,22 @@ describe("rate limiting", () => {
     expect(other.status).toBe(200);
   });
 
+  it("gives `you` tokens their own, larger budget while agents stay at the default", async () => {
+    const { app, agent, you } = setup();
+    const hit = (token: string) => app.request("/v1/me", { headers: bearer(token) });
+    // 30 page loads of ~11 requests each: far over the agent limit, well under the `you` one.
+    for (let i = 0; i < 330; i++) expect((await hit(you.token)).status).toBe(200);
+    for (let i = 0; i < 120; i++) expect((await hit(agent.token)).status).toBe(200);
+    expect((await hit(agent.token)).status).toBe(429);
+  });
+
+  it("still limits `you` tokens at RATE_LIMIT_YOU_PER_MIN", async () => {
+    const { app, you } = setup({ RATE_LIMIT_YOU_PER_MIN: "3" });
+    const hit = () => app.request("/v1/me", { headers: bearer(you.token) });
+    for (let i = 0; i < 3; i++) expect((await hit()).status).toBe(200);
+    expect((await hit()).status).toBe(429);
+  });
+
   it("allows requests again once the window passes", async () => {
     const { app, agent } = setup({ RATE_LIMIT_PER_MIN: "2" });
     const hit = () => app.request("/v1/me", { headers: bearer(agent.token) });

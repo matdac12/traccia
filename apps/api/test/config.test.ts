@@ -14,6 +14,7 @@ describe("loadConfig", () => {
       defaultIssueKey: "MAT",
       allowAgentPurge: false,
       rateLimitPerMin: 120,
+      rateLimitYouPerMin: 1200,
       logLevel: "info",
       trustProxy: true,
       sourceUrlExtraPorts: [],
