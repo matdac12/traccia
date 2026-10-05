@@ -1,4 +1,5 @@
 import "server-only";
+import type { UpdateProjectInput } from "@linear-matti/shared";
 import { api } from "./client";
 import { pageOf, projectSchema } from "./schemas";
 
@@ -19,4 +20,8 @@ export async function listProjects() {
 
 export function getProject(idOrKey: string) {
   return api().request(`/projects/${encodeURIComponent(idOrKey)}`, { schema: projectSchema });
+}
+
+export function updateProject(id: string, body: UpdateProjectInput) {
+  return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", body });
 }

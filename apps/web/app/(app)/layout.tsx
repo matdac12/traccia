@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CreateIssueProvider } from "@/components/create-issue/provider";
 import { AppShell } from "@/components/traccia/app-shell";
 import { listProjects } from "@/lib/api/projects";
 import { currentLogin } from "@/lib/session";
@@ -13,9 +14,12 @@ export default async function Layout({ children }: { children: ReactNode }) {
     listProjects().catch(() => null),
     currentLogin(),
   ]);
+  const shellProjects = projects?.map(({ id, name }) => ({ id, name })) ?? [];
   return (
-    <AppShell login={login} projects={projects?.map(({ id, name }) => ({ id, name })) ?? []} projectsUnavailable={projects === null}>
-      {children}
-    </AppShell>
+    <CreateIssueProvider projects={shellProjects}>
+      <AppShell login={login} projects={shellProjects} projectsUnavailable={projects === null}>
+        {children}
+      </AppShell>
+    </CreateIssueProvider>
   );
 }

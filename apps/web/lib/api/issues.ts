@@ -1,8 +1,9 @@
 import "server-only";
 import { ISSUE_STATUSES, type IssueStatus } from "@linear-matti/shared";
 import { filtersToApiQuery, type IssueFilters } from "../issue-filters";
+import type { CreateIssueInput } from "@linear-matti/shared";
 import type { z } from "zod";
-import { api } from "./client";
+import { ApiError, api } from "./client";
 import { issueSchema, labelSchema, milestoneSchema, pageOf } from "./schemas";
 
 /** Issues per status group per request: the table never loads the whole list. */
@@ -22,18 +23,41 @@ export async function listIssueGroups(filters: IssueFilters) {
   );
 }
 
-async function listAll<T extends z.ZodType>(path: string, item: T) {
+async function listAll<T extends z.ZodType>(path: string, item: T, query: Record<string, string | undefined> = {}) {
   const items: z.output<T>[] = [];
   let cursor: string | undefined;
   do {
-    const page = await api().request(path, { schema: pageOf(item), query: { limit: 250, cursor } });
+    const page = await api().request(path, { schema: pageOf(item), query: { ...query, limit: 250, cursor } });
     items.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
   return items;
 }
 
-export const listLabels = () => listAll("/labels", labelSchema);
+/** Global labels; with `project`, also that project's own labels. */
+export const listLabels = (project?: string) => listAll("/labels", labelSchema, { project });
 
 export const listProjectMilestones = (projectId: string) =>
   listAll(`/projects/${encodeURIComponent(projectId)}/milestones`, milestoneSchema);
+
+/**
+ * Creates the issue, then sets its labels (the create route has no `labels` field). If only the
+ * label step fails the issue still exists, so that is reported as `labelError` instead of thrown:
+ * retrying the whole form would create a duplicate.
+ */
+export async function createIssue(body: CreateIssueInput, labels: string[]) {
+  const created = await api().request("/issues", { schema: issueSchema, method: "POST", body });
+  if (!labels.length) return { issue: created, labelError: null };
+  try {
+    const issue = await api().request(`/issues/${encodeURIComponent(created.identifier)}`, {
+      schema: issueSchema,
+      method: "PATCH",
+      body: { labels },
+      ifMatch: created.updatedAt,
+    });
+    return { issue, labelError: null };
+  } catch (err) {
+    if (!(err instanceof ApiError)) throw err;
+    return { issue: created, labelError: err.message };
+  }
+}

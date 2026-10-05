@@ -75,11 +75,17 @@ export const labelSchema = z.object({
 });
 export type Label = z.infer<typeof labelSchema>;
 
+export const milestoneProgressSchema = z.object({ done: z.number().int(), total: z.number().int() });
+export type MilestoneProgress = z.infer<typeof milestoneProgressSchema>;
+
 export const milestoneSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   name: z.string(),
+  description: z.string().optional(),
   targetDate: z.string().nullable(),
+  /** Done issues out of live, non-canceled ones. */
+  progress: milestoneProgressSchema.optional(),
 });
 export type Milestone = z.infer<typeof milestoneSchema>;
 
@@ -98,3 +104,5 @@ export const issueSchema = z.object({
   labels: z.array(labelSchema),
 });
 export type IssueRow = z.infer<typeof issueSchema>;
+
+export const deletedResultSchema = z.object({ deleted: z.literal(true) }).loose();

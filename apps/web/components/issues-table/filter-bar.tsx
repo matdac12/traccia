@@ -16,7 +16,7 @@ export const SEARCH_DEBOUNCE_MS = 300;
 type Lookups = { projects: Project[]; labels: Label[]; milestones: Milestone[] };
 type Section = { key: string; title: string; selected: string[]; options: { value: string; label: React.ReactNode }[]; toggle: (v: string) => void };
 
-export function FilterMenu({ filters, lookups, onChange }: { filters: IssueFilters; lookups: Lookups; onChange: (next: IssueFilters) => void }) {
+export function FilterMenu({ filters, lookups, onChange, hideProject = false }: { filters: IssueFilters; lookups: Lookups; onChange: (next: IssueFilters) => void; hideProject?: boolean }) {
   const single = <K extends "project" | "assignee" | "milestone">(key: K) => (v: string) => onChange({ ...filters, [key]: filters[key] === v ? undefined : v } as IssueFilters);
   const milestones = filters.project ? lookups.milestones.filter((m) => m.projectId === filters.project) : lookups.milestones;
   const labels = filters.project ? lookups.labels.filter((l) => !l.projectId || l.projectId === filters.project) : lookups.labels;
@@ -50,7 +50,7 @@ export function FilterMenu({ filters, lookups, onChange }: { filters: IssueFilte
       <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuLabel className="text-xs text-muted-foreground">Filter by</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {sections.map((s) => (
+        {sections.filter((s) => !(hideProject && s.key === "project")).map((s) => (
           <DropdownMenuSub key={s.key}>
             <DropdownMenuSubTrigger className="text-[13px]">
               {s.title}
@@ -94,9 +94,9 @@ export function SearchBox({ value, onSearch }: { value: string; onSearch: (q: st
   );
 }
 
-export function ActiveChips({ filters, lookups, onChange }: { filters: IssueFilters; lookups: Lookups; onChange: (next: IssueFilters) => void }) {
+export function ActiveChips({ filters, lookups, onChange, hideProject = false }: { filters: IssueFilters; lookups: Lookups; onChange: (next: IssueFilters) => void; hideProject?: boolean }) {
   const chips: { key: string; kind: string; text: string; remove: IssueFilters }[] = [];
-  if (filters.project) chips.push({ key: "project", kind: "project", text: lookups.projects.find((p) => p.id === filters.project)?.name ?? filters.project, remove: { ...filters, project: undefined } });
+  if (filters.project && !hideProject) chips.push({ key: "project", kind: "project", text: lookups.projects.find((p) => p.id === filters.project)?.name ?? filters.project, remove: { ...filters, project: undefined } });
   if (filters.assignee) chips.push({ key: "assignee", kind: "assignee", text: filters.assignee === "none" ? "Unassigned" : filters.assignee === "you" ? "You" : "Agent", remove: { ...filters, assignee: undefined } });
   for (const l of filters.labels) chips.push({ key: `label:${l}`, kind: "label", text: l, remove: { ...filters, labels: filters.labels.filter((x) => x !== l) } });
   if (filters.priority !== undefined) chips.push({ key: "priority", kind: "priority", text: PRIORITY_LABEL[filters.priority], remove: { ...filters, priority: undefined } });
