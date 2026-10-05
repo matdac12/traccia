@@ -116,7 +116,7 @@ export function runTokenCommand(
           cell(t.lastUsedAt),
           cell(t.revokedAt),
         ]),
-      ]),
+      ),
     );
   } else {
     if (positionals.length !== 1)
