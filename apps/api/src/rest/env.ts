@@ -1,3 +1,4 @@
+import type { Actor } from "@linear-matti/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/connection.js";
 import type { Logger } from "../logger.js";
@@ -15,5 +16,9 @@ export type AppEnv = {
     clientIp: string | undefined;
     logger: Logger;
     container: AppContainer;
+    /** Set by the auth middleware on /v1 routes. */
+    actor: Actor;
+    tokenId: string;
+    tokenName: string;
   };
 };
