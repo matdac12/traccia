@@ -99,6 +99,30 @@ test("the issue detail Back button returns to the filtered list without a reload
   expect(await page.evaluate(() => (window as unknown as { __noReload?: boolean }).__noReload)).toBe(true);
 });
 
+test("the project page tabs are real navigation: the URL, a reload and Back keep the tab", async ({ page }) => {
+  const issue = await createIssue(api, projectId, unique("Tabs issue"), "todo");
+  const tabs = page.getByRole("navigation", { name: "Project sections" });
+  const current = (name: string) => expect(tabs.getByRole("link", { name })).toHaveAttribute("aria-current", "page");
+  await visit(page, `/projects/${projectId}`);
+  await current("Overview");
+  await expect(page.getByRole("heading", { name: "Milestones" })).toBeVisible();
+
+  await tabs.getByRole("link", { name: "Issues" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/issues$`));
+  await current("Issues");
+  await expect(page.getByRole("link", { name: issue.title })).toBeVisible();
+
+  await tabs.getByRole("link", { name: "Activity" }).click();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/activity$`));
+  await expect(page.getByRole("link", { name: new RegExp(issue.title) })).toBeVisible();
+
+  await page.reload();
+  await current("Activity");
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/projects/${projectId}/issues$`));
+  await current("Issues");
+});
+
 test("the issue detail Back button goes to the project page when opened directly", async ({ page }) => {
   const issue = await createIssue(api, projectId, unique("Back from a deep link"));
   await visit(page, `/issues/${issue.identifier}`);

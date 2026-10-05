@@ -120,11 +120,24 @@ e2e/                   Playwright smoke tests (support/ boots the API + dashboar
 
 ## Project page and create-issue dialog
 
-- `app/(app)/projects/[id]/page.tsx` loads the project, milestones (with `progress` done/total), labels and issues on
-  the server; the panels in `components/project/*` are client components that call the server actions in
+The project page (TRC-97) is three sub-routes under one layout, so the tab is real navigation (URL, reload and Back keep it):
+`/projects/[id]` Overview, `/projects/[id]/activity` Activity, `/projects/[id]/issues` Issues. `app/(app)/projects/[id]/layout.tsx` holds
+the header (rename, key, status, delete with Undo, New issue) and `components/project/project-tabs.tsx` (a `nav` of links with
+`aria-current="page"`, not a `tablist`: nothing swaps in place). `getProject` is wrapped in React `cache`, so the layout and the page share one fetch.
+Project server actions revalidate `/projects/<id>` with type `"layout"` so the header and all three tabs refresh together.
+
+- **Overview** loads the project, its milestones (with `progress` done/total) and labels, and no issues. Left column: the description
+  (`project-description.tsx`: the shared sanitised `Markdown`, collapsed to about five lines with a fade; the "Show more / Show less" button
+  (`aria-expanded`) only exists when the text really overflows, is measured with a `ResizeObserver`, and sits over the fade so it adds no height;
+  Edit stays an inline editor) and the milestone list (`milestones-panel.tsx` + `milestone-row.tsx`: status dot, name, percent, issue count, one-line
+  description and target date; the name links to `/projects/<id>/issues?milestone=<id>`; Edit/Delete show on hover or focus and always on touch).
+  Dot semantics: not started = nothing done or no issues, in progress = partly done, done = all done (`milestoneState`). Right rail: `ProgressSummary`
+  (all milestone issues rolled up; issues outside a milestone are not counted) and labels.
+- **Issues** is the shared `IssuesView` (MAT-1720) locked to the project (`lockProject`), table and board, with filters in this page's URL.
+- **Activity** is `GET /v1/activity?project=` (id, name or key), newest first, with "Load more" through `loadMoreActivityAction`. It does not live-refresh.
+- Panels in `components/project/*` are client components that call the server actions in
   `app/(app)/projects/[id]/actions.ts` (validate with the shared Zod schema, call `lib/api`, `revalidatePath`).
   Actions return `ActionResult` (`lib/action-result.ts`): `{ ok, data }` or `{ error, fieldErrors }` for inline errors.
-- The issue list there is the shared `IssuesView` (MAT-1720) locked to the project (`lockProject`), with filters in the page URL.
 - **List filters and display (MAT-1758).** `lib/issue-filters.ts` holds all list state in the URL: `status` (repeatable, empty = all; the table and the board only fetch the chosen statuses), `group` (`status` default, `none`, `priority`, `assignee`, `project`, `milestone`; table only) and `sort` (now also `title`). Any grouping other than status pools the rows loaded so far (per-status pages) and re-sorts them client-side (`group-rows.ts`), with one "Load more" per status below. Sub-issue markers (parent identifier, finished/total) are computed from the loaded rows only. Estimate is not sortable yet (nullable cursor in the API).
 - `components/create-issue/` is reusable: `CreateIssueProvider` (mounted in the `(app)` layout) exposes
   `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project

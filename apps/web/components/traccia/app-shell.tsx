@@ -30,7 +30,7 @@ function NavItem({ href, icon, children, active }: { href: string; icon: ReactNo
 function SidebarContent({ projects, projectsUnavailable, login }: { projects: ShellProject[]; projectsUnavailable: boolean; login: string }) {
   const path = usePathname();
   const createIssue = useCreateIssue();
-  const current = projects.find((p) => path === `/projects/${p.id}`);
+  const current = projects.find((p) => path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`));
   return (
     <>
         <DropdownMenu>
@@ -73,7 +73,7 @@ function SidebarContent({ projects, projectsUnavailable, login }: { projects: Sh
           </div>
           {projectsUnavailable ? <p className="px-2 text-[12px] text-destructive">Could not load projects. Is the API running?</p> : projects.length === 0 ? <p className="px-2 text-[12px] text-muted-foreground">No projects yet.</p> : null}
           {projects.map((p) => (
-            <NavItem key={p.id} href={`/projects/${p.id}`} active={path === `/projects/${p.id}`} icon={<span className="size-2.5 rounded-[3px] bg-muted-foreground/50" />}>
+            <NavItem key={p.id} href={`/projects/${p.id}`} active={path === `/projects/${p.id}` || path.startsWith(`/projects/${p.id}/`)} icon={<span className="size-2.5 rounded-[3px] bg-muted-foreground/50" />}>
               {p.name}
             </NavItem>
           ))}

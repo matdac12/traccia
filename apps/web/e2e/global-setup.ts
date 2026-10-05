@@ -21,7 +21,7 @@ async function seed(stack: Stack) {
 
   // `next dev` compiles each route on first hit; do it here so no test pays for it.
   const headers = { "tailscale-user-login": E2E_LOGIN };
-  for (const path of ["/issues", "/issues?view=kanban", "/projects", `/projects/${project.id}`, "/trash", "/issues/SMK-1"]) {
+  for (const path of ["/issues", "/issues?view=kanban", "/projects", `/projects/${project.id}`, `/projects/${project.id}/issues`, `/projects/${project.id}/activity`, "/trash", "/issues/SMK-1"]) {
     const res = await fetch(`${stack.webUrl}${path}`, { headers });
     if (!res.ok) throw new Error(`warm-up GET ${path} -> ${res.status}`);
   }

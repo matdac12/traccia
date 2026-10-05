@@ -10,6 +10,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
+import { listProjectActivity } from "@/lib/api/activity";
 import { createLabel, deleteLabel, updateLabel } from "@/lib/api/labels";
 import { createMilestone, deleteMilestone, updateMilestone } from "@/lib/api/milestones";
 import { deleteProject, updateProject } from "@/lib/api/projects";
@@ -26,10 +27,11 @@ async function run<S extends z.ZodType>(projectId: string, schema: S, input: unk
   } catch (err) {
     const result = toFailure(err);
     // On a conflict the page refreshes to the latest version; the caller keeps the user's draft.
-    if (!result.ok && result.conflict) revalidatePath(`/projects/${projectId}`);
+    if (!result.ok && result.conflict) revalidatePath(`/projects/${projectId}`, "layout");
     return result;
   }
-  revalidatePath(`/projects/${projectId}`);
+  // "layout": the header and tabs live in the project layout, the sub-pages (overview, activity, issues) below it.
+  revalidatePath(`/projects/${projectId}`, "layout");
   revalidatePath("/projects");
   return success(undefined);
 }
@@ -99,4 +101,15 @@ export async function updateLabelAction(projectId: string, id: string, values: P
 /** Permanent (labels have no trash); the UI asks for confirmation first. */
 export async function deleteLabelAction(projectId: string, id: string) {
   return run(projectId, noInput, {}, () => deleteLabel(id));
+}
+
+/** One more page of the project's activity feed (a read, so nothing is revalidated). */
+export async function loadMoreActivityAction(projectId: string, cursor: string) {
+  const parsed = z.object({ projectId: z.string().min(1), cursor: z.string().min(1) }).safeParse({ projectId, cursor });
+  if (!parsed.success) return failure("Could not load more activity.");
+  try {
+    return success(await listProjectActivity(parsed.data.projectId, parsed.data.cursor));
+  } catch (err) {
+    return toFailure(err);
+  }
 }
