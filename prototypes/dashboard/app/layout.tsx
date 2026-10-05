@@ -5,7 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "Tracker (prototype)" };
+export const metadata: Metadata = { title: "Traccia (prototype)" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

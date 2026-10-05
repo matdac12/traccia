@@ -2,7 +2,7 @@ import {
   createCommentInputSchema,
   deleteQuerySchema,
   updateCommentInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import type { Hono } from "hono";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";

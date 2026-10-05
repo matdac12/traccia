@@ -1,4 +1,4 @@
-import { type Actor, ServiceError } from "@linear-matti/shared";
+import { type Actor, ServiceError } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";

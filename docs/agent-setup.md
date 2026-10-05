@@ -10,7 +10,7 @@ How to connect Claude Code, Codex and OpenCode to the Traccia MCP server from a 
 Create one token per machine and agent, so writes are attributed correctly and one machine can be revoked alone. On the server (the host that runs the `api` container, see [backup-restore.md](backup-restore.md) for how it is deployed):
 
 ```bash
-cd /opt/tracker && docker compose exec -T api node dist/tracker.js token create --name mac-claude --actor agent
+cd /opt/tracker && docker compose exec -T api node dist/traccia.js token create --name mac-claude --actor agent
 ```
 
 The plaintext is printed once and cannot be shown again. Use `--actor agent` for agents. Only the dashboard's own token is `you`. Run `token list` (no secrets shown) and `token revoke <id>` the same way, replacing `token create ...`; revoking cuts a token off immediately.
@@ -44,14 +44,14 @@ Use single quotes so your shell keeps `${TRACCIA_TOKEN}` as text. Claude Code ex
 ### macOS
 
 ```bash
-claude mcp add --transport http --scope user tracker https://omni.tail2b3fbf.ts.net/mcp \
+claude mcp add --transport http --scope user traccia https://omni.tail2b3fbf.ts.net/mcp \
   --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-claude mcp add --transport http --scope user tracker https://omni.tail2b3fbf.ts.net/mcp --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
+claude mcp add --transport http --scope user traccia https://omni.tail2b3fbf.ts.net/mcp --header 'Authorization: Bearer ${TRACCIA_TOKEN}'
 ```
 
 `--scope user` makes the server available in every project. Use `--scope project` to write a `.mcp.json` into one repo instead; that file can be committed because it holds only the `${TRACCIA_TOKEN}` placeholder:
@@ -59,7 +59,7 @@ claude mcp add --transport http --scope user tracker https://omni.tail2b3fbf.ts.
 ```json
 {
   "mcpServers": {
-    "tracker": {
+    "traccia": {
       "type": "http",
       "url": "https://omni.tail2b3fbf.ts.net/mcp",
       "headers": {
@@ -70,14 +70,14 @@ claude mcp add --transport http --scope user tracker https://omni.tail2b3fbf.ts.
 }
 ```
 
-Check it: `claude mcp get tracker` (or `claude mcp list`) should show it connected.
+Check it: `claude mcp get traccia` (or `claude mcp list`) should show it connected.
 
 ## 4. Codex
 
 Codex reads `~/.codex/config.toml` (on Windows, `.codex\config.toml` in your user profile folder; a project can override it with `.codex/config.toml` in a trusted project). Add:
 
 ```toml
-[mcp_servers.tracker]
+[mcp_servers.traccia]
 url = "https://omni.tail2b3fbf.ts.net/mcp"
 bearer_token_env_var = "TRACCIA_TOKEN"
 ```
@@ -94,7 +94,7 @@ OpenCode reads `~/.config/opencode/opencode.json` (or `opencode.jsonc`); on Wind
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "tracker": {
+    "traccia": {
       "type": "remote",
       "url": "https://omni.tail2b3fbf.ts.net/mcp",
       "enabled": true,
@@ -106,9 +106,9 @@ OpenCode reads `~/.config/opencode/opencode.json` (or `opencode.jsonc`); on Wind
 }
 ```
 
-`{env:TRACCIA_TOKEN}` is OpenCode's own substitution syntax (not `${...}`); it reads the variable when OpenCode loads the config, so the token is never stored in the file. If the file already has an `mcp` block, add only the `tracker` entry. The same snippet works on macOS and Windows, as long as `TRACCIA_TOKEN` is set in the environment that launches OpenCode.
+`{env:TRACCIA_TOKEN}` is OpenCode's own substitution syntax (not `${...}`); it reads the variable when OpenCode loads the config, so the token is never stored in the file. If the file already has an `mcp` block, add only the `traccia` entry. The same snippet works on macOS and Windows, as long as `TRACCIA_TOKEN` is set in the environment that launches OpenCode.
 
-Check it: `opencode mcp list` should show `tracker` as `connected`. If it says `needs authentication`, the server rejected the token (OpenCode treats a 401 as a request to start OAuth, which Traccia does not offer): fix the token as in Troubleshooting, do not run `opencode mcp auth`.
+Check it: `opencode mcp list` should show `traccia` as `connected`. If it says `needs authentication`, the server rejected the token (OpenCode treats a 401 as a request to start OAuth, which Traccia does not offer): fix the token as in Troubleshooting, do not run `opencode mcp auth`.
 
 ## 6. Environment variables and GUI-launched agents
 
@@ -129,7 +129,7 @@ The `actor` and `tokenName` must match the token you created. The `tokenName` sh
 | Symptom | Cause and fix |
 | --- | --- |
 | Connection times out or the host does not resolve | The machine is not on the tailnet. Traccia is reachable only from tailnet devices, so connect Tailscale and retry. |
-| `401 Unauthorized` | The token is wrong, revoked, or empty. Check `echo $TRACCIA_TOKEN` (`$env:TRACCIA_TOKEN` on Windows) in the shell that launches the agent, and that the variable name matches the config. Remember a restarted agent is needed after setting it. If the header was added with double quotes, your shell may have expanded it at add time; re-add it with single quotes. Confirm the token with `tracker token list`, or mint a new one. |
+| `401 Unauthorized` | The token is wrong, revoked, or empty. Check `echo $TRACCIA_TOKEN` (`$env:TRACCIA_TOKEN` on Windows) in the shell that launches the agent, and that the variable name matches the config. Remember a restarted agent is needed after setting it. If the header was added with double quotes, your shell may have expanded it at add time; re-add it with single quotes. Confirm the token with `traccia token list`, or mint a new one. |
 | `needs authentication` in `opencode mcp list` | Same as `401`: the token is empty or wrong. See the `401` row, and check `{env:TRACCIA_TOKEN}` is spelled exactly that way. |
 | `429 Too Many Requests` | The token exceeded its per-minute request limit (default 120 per minute). The response carries a `Retry-After` header; wait that long, and avoid tight loops; use `list_issues` filters and `limit` instead of fetching everything. |
 | Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge unless the server has agent purge switched on, and deletes are soft and restorable. Ask the owner to purge from the dashboard. |

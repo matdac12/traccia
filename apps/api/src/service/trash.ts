@@ -1,4 +1,4 @@
-import { type Actor, ServiceError } from "@linear-matti/shared";
+import { type Actor, ServiceError } from "@traccia/shared";
 import {
   and,
   desc,

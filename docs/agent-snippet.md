@@ -6,7 +6,7 @@ Paste everything below the line into the `AGENTS.md` (or `CLAUDE.md`) of any rep
 
 ## Issue tracker: Traccia
 
-Issues for this project live in Traccia, reached through the `tracker` MCP server. Your writes are recorded as the `agent` actor.
+Issues for this project live in Traccia, reached through the `traccia` MCP server. Your writes are recorded as the `agent` actor.
 
 - **Search before you create.** Call `list_issues` (use `query`, and filter by `project`) before `save_issue`, so you do not file a duplicate. If a matching issue exists, comment on it instead.
 - **Reference issues by identifier** (`MAT-123`) in commit messages, pull request titles and comments.

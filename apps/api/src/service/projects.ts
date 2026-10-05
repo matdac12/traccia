@@ -7,7 +7,7 @@ import {
   ServiceError,
   type UpdateProjectInput,
   updateProjectInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
 import { projects } from "../db/schema.js";
 import { newId } from "../ids.js";

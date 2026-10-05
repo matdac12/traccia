@@ -8,7 +8,7 @@ import {
   ServiceError,
   type UpdateIssueInput,
   updateIssueInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { activity, issues, milestones } from "../db/schema.js";
 import { newId } from "../ids.js";

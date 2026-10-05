@@ -13,27 +13,27 @@ import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
 type Env = Record<string, string | undefined>;
 
 const DB_USAGE = `Usage:
-  tracker db migrate
-  tracker db reindex
-  tracker db snapshot [--out <dir>] [--keep <n>]
+  traccia db migrate
+  traccia db reindex
+  traccia db snapshot [--out <dir>] [--keep <n>]
 
 migrate   Applies pending database migrations.
 reindex   Rebuilds the full-text search index from the issues and comments
           tables (soft-deleted rows excluded). Idempotent.
-snapshot  Writes a consistent online snapshot tracker-<UTC timestamp>.db to
+snapshot  Writes a consistent online snapshot traccia-<UTC timestamp>.db to
           --out (default: $DATA_DIR/backups), runs PRAGMA integrity_check on it,
           and deletes all but the newest --keep (default 3) snapshots there.
           Safe to run while the API is serving writes.`;
 
 const USAGE = `Usage:
-  tracker db migrate
-  tracker db reindex
-  tracker db snapshot [--out <dir>] [--keep <n>]
-  tracker token create --name <name> --actor agent|you
-  tracker token list
-  tracker token revoke <id>`;
+  traccia db migrate
+  traccia db reindex
+  traccia db snapshot [--out <dir>] [--keep <n>]
+  traccia token create --name <name> --actor agent|you
+  traccia token list
+  traccia token revoke <id>`;
 
-/** Runs a `tracker` CLI command and returns the process exit code. */
+/** Runs a `traccia` CLI command and returns the process exit code. */
 export async function runCli(
   argv: string[],
   env?: Env,

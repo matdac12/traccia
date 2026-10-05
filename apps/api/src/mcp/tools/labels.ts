@@ -2,7 +2,7 @@ import {
   listIssueLabelsToolShape,
   ServiceError,
   saveIssueLabelToolShape,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Label } from "../../service/labels.js";
 import type { McpContext } from "../server.js";

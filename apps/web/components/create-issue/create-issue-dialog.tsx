@@ -1,5 +1,5 @@
 "use client";
-import { ISSUE_STATUSES, PRIORITIES, type Actor, type IssueStatus, type Priority } from "@linear-matti/shared";
+import { ISSUE_STATUSES, PRIORITIES, type Actor, type IssueStatus, type Priority } from "@traccia/shared";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { ActorAvatar, Kbd, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";

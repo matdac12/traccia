@@ -7,7 +7,8 @@ After=docker.service
 
 [Service]
 Type=oneshot
+# /opt/tracker is the deploy directory's pre-rename name; it is kept on omni.
 WorkingDirectory=/opt/tracker
 # -T: no TTY under systemd. Keeps the newest 3 snapshots in /data/backups
-# (inside the tracker-data volume); a non-zero exit marks the unit failed.
-ExecStart=/usr/bin/docker compose exec -T api node dist/tracker.js db snapshot --keep 3
+# (inside the data volume); a non-zero exit marks the unit failed.
+ExecStart=/usr/bin/docker compose exec -T api node dist/traccia.js db snapshot --keep 3

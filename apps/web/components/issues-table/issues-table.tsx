@@ -1,5 +1,5 @@
 "use client";
-import type { IssueStatus, Priority } from "@linear-matti/shared";
+import type { IssueStatus, Priority } from "@traccia/shared";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";

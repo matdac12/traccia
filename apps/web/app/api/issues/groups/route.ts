@@ -1,4 +1,4 @@
-import { ISSUE_STATUSES } from "@linear-matti/shared";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import { z } from "zod";
 import { refreshIssueGroups } from "@/lib/api/issues";
 import { errorResponse } from "@/lib/api/route-error";

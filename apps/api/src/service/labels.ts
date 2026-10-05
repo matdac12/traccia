@@ -8,7 +8,7 @@ import {
   ServiceError,
   type UpdateLabelInput,
   updateLabelInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { activity, issueLabels, issues, labels } from "../db/schema.js";
 import { newId } from "../ids.js";

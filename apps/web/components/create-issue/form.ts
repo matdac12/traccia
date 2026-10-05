@@ -1,4 +1,4 @@
-import { createIssueInputSchema, type Actor, type IssueStatus, type Priority } from "@linear-matti/shared";
+import { createIssueInputSchema, type Actor, type IssueStatus, type Priority } from "@traccia/shared";
 import { zodFieldErrors } from "@/lib/action-result";
 
 /** What the create-issue form collects (also what the server action receives). */

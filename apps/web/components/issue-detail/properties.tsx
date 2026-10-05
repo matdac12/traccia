@@ -6,7 +6,7 @@ import { type ReactNode, useState } from "react";
 import { ActorAvatar, StatusIcon, STATUS_LABEL } from "@/components/traccia/atoms";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { IssueDetail, IssueRef, Label, Milestone } from "@/lib/api/schemas";
-import { ISSUE_STATUSES } from "@linear-matti/shared";
+import { ISSUE_STATUSES } from "@traccia/shared";
 import { cn } from "@/lib/utils";
 import { LabelChip, PRIORITY_OPTIONS, PriorityIcon, TimeAgo } from "./atoms";
 import { IssuePicker } from "./issue-picker";

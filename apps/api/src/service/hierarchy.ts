@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import { eq, inArray } from "drizzle-orm";
 import { issues } from "../db/schema.js";
 import type { DbHandle } from "./context.js";

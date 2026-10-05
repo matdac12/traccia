@@ -5,7 +5,7 @@ import {
   type IssueStatus,
   PROJECT_STATUSES,
   type ProjectStatus,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,

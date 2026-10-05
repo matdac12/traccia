@@ -1,5 +1,5 @@
 import "server-only";
-import type { CreateLabelInput, UpdateLabelInput } from "@linear-matti/shared";
+import type { CreateLabelInput, UpdateLabelInput } from "@traccia/shared";
 import { api } from "./client";
 import { deletedResultSchema, labelSchema } from "./schemas";
 

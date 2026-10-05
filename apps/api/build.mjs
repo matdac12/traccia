@@ -6,7 +6,12 @@ import { build } from "esbuild";
 rmSync("dist", { recursive: true, force: true });
 
 await build({
-  entryPoints: { main: "src/main.ts", tracker: "src/cli/index.ts" },
+  // `tracker` is the pre-rename CLI name; omni's systemd unit still runs dist/tracker.js. Drop it one release after the rename.
+  entryPoints: {
+    main: "src/main.ts",
+    traccia: "src/cli/index.ts",
+    tracker: "src/cli/index.ts",
+  },
   outdir: "dist",
   bundle: true,
   platform: "node",

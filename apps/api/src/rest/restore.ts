@@ -1,4 +1,4 @@
-import { restoreBodySchema } from "@linear-matti/shared";
+import { restoreBodySchema } from "@traccia/shared";
 import type { Hono } from "hono";
 import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";

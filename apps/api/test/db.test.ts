@@ -1,8 +1,8 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { openDatabase } from "../src/db/connection.js";
+import { databasePath, openDatabase } from "../src/db/connection.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { createTestDb } from "./helpers/test-db.js";
 
@@ -12,22 +12,35 @@ afterEach(() => {
 });
 
 function tempDir() {
-  const dir = mkdtempSync(join(tmpdir(), "tracker-db-"));
+  const dir = mkdtempSync(join(tmpdir(), "traccia-db-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
 
 describe("openDatabase", () => {
-  it("creates DATA_DIR and tracker.db, applying pragmas", () => {
+  it("creates DATA_DIR and traccia.db, applying pragmas", () => {
     const dir = join(tempDir(), "nested", "data");
     const { sqlite } = openDatabase(dir);
     cleanups.push(() => sqlite.close());
 
-    expect(existsSync(join(dir, "tracker.db"))).toBe(true);
+    expect(existsSync(join(dir, "traccia.db"))).toBe(true);
     expect(sqlite.pragma("journal_mode", { simple: true })).toBe("wal");
     expect(sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
     expect(sqlite.pragma("synchronous", { simple: true })).toBe(1); // NORMAL
+  });
+
+  it("keeps using a pre-rename tracker.db when no traccia.db exists", () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "tracker.db"), "");
+    expect(databasePath(dir)).toBe(join(dir, "tracker.db"));
+  });
+
+  it("prefers traccia.db when both files exist", () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "tracker.db"), "");
+    writeFileSync(join(dir, "traccia.db"), "");
+    expect(databasePath(dir)).toBe(join(dir, "traccia.db"));
   });
 });
 

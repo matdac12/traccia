@@ -3,7 +3,7 @@ import {
   ISSUE_STATUSES,
   PROJECT_STATUSES,
   ACTORS,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { z } from "zod";
 
 /**

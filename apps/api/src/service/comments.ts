@@ -7,7 +7,7 @@ import {
   ServiceError,
   type UpdateCommentInput,
   updateCommentInputSchema,
-} from "@linear-matti/shared";
+} from "@traccia/shared";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { comments, issues } from "../db/schema.js";
 import { newId } from "../ids.js";

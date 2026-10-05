@@ -1,4 +1,4 @@
-import { ServiceError } from "@linear-matti/shared";
+import { ServiceError } from "@traccia/shared";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import {

@@ -1,4 +1,4 @@
-import { issueKeySchema } from "@linear-matti/shared";
+import { issueKeySchema } from "@traccia/shared";
 import { eq, sql } from "drizzle-orm";
 import { issueKeys } from "../db/schema.js";
 import { parseInput, type Tx } from "./context.js";

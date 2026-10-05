@@ -46,7 +46,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <aside className="hidden w-[232px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <div className="flex h-12 items-center gap-2 px-3">
           <div className="grid size-6 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">T</div>
-          <span className="text-[13px] font-medium">Tracker</span>
+          <span className="text-[13px] font-medium">Traccia</span>
           <ChevronsUpDown className="ml-auto size-3.5 text-muted-foreground" />
         </div>
         <div className="space-y-1 px-2">

@@ -1,4 +1,4 @@
-import { ISSUE_STATUSES, type IssueStatus } from "@linear-matti/shared";
+import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
 import type { IssueRow } from "@/lib/api/schemas";
 
 /**

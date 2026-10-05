@@ -1,4 +1,4 @@
-import type { Actor, IssueStatus } from "@linear-matti/shared";
+import type { Actor, IssueStatus } from "@traccia/shared";
 import { STATUS_LABEL } from "@/components/traccia/atoms";
 import type { ActivityRow } from "@/lib/api/schemas";
 

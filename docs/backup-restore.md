@@ -8,47 +8,47 @@ The off-box copy can be stale: anything written since the last pull is lost if `
 
 | Data | Where it lives | How it is backed up |
 |------|----------------|---------------------|
-| Database | `/data/tracker.db` in the `tracker-data` volume | Daily snapshot to `/data/backups/tracker-<UTC timestamp>.db`, last 3 kept |
+| Database | `/data/traccia.db` (or the pre-rename `/data/tracker.db`) in the `traccia-data` volume (omni: `tracker_tracker-data`) | Daily snapshot to `/data/backups/traccia-<UTC timestamp>.db`, last 3 kept |
 | Attachments | `/data/attachments` in the same volume | Copied by the Windows pull; no snapshot on the VPS |
 
 ## How the snapshot works
 
 ```sh
-docker compose exec -T api node dist/tracker.js db snapshot [--out <dir>] [--keep <n>]
+docker compose exec -T api node dist/traccia.js db snapshot [--out <dir>] [--keep <n>]
 ```
 
 - Uses SQLite `VACUUM INTO` from the API's own runtime (the host has no `sqlite3` CLI). It reads one consistent view of the WAL database, so it is safe while the API is serving writes. The live file is never copied directly.
-- Writes `tracker-<UTC timestamp>.db` (e.g. `tracker-20261005T033000Z.db`) to `${DATA_DIR}/backups`, or to `--out`. Files are `0600` (they contain token hashes).
+- Writes `traccia-<UTC timestamp>.db` (e.g. `traccia-20261005T033000Z.db`) to `${DATA_DIR}/backups`, or to `--out`. Files are `0600` (they contain token hashes).
 - Writes under a temporary name, runs `PRAGMA integrity_check` on the copy, and only then renames it into place. A failed run leaves no snapshot.
-- Then deletes older snapshots beyond `--keep` (default 3). Only files named `tracker-<timestamp>.db` are ever considered. Retention runs after a verified snapshot, so a failing job never eats your good copies.
+- Then deletes older snapshots beyond `--keep` (default 3). Only files named `traccia-<timestamp>.db` (or the pre-rename `tracker-<timestamp>.db`, still pruned by age) are ever considered. Retention runs after a verified snapshot, so a failing job never eats your good copies.
 - Exits non-zero with a message on any failure (unwritable `--out`, missing database, failed integrity check).
 
 Run it by hand any time, for example before a risky migration:
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot'
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api node dist/traccia.js db snapshot'
 ```
 
 The `-o RemoteCommand=none -o RequestTTY=no` flags are needed because the `omni` alias in the ssh config sets `RemoteCommand` and `RequestTTY`, which break scripted output. The same applies to every `ssh omni` command below.
 
 ## Scheduling the daily snapshot (on omni)
 
-Files in `deploy/backup/`: `tracker-snapshot.service` (one-shot, runs the command above from `/opt/tracker`) and `tracker-snapshot.timer` (03:30 daily, `Persistent=true` so a missed run catches up).
+Files in `deploy/backup/`: `traccia-snapshot.service` (one-shot, runs the command above from `/opt/tracker`) and `traccia-snapshot.timer` (03:30 daily, `Persistent=true` so a missed run catches up).
 
 Installing it is a separate human step (P5); nothing in this repo does it. Install:
 
 ```sh
-scp deploy/backup/tracker-snapshot.{service,timer} omni:/tmp/
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'sudo install -m 644 /tmp/tracker-snapshot.service /tmp/tracker-snapshot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now tracker-snapshot.timer'
+scp deploy/backup/traccia-snapshot.{service,timer} omni:/tmp/
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'sudo install -m 644 /tmp/traccia-snapshot.service /tmp/traccia-snapshot.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now traccia-snapshot.timer'
 ```
 
 Check it:
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'systemctl list-timers tracker-snapshot.timer; sudo systemctl start tracker-snapshot.service; journalctl -u tracker-snapshot.service -n 20 --no-pager'
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'systemctl list-timers traccia-snapshot.timer; sudo systemctl start traccia-snapshot.service; journalctl -u traccia-snapshot.service -n 20 --no-pager'
 ```
 
-Cron alternative, if you prefer it: `30 3 * * * cd /opt/tracker && docker compose exec -T api node dist/tracker.js db snapshot >> /var/log/tracker-snapshot.log 2>&1`.
+Cron alternative, if you prefer it: `30 3 * * * cd /opt/tracker && docker compose exec -T api node dist/traccia.js db snapshot >> /var/log/traccia-snapshot.log 2>&1`.
 
 ## Pulling to the Windows machine
 
@@ -66,40 +66,40 @@ Tooling choice: the Windows OpenSSH client (`ssh.exe`) plus the built-in `tar.ex
 
 It:
 
-1. Lists `/data/backups/tracker-*.db` and picks the newest.
-2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\tracker-….db` and `attachments\`). If omni has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on omni)`; that is not an error.
+1. Lists `/data/backups` and picks the newest `traccia-*.db` (or pre-rename `tracker-*.db`).
+2. Streams that snapshot plus `/data/attachments` into a temporary tar, checks it with `tar -t`, and extracts it into `omni-<timestamp>\` (`backups\traccia-….db` and `attachments\`). If omni has no `/data/attachments` yet (nothing was ever uploaded), the pull has no `attachments\` folder and the script prints `attachments: none (no attachments on omni)`; that is not an error.
 3. Only after a successful pull, deletes older `omni-*` folders beyond `-Keep` (default 3).
 
 It never writes to or deletes anything on the VPS. Retention touches only folders matching `omni-<digits>-<digits>` in the destination. Pull after the daily timer has run at least once, otherwise it stops with "No snapshot found".
 
 ## Restore procedure
 
-Do this into a scratch location, not over production. The first time is the restore test (once, before the pilot ends). For a real disaster, the same steps apply but the final data goes into the `tracker-data` volume on the new host.
+Do this into a scratch location, not over production. The first time is the restore test (once, before the pilot ends). For a real disaster, the same steps apply but the final data goes into the `traccia-data` volume on the new host.
 
-Use the newest folder from the Windows pull: `omni-<timestamp>\backups\tracker-<UTC>.db` and `omni-<timestamp>\attachments\`. You need Docker, and an API image: `tracker-api:latest` built per `deploy/README.md` (or `docker load` a saved one). The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
+Use the newest folder from the Windows pull: `omni-<timestamp>\backups\traccia-<UTC>.db` and `omni-<timestamp>\attachments\`. You need Docker, and an API image: `traccia-api:latest` built per `deploy/README.md` (or `docker load` a saved one). The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
 
-The snapshot lives inside the `tracker-data` volume, not at a host path, so `scp omni:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
+The snapshot lives inside the `traccia-data` volume, not at a host path, so `scp omni:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
 
 ```sh
-ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api cat /data/backups/tracker-<UTC>.db' > tracker.db
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api cat /data/backups/traccia-<UTC>.db' > traccia.db
 ```
 
-1. **Lay out a scratch data dir.** The API expects `tracker.db` and `attachments/` side by side:
+1. **Lay out a scratch data dir.** The API expects `traccia.db` and `attachments/` side by side:
 
    ```powershell
    $pull = "$HOME\traccia-backups\omni-<timestamp>"
    $scratch = "$HOME\traccia-restore-test"
    New-Item -ItemType Directory -Force "$scratch" | Out-Null
-   Copy-Item "$pull\backups\tracker-<UTC>.db" "$scratch\tracker.db"
+   Copy-Item "$pull\backups\traccia-<UTC>.db" "$scratch\traccia.db"
    Copy-Item "$pull\attachments" "$scratch\attachments" -Recurse   # skip if the pull has none
    ```
 
-   Do not copy any `tracker.db-wal` or `-shm` files; a snapshot is a single self-contained file.
+   Do not copy any `traccia.db-wal` or `-shm` files; a snapshot is a single self-contained file.
 
 2. **Check the database.** Using the image, since there is no `sqlite3` CLI:
 
    ```powershell
-   docker run --rm -v "${scratch}:/data" tracker-api:latest node -e "const D=require('better-sqlite3');const d=new D('/data/tracker.db',{readonly:true});console.log(d.pragma('integrity_check'),d.prepare('select count(*) n from issues').get())"
+   docker run --rm -v "${scratch}:/data" traccia-api:latest node -e "const D=require('better-sqlite3');const d=new D('/data/traccia.db',{readonly:true});console.log(d.pragma('integrity_check'),d.prepare('select count(*) n from issues').get())"
    ```
 
    Expect `[ { integrity_check: 'ok' } ]` and an issue count that matches what you expect.
@@ -109,17 +109,17 @@ ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compo
    ```powershell
    docker run --rm -d --name traccia-restore -p 127.0.0.1:18787:8787 `
      -v "${scratch}:/data" -e DATA_DIR=/data -e PORT=8787 -e BASE_URL=http://localhost:18787 `
-     tracker-api:latest
+     traccia-api:latest
    curl.exe http://localhost:18787/healthz     # {"ok":true}
    ```
 
-   Startup applies any pending migrations to the scratch copy only. The container runs as uid 1000 (`node`) and must be able to write to the scratch folder; on a Linux host, `chown -R 1000:1000` it if startup fails with a permission error. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never `tracker-data`.
+   Startup applies any pending migrations to the scratch copy only. The container runs as uid 1000 (`node`) and must be able to write to the scratch folder; on a Linux host, `chown -R 1000:1000` it if startup fails with a permission error. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never the production data volume (`traccia-data`, or `tracker_tracker-data` on an install that predates the rename).
 
 4. **Check issues and attachments load.** Mint a token against the scratch data, then read through the API:
 
    ```powershell
-   docker exec traccia-restore node dist/tracker.js token create --name restore-test --actor you
-   docker exec traccia-restore node dist/tracker.js token list
+   docker exec traccia-restore node dist/traccia.js token create --name restore-test --actor you
+   docker exec traccia-restore node dist/traccia.js token list
    ```
 
    `token create` prints the plaintext token on its own line, once. Using it, list issues over REST (`curl -H "Authorization: Bearer <token>" http://localhost:18787/v1/issues`) or MCP (`list_issues`) and confirm recent issues are present. Check search too: `curl -H "Authorization: Bearer <token>" "http://localhost:18787/v1/search?q=<word from a known title>"` should return a hit with a `<mark>` snippet. The FTS index is part of the snapshot, so no reindex is needed. Open an issue that has an attachment and download it (`GET /v1/attachments/<id>`); confirm it opens and its size matches. If the live tracker has no attachments yet there is no `attachments/` directory in the volume and the pull produces none; that is expected, and attachment restore is then untested. Spot-check the newest issue you know of to see how stale the copy is.
@@ -135,4 +135,4 @@ ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compo
 
 ### Restoring for real on omni
 
-Stop the stack so nothing writes (`docker compose stop`), copy the snapshot into the volume as `tracker.db` (removing any old `tracker.db-wal`/`-shm`) and `attachments/` alongside it, make them owned by the container's `node` user, then `docker compose up -d`. Keep the damaged files until the restored system is confirmed good.
+Stop the stack so nothing writes (`docker compose stop`), copy the snapshot into the volume as `traccia.db` (removing any old `traccia.db-wal`/`-shm`) and `attachments/` alongside it, make them owned by the container's `node` user, then `docker compose up -d`. Keep the damaged files until the restored system is confirmed good.

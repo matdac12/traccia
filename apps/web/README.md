@@ -8,13 +8,13 @@ behind `tailscale serve` (ADR 0007) and talks to `apps/api` over the compose net
 
 ```sh
 # Terminal 1: the API (from apps/api; see deploy/README.md for env). Create a `you` token once:
-pnpm --filter api tracker token create --name dashboard --actor you
+pnpm --filter api traccia token create --name dashboard --actor you
 
 # Terminal 2: the dashboard
 cd apps/web
 cat > .env.local <<'ENV'
-TRACKER_API_URL=http://127.0.0.1:8787
-TRACKER_API_TOKEN=trk_...
+TRACCIA_API_URL=http://127.0.0.1:8787
+TRACCIA_API_TOKEN=trk_...
 DASHBOARD_DEV_LOGIN=you@local
 ENV
 pnpm dev          # http://localhost:3000
@@ -22,8 +22,8 @@ pnpm dev          # http://localhost:3000
 
 | Variable | Required | Meaning |
 |----------|----------|---------|
-| `TRACKER_API_URL` | yes | API base URL, e.g. `http://api:8787`. |
-| `TRACKER_API_TOKEN` | yes | A `you` token. Server only, never `NEXT_PUBLIC_`. |
+| `TRACCIA_API_URL` | yes | API base URL, e.g. `http://api:8787`. |
+| `TRACCIA_API_TOKEN` | yes | A `you` token. Server only, never `NEXT_PUBLIC_`. |
 | `DASHBOARD_ALLOWED_LOGINS` | yes in production | Comma-separated Tailscale logins (case-insensitive). |
 | `DASHBOARD_DEV_LOGIN` | no | Local-development bypass of the access check. **Refused when `NODE_ENV=production`.** |
 
@@ -53,7 +53,7 @@ names and the token value; run it before changing anything around the client.
 
 - Add one function per resource in `lib/api/<resource>.ts`, calling `api().request(path, { schema, query, body, method })`.
   The path is relative to `/v1`. Responses are parsed with a Zod schema from `lib/api/schemas.ts`; request bodies use
-  the input schemas from `@linear-matti/shared` (parse them in the server action before sending).
+  the input schemas from `@traccia/shared` (parse them in the server action before sending).
 - Failures throw `ApiError` (`status`, `code`, `details`). `code` is the API's error code (`not_found`, `conflict`,
   `validation_error`, ...) or `unreachable`, `bad_response`. For a stale write, `conflict` carries
   `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft.
@@ -90,8 +90,8 @@ names and the token value; run it before changing anything around the client.
 - Theme: `next-themes`, system by default, toggle in the sidebar footer (System / Light / Dark).
 - Every route group has `loading.tsx`, `error.tsx` and `not-found.tsx`; add them for new groups. Show an empty
   state (`EmptyState`) for empty lists, never a blank page.
-- Domain words follow `GLOSSARY.md` (issue, status, actor, `you`, `agent`). The product name is Traccia; code
-  identifiers stay `tracker`.
+- Domain words follow `GLOSSARY.md` (issue, status, actor, `you`, `agent`). The product name is Traccia, and
+  so are the code identifiers (package scope `@traccia`, CLI `traccia`).
 
 ## Layout
 
@@ -135,7 +135,7 @@ The API's search matches whole words only, so the blocker/parent picker looks `M
 
 ## Docker
 
-`docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t tracker-web:latest .` from the repo
+`docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t traccia-web:latest .` from the repo
 root; the image runs `node apps/web/server.js` (standalone). Env comes from compose (`deploy/docker-compose.yml`).
 
 ## Files (attachments, MAT-1725)
