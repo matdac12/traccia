@@ -18,10 +18,13 @@ export function createDb(sqlite: Sqlite) {
   return drizzle(sqlite);
 }
 
+/** Path of the database file inside a data directory. */
+export const databasePath = (dataDir: string) => join(dataDir, "tracker.db");
+
 /** Opens `${dataDir}/tracker.db`, creating the directory if needed. */
 export function openDatabase(dataDir: string): { sqlite: Sqlite; db: Db } {
   mkdirSync(dataDir, { recursive: true });
-  const sqlite = new Database(join(dataDir, "tracker.db"));
+  const sqlite = new Database(databasePath(dataDir));
   applyPragmas(sqlite);
   return { sqlite, db: createDb(sqlite) };
 }

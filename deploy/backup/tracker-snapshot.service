@@ -1,0 +1,13 @@
+# Daily SQLite snapshot of Traccia, taken inside the api container.
+# Install per docs/backup-restore.md. Not installed by anything in this repo.
+[Unit]
+Description=Traccia daily SQLite snapshot
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tracker
+# -T: no TTY under systemd. Keeps the newest 3 snapshots in /data/backups
+# (inside the tracker-data volume); a non-zero exit marks the unit failed.
+ExecStart=/usr/bin/docker compose exec -T api node dist/tracker.js db snapshot --keep 3

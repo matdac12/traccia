@@ -73,6 +73,33 @@ export const updateMilestoneInputSchema = z.object({
 });
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneInputSchema>;
 
+/** Hex colour `#rrggbb`. */
+export const colorSchema = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/, "must be a hex colour like #6b7280");
+
+export const createLabelInputSchema = z.object({
+  name: nameSchema,
+  color: colorSchema.optional(),
+  /** Project id, name or key. Omit or `null` for a global label. */
+  project: z.string().min(1).nullable().optional(),
+});
+export type CreateLabelInput = z.infer<typeof createLabelInputSchema>;
+
+export const updateLabelInputSchema = z.object({
+  name: nameSchema.optional(),
+  color: colorSchema.optional(),
+});
+export type UpdateLabelInput = z.infer<typeof updateLabelInputSchema>;
+
+export const listLabelsInputSchema = z.object({
+  /** Include this project's labels besides the global ones. */
+  project: z.string().optional(),
+  includeDeleted: z.boolean().optional(),
+});
+export type ListLabelsInput = z.infer<typeof listLabelsInputSchema>;
+
+export const labelNamesSchema = z.array(nameSchema);
 // ---- Issues ----
 
 /**
@@ -147,6 +174,8 @@ export const updateIssueInputSchema = z.object({
   assignee: actorSchema.nullable().optional(),
   milestoneId: z.string().min(1).nullable().optional(),
   sortOrder: z.number().finite().optional(),
+  /** Replaces the issue's label set. Names must already exist; never auto-created. */
+  labels: labelNamesSchema.optional(),
   /** Optimistic concurrency: the `updatedAt` the caller last saw. */
   expectedUpdatedAt: z.string().optional(),
 });
