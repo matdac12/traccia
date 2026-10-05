@@ -1,0 +1,18 @@
+#!/bin/sh
+# Fast local gate, wired by `pnpm install` (the `prepare` script sets core.hooksPath).
+# Lints only the files in this commit, so it stays under a second.
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+if [ -x node_modules/.bin/biome ]; then
+  ./node_modules/.bin/biome lint --staged --no-errors-on-unmatched
+else
+  pnpm exec biome lint --staged --no-errors-on-unmatched
+fi
+
+# Optional: scan the staged diff for secrets when gitleaks is installed (see .gitleaks.toml).
+# Not required; install it yourself if you want this guard.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --staged --redact --no-banner
+fi

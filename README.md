@@ -45,11 +45,14 @@ Requires Node 22 or newer (`nvm use` reads `.nvmrc`) and pnpm 10 (via corepack: 
 
 ```sh
 pnpm install
+pnpm check       # lint + typecheck + tests (the full gate)
 pnpm lint
 pnpm typecheck
 pnpm test        # api: 30+ test files, runs against temp SQLite files, no services needed
 pnpm format      # apply Biome formatting
 ```
+
+There is no CI. `pnpm install` wires versioned git hooks (`.githooks/`, via `core.hooksPath`): a commit lints the staged files, a push runs `pnpm check`. Bypass with `git commit/push --no-verify`. `pnpm secrets` scans history with gitleaks when it is installed.
 
 Run the api. `BASE_URL` is required, and `DATA_DIR` defaults to `/data`, so point it at a writable folder:
 

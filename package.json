@@ -11,7 +11,10 @@
     "format": "biome format --write .",
     "docs:tools": "pnpm --filter api docs:tools",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "secrets": "gitleaks git . --redact --no-banner",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
