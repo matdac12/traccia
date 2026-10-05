@@ -47,15 +47,15 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b px-3 py-1.5 sm:px-4">
         <h1 className="text-[13px] font-medium">{title}</h1>
         {data && <span className="text-xs text-muted-foreground" data-testid="total">{shown}{more ? "+" : ""}</span>}
-        <div className="mx-2 h-4 w-px bg-border" />
+        <div className="mx-2 hidden h-4 w-px bg-border sm:block" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
         {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} />}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
-        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="ml-auto" />
-        <div className="flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="View">
+        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="sm:ml-auto" />
+        <div className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" role="group" aria-label="View">
           {viewButton("table", "Table", <Rows3 className="size-3.5" />)}
           {viewButton("kanban", "Board", <Columns3 className="size-3.5" />)}
         </div>

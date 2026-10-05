@@ -86,7 +86,7 @@ export function SearchBox({ value, onSearch }: { value: string; onSearch: (q: st
     if (value !== emitted.current) { emitted.current = value; setText(value); }
   }, [value]);
   return (
-    <div className="relative">
+    <div className="relative order-last w-full sm:order-none sm:w-auto">
       <Search className="absolute left-2 top-1.5 size-3.5 text-muted-foreground" />
       <Input
         type="search"
@@ -94,7 +94,7 @@ export function SearchBox({ value, onSearch }: { value: string; onSearch: (q: st
         value={text}
         onChange={(e) => { setText(e.target.value); debounced(e.target.value); }}
         placeholder="Search…"
-        className="h-7 w-48 pl-7 text-[13px]"
+        className="h-8 w-full pl-7 text-[13px] sm:h-7 sm:w-48"
       />
     </div>
   );
@@ -110,7 +110,7 @@ export function ActiveChips({ filters, lookups, onChange, hideProject = false }:
   if (filters.milestone) chips.push({ key: "milestone", kind: "milestone", text: lookups.milestones.find((m) => m.id === filters.milestone)?.name ?? filters.milestone, remove: { ...filters, milestone: undefined } });
   if (!chips.length) return null;
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b px-4 py-1.5">
+    <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-1.5 sm:px-4">
       {chips.map((c) => (
         <span key={c.key} className="inline-flex h-6 items-center gap-1 rounded-md border bg-muted/50 pl-2 pr-1 text-xs">
           <span className="text-muted-foreground">{c.kind}:</span>
