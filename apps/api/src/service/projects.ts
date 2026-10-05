@@ -14,6 +14,7 @@ import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import {
   type DbHandle,
+  flagDeleted,
   definedOnly,
   parseInput,
   type ServiceContext,
@@ -114,9 +115,9 @@ export function createProjectsService(ctx: ServiceContext) {
     },
 
     /** Oldest first. Soft-deleted projects are excluded unless `includeDeleted`. */
-    list(input: ListProjectsInput = {}): Project[] {
+    list(input: ListProjectsInput = {}): (Project & { deleted?: boolean })[] {
       const filter = parseInput(listProjectsInputSchema, input);
-      return ctx.db
+      const rows = ctx.db
         .select()
         .from(projects)
         .where(
@@ -127,6 +128,7 @@ export function createProjectsService(ctx: ServiceContext) {
         )
         .orderBy(asc(projects.id))
         .all();
+      return flagDeleted(rows, filter.includeDeleted);
     },
   };
 }

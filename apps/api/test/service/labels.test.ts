@@ -193,6 +193,21 @@ describe("attach and detach", () => {
     );
   });
 
+  it("detaches by name a label that was soft-deleted while attached", () => {
+    const { services, p1, makeIssue, attachedCount, activityTypes } = setup();
+    const l = services.labels.create({ name: "bug" });
+    const issue = makeIssue(p1.id);
+    services.labels.attach("you", issue.id, ["bug"]);
+    services.labels.delete(l.id);
+    expect(services.labels.detach("you", issue.id, ["Bug"])).toHaveLength(1);
+    expect(attachedCount(issue.id)).toBe(0);
+    expect(activityTypes(issue.id)).toContain("label_removed:bug");
+    // A name that never matched anything attached is still unknown.
+    expect(code(() => services.labels.detach("you", issue.id, ["nope"]))).toBe(
+      "validation_error",
+    );
+  });
+
   it("detach and setForIssue are all-or-nothing on unknown names", () => {
     const { services, p1, makeIssue, attachedCount } = setup();
     services.labels.create({ name: "a" });

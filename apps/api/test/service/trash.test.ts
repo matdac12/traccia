@@ -235,15 +235,54 @@ describe("restore", () => {
     );
   });
 
-  it("restoring a comment records activity on the owning issue", async () => {
+  it("restoring a comment or attachment records its own activity type on the owning issue", async () => {
     const s = await setup();
     const i = s.issue();
     const c = s.services.comments.create("you", i.id, { body: "x" });
+    const a = await s.attach(i.id);
     await s.del("comment", c.id);
+    await s.del("attachment", a.id);
     s.services.trash.restore("you", "comment", c.id);
+    s.services.trash.restore("you", "attachment", a.id);
+    const types = s.acts(i.id).map((x) => x.type);
+    expect(types.filter((t) => t === "comment_restored")).toHaveLength(1);
+    expect(types.filter((t) => t === "attachment_restored")).toHaveLength(1);
+    expect(types).not.toContain("issue_restored");
+  });
+
+  it("restoring a milestone re-links the issues that lost it", async () => {
+    const s = await setup();
+    const m = s.services.milestones.create("you", s.project.id, { name: "M" });
+    const other = s.services.milestones.create("you", s.project.id, {
+      name: "Other",
+    });
+    const a = s.issue("A", { milestoneId: m.id });
+    const moved = s.issue("moved", { milestoneId: m.id });
+    const gone = s.issue("gone", { milestoneId: m.id });
+    await s.del("issue", gone.id);
+    await s.del("milestone", m.id);
+    // Moved to another milestone while the first was deleted: left alone.
+    s.services.issues.update("you", moved.id, { milestoneId: other.id });
+    s.services.trash.restore("you", "milestone", m.id);
+    const ms = (id: string) =>
+      s.db.select().from(issues).where(eq(issues.id, id)).get()?.milestoneId;
+    expect(ms(a.id)).toBe(m.id);
+    expect(ms(moved.id)).toBe(other.id);
+    expect(ms(gone.id)).toBe(m.id);
     expect(
-      s.acts(i.id).filter((x) => x.type === "issue_restored"),
+      s
+        .acts(a.id)
+        .filter(
+          (x) =>
+            x.type === "milestone_changed" &&
+            JSON.parse(x.data).cause === "milestone_restored",
+        ),
     ).toHaveLength(1);
+    // A second delete/restore cycle relinks only what that delete cleared.
+    s.services.issues.update("you", a.id, { milestoneId: null });
+    await s.del("milestone", m.id);
+    s.services.trash.restore("you", "milestone", m.id);
+    expect(ms(a.id)).toBeNull();
   });
 });
 
@@ -350,6 +389,90 @@ describe("trash listing", () => {
     expect(p2.items.map((x) => x.id)).toEqual([all.items[3]?.id]);
     expect(p2.nextCursor).toBeNull();
     expect(s.services.trash.list({ type: "comment" }).items).toHaveLength(1);
+  });
+
+  it("says who deleted each item and which project it belongs to", async () => {
+    const s = await setup();
+    const m = s.services.milestones.create("you", s.project.id, { name: "M" });
+    const parent = s.issue("parent");
+    const child = s.issue("child", { parentId: parent.id });
+    const c = s.services.comments.create("you", child.id, { body: "x" });
+    const a = await s.attach(child.id);
+    await s.services.trash.delete("agent", "milestone", m.id);
+    await s.services.trash.delete("agent", "comment", c.id);
+    await s.del("attachment", a.id);
+    await s.del("issue", parent.id);
+    const other = s.services.projects.create("you", { name: "Q" });
+    await s.services.trash.delete("agent", "project", other.id);
+    const byId = new Map(
+      s.services.trash.list().items.map((x) => [x.id, x] as const),
+    );
+    const proj = { projectId: s.project.id, projectName: "P" };
+    expect(byId.get(m.id)).toMatchObject({ deletedBy: "agent", ...proj });
+    expect(byId.get(c.id)).toMatchObject({ deletedBy: "agent", ...proj });
+    expect(byId.get(a.id)).toMatchObject({ deletedBy: "you", ...proj });
+    expect(byId.get(parent.id)).toMatchObject({
+      deletedBy: "you",
+      parentId: null,
+      ...proj,
+    });
+    expect(byId.get(child.id)).toMatchObject({
+      deletedBy: "you",
+      parentId: parent.id,
+    });
+    expect(byId.get(other.id)).toMatchObject({
+      deletedBy: "agent",
+      projectId: other.id,
+      projectName: "Q",
+    });
+  });
+});
+
+describe("includeDeleted lists", () => {
+  it("flag deleted rows with deleted: true and live rows with false", async () => {
+    const s = await setup();
+    const m = s.services.milestones.create("you", s.project.id, { name: "M" });
+    const live = s.issue("live");
+    const gone = s.issue("gone");
+    const c = s.services.comments.create("you", live.id, { body: "x" });
+    const reply = s.services.comments.create("you", live.id, {
+      body: "r",
+      parentId: c.id,
+    });
+    const keep = s.services.comments.create("you", live.id, { body: "k" });
+    const label = s.services.labels.create({ name: "L" });
+    await s.del("milestone", m.id);
+    await s.del("issue", gone.id);
+    await s.del("comment", c.id);
+    s.services.labels.delete(label.id);
+
+    const flags = (rows: { id: string; deleted?: boolean }[]) =>
+      Object.fromEntries(rows.map((r) => [r.id, r.deleted]));
+    expect(
+      flags(
+        s.services.issues.list({ project: s.project.id, includeDeleted: true })
+          .items,
+      ),
+    ).toEqual({ [live.id]: false, [gone.id]: true });
+    expect(
+      flags(s.services.milestones.list(s.project.id, { includeDeleted: true })),
+    ).toEqual({ [m.id]: true });
+    expect(flags(s.services.labels.list({ includeDeleted: true }))).toEqual({
+      [label.id]: true,
+    });
+    const threads = s.services.comments.list(live.id, { includeDeleted: true });
+    expect(threads.map((t) => [t.id, t.deleted])).toEqual([
+      [c.id, true],
+      [keep.id, false],
+    ]);
+    expect(threads[0]?.replies.map((r) => r.deleted)).toEqual([true]);
+    expect(reply.id).toBeTruthy();
+    // Without the option the flag is absent.
+    expect(
+      s.services.issues.list({ project: s.project.id }).items[0],
+    ).not.toHaveProperty("deleted");
+    const plist = s.services.projects.list({ includeDeleted: true });
+    expect(plist.every((p) => p.deleted === false)).toBe(true);
   });
 });
 

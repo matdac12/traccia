@@ -26,7 +26,12 @@ import {
   MAX_LIMIT,
   type Page,
 } from "../rest/pagination.js";
-import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
+import {
+  type DbHandle,
+  flagDeleted,
+  parseInput,
+  type ServiceContext,
+} from "./context.js";
 import type { Issue } from "./issues.js";
 import { resolveIssue } from "./issues.js";
 import { resolveProject } from "./projects.js";
@@ -170,13 +175,13 @@ export function buildIssueListQuery(db: DbHandle, input: ListIssuesInput) {
 export function createIssueListService(ctx: ServiceContext) {
   return {
     /** Cursor-paginated issue list; see `buildIssueListQuery` for the filter rules. */
-    list(input: ListIssuesInput = {}): Page<Issue> {
+    list(input: ListIssuesInput = {}): Page<Issue & { deleted?: boolean }> {
       const { query, limit, orderBy, order } = buildIssueListQuery(
         ctx.db,
         input,
       );
       const rows = query.all();
-      const items = rows.slice(0, limit);
+      const items = flagDeleted(rows.slice(0, limit), input.includeDeleted);
       const last = items[items.length - 1];
       return {
         items,

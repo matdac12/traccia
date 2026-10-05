@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../lib/api/client";
 import type { TrashItem } from "../lib/api/schemas";
-import { batchPeers, itemHref, purgeConfirmation, restoreSummary } from "../components/trash/trash-model";
+import { batchPeers, deletedByText, itemHref, purgeConfirmation, restoreSummary } from "../components/trash/trash-model";
 
 const restoreItem = vi.fn();
 const purgeItem = vi.fn();
@@ -11,7 +11,8 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const { purgeAction, restoreAction } = await import("../app/(app)/trash/actions");
 
 const item = (o: Partial<TrashItem>): TrashItem => ({
-  type: "issue", id: "i1", label: "MAT-1 Fix it", deletedAt: "2026-10-05T10:00:00Z", deletedBatch: "b1", issueId: null, ...o,
+  type: "issue", id: "i1", label: "MAT-1 Fix it", deletedAt: "2026-10-05T10:00:00Z", deletedBatch: "b1", issueId: null,
+  parentId: null, projectId: "p1", projectName: "P", deletedBy: "you", ...o,
 });
 
 beforeEach(() => {
@@ -68,7 +69,35 @@ describe("purge confirmation", () => {
     const c = purgeConfirmation(all[0]!, all);
     expect(c.name).toBe("MAT-1 Fix it");
     expect(c.warning).toBe("This cannot be undone.");
-    expect(c.withIt).toBe("This also permanently removes at least 2 comments and 1 attachment deleted with it.");
+    expect(c.withIt).toBe("This also permanently removes 2 comments and 1 attachment deleted with it.");
+  });
+  it("counts a project's issues, comments and attachments exactly, from any batch", () => {
+    const p = item({ type: "project", id: "p1", label: "P", deletedBatch: "bp" });
+    const tree = [
+      p,
+      item({ id: "i1", deletedBatch: "bp" }),
+      item({ id: "i2", parentId: "i1", deletedBatch: "older" }),
+      item({ type: "comment", id: "c1", issueId: "i2", deletedBatch: "older2" }),
+      item({ type: "milestone", id: "m1", label: "M", deletedBatch: "bp" }),
+      item({ id: "x", projectId: "other", deletedBatch: "bx" }),
+    ];
+    expect(purgeConfirmation(p, tree).withIt).toBe("This also permanently removes 1 milestone, 2 issues and 1 comment deleted with it.");
+  });
+  it("counts an issue's sub-issue tree and their comments, but not a sibling's", () => {
+    const tree = [
+      item({ id: "i1" }),
+      item({ id: "i2", parentId: "i1", deletedBatch: "old" }),
+      item({ id: "i3", parentId: "i2", deletedBatch: "old2" }),
+      item({ id: "sib", parentId: null, deletedBatch: "b9" }),
+      item({ type: "comment", id: "c1", issueId: "i3", deletedBatch: "old3" }),
+      item({ type: "comment", id: "c2", issueId: "sib", deletedBatch: "b9" }),
+    ];
+    expect(purgeConfirmation(tree[0]!, tree).withIt).toBe("This also permanently removes 2 issues and 1 comment deleted with it.");
+  });
+  it("says who deleted an item", () => {
+    expect(deletedByText(item({ deletedBy: "you" }))).toBe("by you");
+    expect(deletedByText(item({ deletedBy: "agent" }))).toBe("by an agent");
+    expect(deletedByText(item({ deletedBy: null }))).toBe("");
   });
   it("badge counts only what a restore brings back", () => {
     expect(batchPeers(all[0]!, all).map((i) => i.id)).toEqual(["c1", "a1"]);

@@ -7,7 +7,7 @@ import { useState, useTransition } from "react";
 import { purgeAction, restoreAction } from "@/app/(app)/trash/actions";
 import { Button } from "@/components/ui/button";
 import type { TrashItem, TrashType } from "@/lib/api/schemas";
-import { batchPeers, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL } from "./trash-model";
+import { batchPeers, deletedByText, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL } from "./trash-model";
 
 const ICON = { issue: SquareCheck, comment: MessageSquare, project: FolderKanban, milestone: Flag, attachment: FileImage } satisfies Record<TrashType, unknown>;
 
@@ -81,7 +81,10 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
             <li key={`${t.type}:${t.id}`} className="group flex min-h-11 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/40">
               <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <span className="w-20 shrink-0 text-xs text-muted-foreground">{TYPE_LABEL[t.type]}</span>
-              <span className="min-w-0 flex-1 truncate">{t.label}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {t.label}
+                {t.type !== "project" && t.projectName ? <span className="ml-2 text-xs text-muted-foreground">in {t.projectName}</span> : null}
+              </span>
               {together.length > 0 ? (
                 <span
                   className="shrink-0 rounded-full border px-2 text-[11px] text-muted-foreground"
@@ -90,8 +93,9 @@ export function TrashList({ items, all }: { items: TrashItem[]; all: TrashItem[]
                   with {together.length} {together.length === 1 ? "other" : "others"}
                 </span>
               ) : null}
-              <time dateTime={t.deletedAt} title={new Date(t.deletedAt).toLocaleString()} className="w-16 shrink-0 text-right text-xs text-muted-foreground">
+              <time dateTime={t.deletedAt} title={new Date(t.deletedAt).toLocaleString()} className="w-32 shrink-0 text-right text-xs text-muted-foreground">
                 {ago(t.deletedAt)}
+                {deletedByText(t) ? ` ${deletedByText(t)}` : ""}
               </time>
               <div className="flex shrink-0 gap-1">
                 <Button

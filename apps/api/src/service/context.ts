@@ -86,3 +86,11 @@ export function definedOnly<T extends Record<string, unknown>>(
     Object.entries(patch).filter(([, v]) => v !== undefined),
   ) as Partial<T>;
 }
+
+/** Adds `deleted` to each row when `on` (the `includeDeleted` lists); rows stay untouched otherwise. */
+export function flagDeleted<T extends { deletedAt: string | null }>(
+  rows: T[],
+  on: boolean | undefined,
+): (T & { deleted?: boolean })[] {
+  return on ? rows.map((r) => ({ ...r, deleted: r.deletedAt !== null })) : rows;
+}
