@@ -4,7 +4,7 @@ import { filtersToApiQuery, type IssueFilters } from "../issue-filters";
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError, api } from "./client";
-import { issueDetailSchema, issueRefSchema, issueSchema, labelSchema, milestoneSchema, pageOf, restoreResultSchema, searchHitSchema } from "./schemas";
+import { issueDetailSchema, issueGroupsSchema, issueRefSchema, issueSchema, labelSchema, milestoneSchema, pageOf, restoreResultSchema, searchHitSchema } from "./schemas";
 
 /** Issues per status group per request: the table never loads the whole list. */
 export const GROUP_PAGE_SIZE = 50;
@@ -16,12 +16,26 @@ export function listIssuePage(filters: IssueFilters, status: IssueStatus, cursor
   });
 }
 
-/** The first page of every status group, fetched in parallel. */
-export async function listIssueGroups(filters: IssueFilters) {
-  return Promise.all(
-    ISSUE_STATUSES.map(async (status) => ({ status, ...(await listIssuePage(filters, status)) })),
-  );
+type GroupCursors = Partial<Record<IssueStatus, string>>;
+
+/** `GET /issues/groups`: one request for the listed statuses (default all), each continuing from its own cursor. */
+function fetchGroups(filters: IssueFilters, statuses: readonly IssueStatus[] = ISSUE_STATUSES, cursors: GroupCursors = {}) {
+  return api().request("/issues/groups", {
+    schema: issueGroupsSchema,
+    query: {
+      ...filtersToApiQuery(filters),
+      status: [...statuses],
+      limit: GROUP_PAGE_SIZE,
+      cursor: statuses.flatMap((s) => (cursors[s] ? [`${s}:${cursors[s]}`] : [])),
+    },
+  });
 }
+
+/**
+ * The first page of every status group in one request, with the sync token the live refresh starts from. The
+ * API reads the token before the lists, so a change landing in between is picked up by the first poll, never missed.
+ */
+export const listIssueGroups = (filters: IssueFilters) => fetchGroups(filters);
 
 /** Pages fetched at most per group on a refresh: 5 x 50 covers everything "load more" can reasonably have opened. */
 const MAX_REFRESH_PAGES = 5;
@@ -29,31 +43,26 @@ const MAX_REFRESH_PAGES = 5;
 /**
  * A refresh of the groups already on screen: for every status it re-reads as many pages as the client had
  * loaded (`counts`), so a poll never drops what "load more" opened. `board` lists by Kanban position.
+ * One request in the common case; a group that had "load more" opened continues in follow-up requests that
+ * cover all such groups at once.
  */
 export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<Record<IssueStatus, number>>, board: boolean) {
-  const page = board ? listBoardPage : listIssuePage;
-  return Promise.all(
-    ISSUE_STATUSES.map(async (status) => {
-      const items: z.output<typeof issueSchema>[] = [];
-      let cursor: string | undefined;
-      let nextCursor: string | null = null;
-      for (let i = 0; i < MAX_REFRESH_PAGES; i++) {
-        const res = await page(filters, status, cursor);
-        items.push(...res.items);
-        nextCursor = res.nextCursor;
-        cursor = res.nextCursor ?? undefined;
-        if (!cursor || items.length >= (counts[status] ?? 0)) break;
-      }
-      return { status, items, nextCursor };
-    }),
-  );
+  const f = board ? boardFilters(filters) : filters;
+  const first = await fetchGroups(f);
+  const merged = first.groups.map((g) => ({ ...g, pages: 1 }));
+  for (;;) {
+    const pending = merged.filter((g) => g.nextCursor && g.items.length < (counts[g.status] ?? 0) && g.pages < MAX_REFRESH_PAGES);
+    if (!pending.length) break;
+    const next = await fetchGroups(f, pending.map((g) => g.status), Object.fromEntries(pending.map((g) => [g.status, g.nextCursor!])));
+    for (const page of next.groups) {
+      const group = merged.find((g) => g.status === page.status)!;
+      group.items.push(...page.items);
+      group.nextCursor = page.nextCursor;
+      group.pages++;
+    }
+  }
+  return merged.map(({ status, items, nextCursor }) => ({ status, items, nextCursor }));
 }
-
-/**
- * Where a page's live refresh starts: the newest change now, or the epoch on an empty database (so the very
- * first issue created is noticed). Null only when the probe itself failed; the poll then starts from a baseline.
- */
-export const initialSyncToken = () => latestIssueChange().then((t) => t ?? "1970-01-01T00:00:00.000Z", () => null);
 
 /**
  * The cheap change probe behind polling: the newest `updatedAt` among issues changed after `since`
