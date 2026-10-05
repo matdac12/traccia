@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/client";
-import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
+import { listBoardColumns, listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { listProjects } from "@/lib/api/projects";
 import { parseFilters } from "@/lib/issue-filters";
 import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
@@ -10,7 +10,7 @@ async function load(filters: ReturnType<typeof parseFilters>): Promise<{ data: I
   try {
     const projects = await listProjects();
     const [groups, labels, milestones] = await Promise.all([
-      listIssueGroups(filters),
+      (filters.view === "kanban" ? listBoardColumns(filters) : listIssueGroups(filters)),
       listLabels(),
       Promise.all(projects.map((p) => listProjectMilestones(p.id))).then((m) => m.flat()),
     ]);

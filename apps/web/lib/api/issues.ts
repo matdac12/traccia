@@ -61,3 +61,16 @@ export async function createIssue(body: CreateIssueInput, labels: string[]) {
     return { issue: created, labelError: err.message };
   }
 }
+
+/** The board shows each column in `sortOrder` (Kanban position), whatever sort the table uses. */
+const boardFilters = (f: IssueFilters): IssueFilters => ({ ...f, orderBy: "sortOrder", order: "asc" });
+
+export const listBoardPage = (filters: IssueFilters, status: IssueStatus, cursor?: string) =>
+  listIssuePage(boardFilters(filters), status, cursor);
+
+export const listBoardColumns = (filters: IssueFilters) => listIssueGroups(boardFilters(filters));
+
+/** `PATCH /issues/:identifier/position`: neighbour ids only, the service computes the position. */
+export function moveIssue(identifier: string, body: { status: IssueStatus; beforeId?: string; afterId?: string }) {
+  return api().request(`/issues/${encodeURIComponent(identifier)}/position`, { method: "PATCH", schema: issueSchema, body });
+}

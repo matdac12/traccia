@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/traccia/empty-state";
 import { Button } from "@/components/ui/button";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
 import { activeFilterCount, clearFilters, filtersToSearchParams, type IssueFilters } from "@/lib/issue-filters";
+import { Board } from "@/components/kanban/board";
 import { ActiveChips, FilterMenu, SearchBox } from "./filter-bar";
 import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-table";
 
@@ -54,9 +55,9 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
       <div className={`min-h-0 flex-1 overflow-auto transition-opacity ${pending ? "opacity-60" : ""}`}>
         {error ? (
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
-        ) : filters.view === "kanban" ? (
-          <EmptyState icon={Columns3} title="Board view is coming">The Kanban board arrives in a later iteration. Your filters carry over.</EmptyState>
-        ) : !data ? null : shown === 0 ? (
+        ) : !data ? null : filters.view === "kanban" ? (
+          <Board key={query} columns={data.groups} query={query} />
+        ) : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
               Try removing a filter or changing your search.
