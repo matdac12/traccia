@@ -1,24 +1,29 @@
-# Issue tracker: Linear
+# Issue tracker: Traccia
 
-Issues and specs for this repo live in Linear, not in the repo and not on GitHub. Use the Linear MCP tools (`mcp__claude_ai_Linear__*`); there is no CLI.
+Issues and specs for this repo live in Traccia (this project's own tracker, deployed on `omni`), not in the repo and not on GitHub. Use the `traccia` MCP tools (`mcp__traccia__*`, see `docs/mcp-tools.md`); connect with `docs/agent-setup.md`. Writes are recorded as the `agent` actor.
 
-- Workspace: `matdac6` (https://linear.app/matdac6)
-- Team: `Matdac6`, key `MAT`
-- Project: `MATTI-TRACKER` (https://linear.app/matdac6/project/matti-tracker-3b06cfad4445). Attach every issue you create to this project.
+- Server: https://omni.tail2b3fbf.ts.net (MCP at `/mcp`, tailnet only)
+- Project: `Traccia`, key `TRC`. File every issue in it.
 
 ## Conventions
 
-- **Create an issue**: `save_issue` with team `Matdac6`, project `MATTI-TRACKER`, a title, and a markdown description (real newlines, no escaped `\n`).
-- **Read an issue**: `get_issue` by identifier (e.g. `MAT-123`); `list_comments` for the discussion.
+- **Search before you create**: `list_issues` with `query` and `project: TRC`; comment on an existing issue instead of filing a duplicate.
+- **Create an issue**: `save_issue` with `project: TRC`, a title and a markdown description (real newlines, no escaped `\n`).
+- **Read an issue**: `get_issue` by identifier (e.g. `TRC-123`); comments are included.
 - **List/search issues**: `list_issues`, filtered by project, label or status.
 - **Comment**: `save_comment`.
-- **Apply / remove labels**: `save_issue` with the full desired label set; create missing labels with `create_issue_label` (see `docs/agents/triage-labels.md`).
-- **Close**: `save_issue` with a Done status, or Canceled for `wontfix`.
+- **Apply / remove labels**: `save_issue` with the full desired label set; labels must already exist (`list_issue_labels`; see `docs/agents/triage-labels.md`).
+- **Status**: `In Progress` when you start, `In Review` when a PR is ready, `Done` only once verified, `Canceled` for `wontfix`.
+- Reference issues by identifier (`TRC-123`) in commits, PR titles and comments.
+
+## Linear archive
+
+Until the cutover this project's issues lived in Linear (workspace `matdac6`, team `Matdac6`, project `MATTI-TRACKER`, identifiers `MAT-nnn`). All 91 were imported once into `TRC`; each imported description starts with `Migrated from Linear MAT-nnn`, and `MAT-nnn` mentions in text read `TRC-m (was MAT-nnn)`. Linear is now a **read-only archive**: do not create or edit issues there. To look up an old identifier, search Traccia for `MAT-nnn`.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a Linear issue in `MATTI-TRACKER`.
+Create a Traccia issue in project `TRC`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Call `get_issue` with the identifier, plus `list_comments`.
+Call `get_issue` with the identifier.
