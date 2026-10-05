@@ -19,6 +19,7 @@ import {
   type ServiceContext,
   type Tx,
 } from "./context.js";
+import { type CommentThread, listIssueComments } from "./comments.js";
 import { allocateIssueNumber } from "./issue-keys.js";
 import { setIssueLabels } from "./labels.js";
 import { resolveProject } from "./projects.js";
@@ -28,7 +29,7 @@ export type Activity = typeof activity.$inferSelect;
 
 /** An issue plus the requested `include` collections (empty until those features land). */
 export type IssueDetail = Issue & {
-  comments: unknown[];
+  comments: CommentThread[];
   activity: Activity[];
   attachments: unknown[];
   children: Issue[];
@@ -180,7 +181,9 @@ export function createIssuesService(ctx: ServiceContext) {
       const issue = resolveIssue(ctx.db, ref);
       return {
         ...issue,
-        comments: [],
+        comments: include.includes("comments")
+          ? listIssueComments(ctx.db, issue.id)
+          : [],
         attachments: [],
         relations: [],
         activity: include.includes("activity")
