@@ -137,6 +137,10 @@ export function IssueDetail(props: IssueDetailProps) {
     [milestones, projects],
   );
 
+  // A hook must run on every render, so this sits above the `deleted` early return (below it, deleting crashed the page).
+  // Properties sit in a side panel from lg up and inline under the title below it; mount only one copy.
+  const wide = useMediaQuery("(min-width: 1024px)", true);
+
   if (deleted) {
     return (
       <div className="grid h-full place-items-center p-6">
@@ -157,8 +161,6 @@ export function IssueDetail(props: IssueDetailProps) {
     );
   }
 
-  // Properties sit in a side panel from lg up and inline under the title below it; mount only one copy.
-  const wide = useMediaQuery("(min-width: 1024px)", true);
   const propertiesPanel = <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />;
 
   return (
