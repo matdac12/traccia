@@ -1,7 +1,7 @@
 import "server-only";
 import type { CreateProjectInput, UpdateProjectInput } from "@traccia/shared";
 import { api } from "./client";
-import { pageOf, projectSchema } from "./schemas";
+import { deletedResultSchema, pageOf, projectSchema } from "./schemas";
 
 /** All live projects, following pagination (the list is small, so this is a handful of calls at most). */
 export async function listProjects() {
@@ -28,4 +28,9 @@ export function updateProject(id: string, body: UpdateProjectInput) {
 
 export function createProject(body: CreateProjectInput) {
   return api().request("/projects", { schema: projectSchema, method: "POST", body });
+}
+
+/** Soft delete: the project, its issues and milestones go to the trash as one batch. */
+export function deleteProject(id: string) {
+  return api().request(`/projects/${encodeURIComponent(id)}`, { schema: deletedResultSchema, method: "DELETE" });
 }
