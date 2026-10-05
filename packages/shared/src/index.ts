@@ -5,3 +5,4 @@ export * from "./errors.js";
 export * from "./schemas.js";
 export * from "./issue-list-schemas.js";
 export * from "./rest-catalog-schemas.js";
+export * from "./rest-issue-schemas.js";
