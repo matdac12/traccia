@@ -158,9 +158,9 @@ describe("query plans", () => {
     expect(plan(sqlite, { assignee: "you", status: ["todo"] }, db)).toContain(
       "issues_assignee",
     );
-    expect(plan(sqlite, { updatedAfter: "2026-01-01T00:00:00.000Z" }, db)).toContain(
-      "issues_updated",
-    );
+    expect(
+      plan(sqlite, { updatedAfter: "2026-01-01T00:00:00.000Z" }, db),
+    ).toContain("issues_updated");
     expect(
       plan(sqlite, { parent: undefined, project: p1.id }, db),
     ).not.toContain("SCAN issues\n");

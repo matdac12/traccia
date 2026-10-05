@@ -35,6 +35,8 @@ export const listIssuesInputSchema = z.object({
   createdBy: actorSchema.optional(),
   /** ISO timestamp; only issues updated strictly after it. */
   updatedAfter: z.iso.datetime().optional(),
+  /** Free-text search over titles, descriptions and comments (FTS5). */
+  q: z.string().optional(),
   includeDeleted: z.boolean().optional(),
   orderBy: z.enum(ISSUE_ORDER_BYS).default("updatedAt"),
   order: z.enum(["asc", "desc"]).default("desc"),

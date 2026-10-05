@@ -30,6 +30,7 @@ import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
 import type { Issue } from "./issues.js";
 import { resolveIssue } from "./issues.js";
 import { resolveProject } from "./projects.js";
+import { issueMatchesCondition } from "./search.js";
 
 const ORDER_COLUMNS = {
   updatedAt: issues.updatedAt,
@@ -126,7 +127,7 @@ export function buildIssueListQuery(db: DbHandle, input: ListIssuesInput) {
     f.priority !== undefined ? eq(issues.priority, f.priority) : undefined,
     f.createdBy ? eq(issues.createdBy, f.createdBy) : undefined,
     f.updatedAfter ? gt(issues.updatedAt, f.updatedAfter) : undefined,
-    // MAT-1702: the free-text `q` filter plugs in here as one more AND-ed condition.
+    f.q?.trim() ? issueMatchesCondition(f.q) : undefined,
   ];
   for (const name of new Set((f.label ?? []).map((n) => n.toLowerCase()))) {
     conditions.push(
