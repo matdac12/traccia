@@ -287,16 +287,17 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
       }),
   );
 
-  type Fields = Omit<
-    z.infer<z.ZodObject<{ [k: string]: z.ZodType }>>,
-    never
-  > & {
+  type Fields = {
     title?: string;
     project?: string;
+    description?: string;
+    status?: string;
+    priority?: string | number;
+    estimate?: number | null;
+    assignee?: "agent" | "you" | null;
     labels?: string[];
     parentId?: string | null;
     expectedUpdatedAt?: string;
-    [k: string]: unknown;
   };
 
   function createIssue(

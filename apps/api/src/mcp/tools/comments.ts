@@ -93,7 +93,12 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
             );
           }
           const c = services.comments.update(ctx.actor, id, { body });
-          return toolResult(presentComment(c, []));
+          return toolResult(
+            presentComment(
+              c,
+              attachmentsByComment(db, c.issueId).get(c.id) ?? [],
+            ),
+          );
         }
         if (!issueId) {
           return toolError(
