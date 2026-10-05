@@ -1,6 +1,6 @@
-import { pipeline, type Readable } from "node:stream";
+import { type Readable, pipeline } from "node:stream";
 import type { AttachmentStorage } from "./storage.js";
-import { createUploadInspector, type UploadResult } from "./validation.js";
+import { type UploadResult, createUploadInspector } from "./validation.js";
 
 /**
  * Validates `source` while streaming it into storage under `key`.

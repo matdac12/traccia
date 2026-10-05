@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
 import { comments, issues } from "../db/schema.js";
-import type { Comment } from "./comments.js";
 import type { DbHandle } from "./context.js";
+import type { Comment } from "./comments.js";
 import type { Issue } from "./issues.js";
 
 /**

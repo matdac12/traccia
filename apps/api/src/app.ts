@@ -1,16 +1,16 @@
 import { Hono } from "hono";
+import { createMcpRoute } from "./mcp/route.js";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
-import { createMcpRoute } from "./mcp/route.js";
-import { mountActivityRoutes } from "./rest/activity.js";
-import { mountAttachmentRoutes } from "./rest/attachments.js";
-import { mountCommentRoutes } from "./rest/comments.js";
 import type { AppContainer, AppEnv } from "./rest/env.js";
-import { errorHandler, notFoundHandler } from "./rest/errors.js";
+import { mountAttachmentRoutes } from "./rest/attachments.js";
+import { mountActivityRoutes } from "./rest/activity.js";
+import { mountCommentRoutes } from "./rest/comments.js";
 import { mountIssueRoutes } from "./rest/issues.js";
-import { requestContext } from "./rest/request-context.js";
 import { mountSearchRoutes } from "./rest/search.js";
 import { mountTrashRoutes } from "./rest/trash.js";
+import { errorHandler, notFoundHandler } from "./rest/errors.js";
+import { requestContext } from "./rest/request-context.js";
 
 /**
  * Builds the Hono app. Unauthenticated routes (/healthz) are mounted on the

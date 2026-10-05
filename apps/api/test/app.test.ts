@@ -1,18 +1,18 @@
 import { SHARED_PLACEHOLDER } from "@linear-matti/shared";
-import { HTTPException } from "hono/http-exception";
 import { describe, expect, it } from "vitest";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
-import { paginationQuery, toPage } from "../src/rest/pagination.js";
-import { validateBody, validateQuery } from "../src/rest/validate.js";
+import { ERROR_STATUS } from "../src/service/errors.js";
 import {
   ConflictError,
-  ERROR_STATUS,
   ForbiddenError,
   NotFoundError,
   RateLimitedError,
   UnauthorizedError,
   ValidationError,
 } from "../src/service/errors.js";
+import { validateBody, validateQuery } from "../src/rest/validate.js";
+import { paginationQuery, toPage } from "../src/rest/pagination.js";
 import { createTestApp } from "./helpers/test-app.js";
 
 describe("GET /healthz", () => {

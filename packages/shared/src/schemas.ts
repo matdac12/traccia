@@ -3,8 +3,8 @@ import {
   ACTORS,
   ISSUE_STATUSES,
   PRIORITIES,
-  PROJECT_STATUSES,
   type Priority,
+  PROJECT_STATUSES,
 } from "./enums.js";
 
 // Zod input schemas shared by the service layer, REST and MCP.

@@ -20,8 +20,8 @@ import {
 } from "drizzle-orm";
 import { issueLabels, issues, labels, milestones } from "../db/schema.js";
 import {
-  DEFAULT_LIMIT,
   decodeCursor,
+  DEFAULT_LIMIT,
   encodeCursor,
   MAX_LIMIT,
   type Page,

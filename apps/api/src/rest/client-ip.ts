@@ -1,5 +1,5 @@
-import { getConnInfo } from "@hono/node-server/conninfo";
 import type { Context } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
 
 /**
  * Client IP for rate limiting and logs. With TRUST_PROXY the app sits behind
