@@ -27,7 +27,7 @@ function setup() {
 
 describe("moveIssuePosition expectedUpdatedAt", () => {
   it("moves when fresh and returns conflict (row unchanged) when stale", () => {
-    const { services, create, column, move } = setup();
+    const { services, create, column } = setup();
     const a = create("a");
     const b = create("b");
     expect(
@@ -52,7 +52,6 @@ describe("moveIssuePosition expectedUpdatedAt", () => {
     });
     expect(ok.id).toBe(b.id);
     expect(column()).toEqual(["a", "b"]);
-    void move;
   });
 });
 

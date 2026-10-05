@@ -24,6 +24,7 @@ function MilestoneForm({ initial, submitLabel, onSubmit, onCancel }: { initial: 
   const submit = () =>
     start(async () => {
       const res = await onSubmit(values);
+      setConflict(false);
       if (res.ok) return;
       setConflict(res.conflict === true);
       setError(res.error);
