@@ -8,6 +8,7 @@
       "!**/.next",
       "!**/data",
       "!.claude",
+      "!prototypes",
       "!.agents",
       "!skills-lock.json",
       "!opencode.json"
