@@ -16,3 +16,14 @@ export function upsertRow<G extends Group>(groups: G[], row: IssueRow): G[] {
     return g.status === row.status ? { ...g, items: [row, ...g.items] } : g;
   });
 }
+
+/** Takes `id` out of the groups (a deleted issue); the other fields of the groups are kept. */
+export function removeRow<G extends Group>(groups: G[], id: string): G[] {
+  return groups.map((g) => (g.items.some((i) => i.id === id) ? { ...g, items: g.items.filter((i) => i.id !== id) } : g));
+}
+
+/** Puts a restored `row` back at the top of its status group (undo of a delete). Rows already present are left alone. */
+export function insertRow<G extends Group>(groups: G[], row: IssueRow): G[] {
+  if (groups.some((g) => g.items.some((i) => i.id === row.id))) return groups;
+  return groups.map((g) => (g.status === row.status ? { ...g, items: [row, ...g.items] } : g));
+}
