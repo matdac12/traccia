@@ -9,29 +9,19 @@ let n = 0;
 const unique = (what: string) => `${what} ${Date.now()}-${n++}`;
 
 /**
- * `next dev` serves the HTML before React hydrates, and an early click or file selection is silently lost.
+ * The server sends HTML before React hydrates, and an early click or file selection is silently lost.
  * `visit` therefore waits until React has attached its handlers to the shell's "New issue" button.
  */
 async function visit(page: Page, path: string) {
-  const hydrated = () =>
-    page.waitForFunction(
-      () => {
-        const button = [...document.querySelectorAll("nav button")].find((b) => b.textContent?.includes("New issue"));
-        return !!button && Object.keys(button).some((k) => k.startsWith("__reactProps"));
-      },
-      undefined,
-      { timeout: 10_000 },
-    );
   await page.goto(path);
-  // The dev server can hand out a half-compiled bundle right after it compiles a new route; a reload fixes that.
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await hydrated();
-    } catch (err) {
-      if (attempt === 4) throw err;
-      await page.reload();
-    }
-  }
+  await page.waitForFunction(
+    () => {
+      const button = [...document.querySelectorAll("nav button")].find((b) => b.textContent?.includes("New issue"));
+      return !!button && Object.keys(button).some((k) => k.startsWith("__reactProps"));
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
 }
 
 /** Retries a click until its effect shows, without re-clicking once it did (a menu trigger would toggle shut). */

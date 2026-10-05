@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { API_PORT, E2E_LOGIN, WEB_PORT } from "./ports";
@@ -41,7 +41,12 @@ function start(command: string, args: string[], options: { cwd: string; env: Nod
 
 /**
  * Starts a real API on a throwaway SQLite database (created fresh in the OS temp dir) and the dashboard
- * in dev mode against it. Only the processes started here are ever signalled.
+ * as a production build against it. Only the processes started here are ever signalled.
+ *
+ * The dashboard runs `next build` once and then the standalone server (`node <standalone>/server.js`, the
+ * same runtime as the Docker image). `next dev` compiles each route on first visit; under load that
+ * compilation overran assertion timeouts and made `pnpm test:e2e` flaky. A production build removes the
+ * per-route compile entirely, so every request is served from the precompiled bundle.
  */
 export async function startStack(): Promise<Stack> {
   const dataDir = mkdtempSync(join(tmpdir(), "traccia-e2e-"));
@@ -92,18 +97,36 @@ export async function startStack(): Promise<Stack> {
     children.push(start(bin(apiDir, "tsx"), ["src/main.ts"], { cwd: apiDir, env: apiEnv }));
     await waitFor(`${apiUrl}/healthz`, "api", 30_000);
 
+    // Build the dashboard once. `instrumentation.ts` skips env validation during the build phase, so no
+    // runtime env is needed here; the server gets it below. Kept inside the try so a failed build is torn down.
+    const build = spawnSync(bin(webDir, "next"), ["build", "--webpack"], {
+      cwd: webDir,
+      env: { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1" },
+      stdio: "inherit",
+    });
+    if (build.status !== 0) throw new Error(`next build failed (exit ${build.status ?? build.signal})`);
+
+    // `output: "standalone"` emits the server without `.next/static`; copy it next to the server, as the
+    // Dockerfile does. Without it the precompiled JS 404s and the page never hydrates.
+    const standaloneDir = join(webDir, ".next/standalone/apps/web");
+    const staticDir = join(standaloneDir, ".next/static");
+    rmSync(staticDir, { recursive: true, force: true });
+    mkdirSync(join(standaloneDir, ".next"), { recursive: true });
+    cpSync(join(webDir, ".next/static"), staticDir, { recursive: true });
+
     const webEnv: NodeJS.ProcessEnv = {
       ...process.env,
-      // Never inherit a shell's NODE_ENV=production: the dev-only server must run as development.
-      NODE_ENV: "development",
+      NODE_ENV: "production",
+      PORT: String(WEB_PORT),
+      HOSTNAME: "127.0.0.1",
       TRACCIA_API_URL: apiUrl,
       TRACCIA_API_TOKEN: token,
       DASHBOARD_ALLOWED_LOGINS: E2E_LOGIN,
       DASHBOARD_DEV_LOGIN: "",
       NEXT_TELEMETRY_DISABLED: "1",
     };
-    children.push(start(bin(webDir, "next"), ["dev", "--webpack", "-p", String(WEB_PORT), "-H", "127.0.0.1"], { cwd: webDir, env: webEnv }));
-    await waitFor(`${webUrl}/healthz`, "dashboard", 120_000, { headers: { "tailscale-user-login": E2E_LOGIN } });
+    children.push(start(process.execPath, [join(standaloneDir, "server.js")], { cwd: standaloneDir, env: webEnv }));
+    await waitFor(`${webUrl}/healthz`, "dashboard", 60_000, { headers: { "tailscale-user-login": E2E_LOGIN } });
     return { apiUrl, webUrl, token, stop };
   } catch (err) {
     await stop();

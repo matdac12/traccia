@@ -164,14 +164,20 @@ Playwright (headless Chromium) clicks through the real dashboard. `pnpm test` st
 ```sh
 pnpm install
 pnpm --filter web exec playwright install chromium   # once per machine
-pnpm --filter web test:e2e                           # about 1-3 minutes (dev server compiles routes)
+pnpm --filter web test:e2e                           # about 40 s (production build + tests)
 ```
 
 `e2e/global-setup.ts` starts everything itself: the API (`tsx src/main.ts`) on a fresh SQLite database in the OS
 temp dir, a `you` token created through the `traccia` CLI (never printed or written to disk; the dashboard server and the workers receive it through their environment), seed data
-(one project `SMK`), and `next dev` on `127.0.0.1:3100`. Everything is stopped and the database deleted afterwards.
-It needs no `.env` and touches no real data. Ports: `E2E_WEB_PORT` (3100), `E2E_API_PORT` (8799). Stop any other
-`next dev` in `apps/web` first (Next allows one dev server per directory).
+(one project `SMK`), and the dashboard as a **production build** on `127.0.0.1:3100`. It runs `next build --webpack`
+once, then the standalone server (`.next/standalone/apps/web/server.js`, the same runtime as the Docker image).
+Everything is stopped and the database deleted afterwards. It needs no `.env` and touches no real data. Ports:
+`E2E_WEB_PORT` (3100), `E2E_API_PORT` (8799); override both when another run holds them. Stop any other Next
+server (`pnpm dev`) in `apps/web` first: the build takes the `.next` directory lock.
+
+The production build is what makes the suite deterministic (TRC-100). `next dev` compiles each route on its first
+visit, and under load that compilation overran assertion timeouts, so the same scenario could pass or fail run to
+run. A precompiled bundle removes the per-route compile; the whole suite is also faster than the old dev runs.
 
 The dashboard runs with `DASHBOARD_ALLOWED_LOGINS=e2e@local` and the browser sends that `Tailscale-User-Login`
 header (ADR 0008), so the same run proves the 403 for a missing or unknown login. The dev-login bypass is not used.
@@ -183,8 +189,8 @@ the issue is changed through the API, then the stale page edits it); 403 without
 dark theme (checks the `dark` class and background luminance, and attaches a screenshot to the report; not a pixel
 comparison).
 
-`next dev` serves HTML before React hydrates, so `visit()` waits for hydration (reloading if the bundle came out
-half-compiled) before a test clicks. Failure traces and screenshots land in `e2e/.results/` (git-ignored).
+The server sends HTML before React hydrates, so `visit()` waits for hydration before a test clicks. Failure traces
+and screenshots land in `e2e/.results/` (git-ignored).
 
 ## Inline edit (table rows and board cards, MAT-1753)
 
