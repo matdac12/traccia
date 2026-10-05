@@ -76,7 +76,13 @@ It never writes to or deletes anything on the VPS. Retention touches only folder
 
 Do this into a scratch location, not over production. The first time is the restore test (once, before the pilot ends). For a real disaster, the same steps apply but the final data goes into the `tracker-data` volume on the new host.
 
-Use the newest folder from the Windows pull: `omni-<timestamp>\backups\tracker-<UTC>.db` and `omni-<timestamp>\attachments\`. You need Docker, and an API image: `tracker-api:latest` built per `deploy/README.md` (or `docker load` a saved one).
+Use the newest folder from the Windows pull: `omni-<timestamp>\backups\tracker-<UTC>.db` and `omni-<timestamp>\attachments\`. You need Docker, and an API image: `tracker-api:latest` built per `deploy/README.md` (or `docker load` a saved one). The image is `linux/amd64`; on an Apple Silicon Mac Docker runs it under emulation and prints a platform warning, which is harmless (add `--platform linux/amd64` to silence it).
+
+The snapshot lives inside the `tracker-data` volume, not at a host path, so `scp omni:/data/backups/...` does not work. To fetch one by hand without the Windows script, stream it out of the container (read-only):
+
+```sh
+ssh -o RemoteCommand=none -o RequestTTY=no omni 'cd /opt/tracker && docker compose exec -T api cat /data/backups/tracker-<UTC>.db' > tracker.db
+```
 
 1. **Lay out a scratch data dir.** The API expects `tracker.db` and `attachments/` side by side:
 
@@ -107,7 +113,7 @@ Use the newest folder from the Windows pull: `omni-<timestamp>\backups\tracker-<
    curl.exe http://localhost:18787/healthz     # {"ok":true}
    ```
 
-   Startup applies any pending migrations to the scratch copy only. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never `tracker-data`.
+   Startup applies any pending migrations to the scratch copy only. The container runs as uid 1000 (`node`) and must be able to write to the scratch folder; on a Linux host, `chown -R 1000:1000` it if startup fails with a permission error. Note `docker run` here is not `docker compose`: the volume is the scratch folder, never `tracker-data`.
 
 4. **Check issues and attachments load.** Mint a token against the scratch data, then read through the API:
 
@@ -116,7 +122,7 @@ Use the newest folder from the Windows pull: `omni-<timestamp>\backups\tracker-<
    docker exec traccia-restore node dist/tracker.js token list
    ```
 
-   Using that token, list issues over REST or MCP (`list_issues`) and confirm recent issues are present. Open an issue that has an attachment and download it; confirm it opens and its size matches. Spot-check the newest issue you know of to see how stale the copy is.
+   `token create` prints the plaintext token on its own line, once. Using it, list issues over REST (`curl -H "Authorization: Bearer <token>" http://localhost:18787/v1/issues`) or MCP (`list_issues`) and confirm recent issues are present. Check search too: `curl -H "Authorization: Bearer <token>" "http://localhost:18787/v1/search?q=<word from a known title>"` should return a hit with a `<mark>` snippet. The FTS index is part of the snapshot, so no reindex is needed. Open an issue that has an attachment and download it (`GET /v1/attachments/<id>`); confirm it opens and its size matches. If the live tracker has no attachments yet there is no `attachments/` directory in the volume and the pull produces none; that is expected, and attachment restore is then untested. Spot-check the newest issue you know of to see how stale the copy is.
 
 5. **Clean up.**
 
