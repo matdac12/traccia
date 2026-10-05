@@ -19,4 +19,11 @@ describe("AppShell on narrow screens", () => {
     expect(within(drawer).getByRole("link", { name: "Trash" })).toBeTruthy();
     expect(within(drawer).getByRole("link", { name: "Alpha" })).toBeTruthy();
   });
+
+  it("closes the drawer when a link in it is clicked", async () => {
+    render(<AppShell projects={[]} login="me@x">content</AppShell>);
+    await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("link", { name: "Issues" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });

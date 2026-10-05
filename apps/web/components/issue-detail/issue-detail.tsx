@@ -9,6 +9,7 @@ import { LiveStatus } from "@/components/traccia/live-status";
 import { Button } from "@/components/ui/button";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
+import { useMediaQuery } from "@/lib/use-media-query";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
 import { TimeAgo } from "./atoms";
 import { Attachments } from "./attachments";
@@ -156,6 +157,10 @@ export function IssueDetail(props: IssueDetailProps) {
     );
   }
 
+  // Properties sit in a side panel from lg up and inline under the title below it; mount only one copy.
+  const wide = useMediaQuery("(min-width: 1024px)", true);
+  const propertiesPanel = <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
@@ -229,10 +234,12 @@ export function IssueDetail(props: IssueDetailProps) {
               <div className="mt-2"><AgentMark /> <span className="text-xs text-muted-foreground">created by an agent <TimeAgo iso={issue.createdAt} suffix=" ago" /></span></div>
             )}
 
-            <section aria-label="Properties" className="mt-4 rounded-lg border bg-surface p-3 lg:hidden">
-              <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
-              <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />
-            </section>
+            {!wide && (
+              <section aria-label="Properties" className="mt-4 rounded-lg border bg-surface p-3">
+                <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
+                {propertiesPanel}
+              </section>
+            )}
 
             <div className="mt-5">
               <Description key={resetKey} onDirty={setDirty} value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
@@ -269,10 +276,12 @@ export function IssueDetail(props: IssueDetailProps) {
           </div>
         </div>
 
-        <aside className="hidden w-[280px] shrink-0 overflow-y-auto border-l bg-surface p-4 lg:block">
-          <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
-          <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />
-        </aside>
+        {wide && (
+          <aside className="w-[280px] shrink-0 overflow-y-auto border-l bg-surface p-4">
+            <div className="mb-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Properties</div>
+            {propertiesPanel}
+          </aside>
+        )}
       </div>
     </div>
   );

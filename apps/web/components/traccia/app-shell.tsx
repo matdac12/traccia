@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NewProjectButton } from "@/components/project/new-project-button";
 import { useCreateIssue } from "@/components/create-issue/provider";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -90,27 +91,30 @@ function SidebarContent({ projects, projectsUnavailable, login }: { projects: Sh
 
 export function AppShell({ projects, projectsUnavailable = false, login, children }: { projects: ShellProject[]; projectsUnavailable?: boolean; login: string; children: ReactNode }) {
   const path = usePathname();
-  const [drawer, setDrawer] = useState(false);
-  // Any navigation (a link in the drawer, or the browser's back button) closes the drawer.
-  useEffect(() => setDrawer(false), [path]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const desktop = useMediaQuery("(min-width: 768px)");
+  // Navigation (including back/forward) and growing past md close the drawer.
+  useEffect(() => setDrawerOpen(false), [path, desktop]);
   return (
     <div className="flex h-dvh flex-col overflow-hidden md:flex-row">
       <aside className="hidden w-[232px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
         <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
       </aside>
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-2 md:hidden">
-        <button type="button" aria-label="Open menu" onClick={() => setDrawer(true)} className="grid size-9 place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"><Menu className="size-5" /></button>
+        <button type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="grid size-9 place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"><Menu className="size-5" /></button>
         <div className="grid size-6 place-items-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">T</div>
         <span className="text-[13px] font-medium">Traccia</span>
       </div>
-      <Dialog open={drawer} onOpenChange={setDrawer}>
+      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DialogContent
           aria-describedby={undefined}
           className="inset-y-0 left-0 top-0 flex h-dvh w-[85vw] max-w-[280px] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 border-r border-sidebar-border bg-sidebar p-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-[280px] md:hidden"
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">Menu</DialogTitle>
-          <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
+          <div className="flex min-h-0 flex-1 flex-col" onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setDrawerOpen(false); }}>
+            <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
+          </div>
         </DialogContent>
       </Dialog>
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">{children}</main>
