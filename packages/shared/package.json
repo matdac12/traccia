@@ -9,5 +9,8 @@
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   }
 }
