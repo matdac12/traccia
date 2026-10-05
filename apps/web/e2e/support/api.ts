@@ -1,3 +1,6 @@
+// 1x1 transparent PNG.
+export const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
 /** A tiny client for the local test API, used to seed data and to change it behind the page's back. */
 export function apiClient(apiUrl: string, token: string) {
   async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {

@@ -146,7 +146,7 @@ pnpm --filter web test:e2e                           # about 1-3 minutes (dev se
 ```
 
 `e2e/global-setup.ts` starts everything itself: the API (`tsx src/main.ts`) on a fresh SQLite database in the OS
-temp dir, a `you` token created through the `traccia` CLI (held in memory, never printed or written), seed data
+temp dir, a `you` token created through the `traccia` CLI (never printed or written to disk; the dashboard server and the workers receive it through their environment), seed data
 (one project `SMK`), and `next dev` on `127.0.0.1:3100`. Everything is stopped and the database deleted afterwards.
 It needs no `.env` and touches no real data. Ports: `E2E_WEB_PORT` (3100), `E2E_API_PORT` (8799). Stop any other
 `next dev` in `apps/web` first (Next allows one dev server per directory).

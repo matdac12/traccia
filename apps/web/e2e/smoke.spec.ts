@@ -1,10 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { type E2eApi, apiClient, createIssue } from "./support/api";
-import { E2E_LOGIN, LOGIN_HEADER } from "./support/ports";
-import { PROJECT_NAME } from "./global-setup";
-
-// 1x1 transparent PNG.
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+import { type E2eApi, PNG, apiClient, createIssue } from "./support/api";
+import { E2E_LOGIN, LOGIN_HEADER, PROJECT_NAME } from "./support/ports";
 
 let api: E2eApi;
 let projectId: string;
@@ -139,7 +135,7 @@ test("deleting an issue moves it to Trash and Restore brings it back", async ({ 
   await row.getByRole("button", { name: "Restore" }).click();
   await expect(row).toHaveCount(0);
   // The row leaves the list before the restore lands; wait until the API serves the issue again.
-  await expect.poll(async () => (await fetch(`${process.env.E2E_API_URL}/v1/issues/${issue.identifier}`, { headers: { authorization: `Bearer ${process.env.E2E_API_TOKEN}` } })).status).toBe(200);
+  await expect.poll(() => api.get(`/issues/${issue.identifier}`).then(() => 200, () => 404)).toBe(200);
   await visit(page, `/issues/${issue.identifier}`);
   await expect(page.getByLabel("Title")).toHaveValue(issue.title);
 });
