@@ -77,7 +77,7 @@ describe("IssuesView table", () => {
     setup();
     await user.click(screen.getByRole("button", { name: "Sort by Updated" }));
     expect(replace).toHaveBeenLastCalledWith("/issues?order=asc", { scroll: false });
-    await user.click(screen.getByRole("button", { name: "Sort by ID" }));
+    await user.click(screen.getByRole("button", { name: "Sort by Priority" }));
     expect(replace).toHaveBeenLastCalledWith("/issues?sort=priority", { scroll: false });
   });
 });
@@ -133,6 +133,19 @@ describe("IssuesView filters and URL sync", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("keeps the same search input (and focus) when the URL catches up, but follows external changes", () => {
+    const { rerender } = setup();
+    const box = screen.getByRole("searchbox");
+    box.focus();
+    fireEvent.change(box, { target: { value: "abc" } });
+    rerender(<IssuesView filters={{ ...DEFAULT_FILTERS, q: "abc" }} data={data()} />);
+    expect(screen.getByRole("searchbox")).toBe(box);
+    expect(box).toHaveFocus();
+    expect(box).toHaveValue("abc");
+    rerender(<IssuesView filters={{ ...DEFAULT_FILTERS, q: "" }} data={data()} />);
+    expect(box).toHaveValue("");
   });
 
   it("toggles the view and persists it in the URL", async () => {

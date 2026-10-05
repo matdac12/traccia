@@ -1,6 +1,6 @@
 "use client";
 import { ListFilter, Search, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -71,10 +71,14 @@ export function FilterMenu({ filters, lookups, onChange }: { filters: IssueFilte
   );
 }
 
-/** Debounced search box. Remount it (via `key`) when the URL's `q` changes from outside. */
+/** Debounced search box. The text follows the URL only when `value` changes from outside (back/forward, clear), so typing never loses focus. */
 export function SearchBox({ value, onSearch }: { value: string; onSearch: (q: string) => void }) {
   const [text, setText] = useState(value);
-  const debounced = useDebouncedCallback(onSearch, SEARCH_DEBOUNCE_MS);
+  const emitted = useRef(value);
+  const debounced = useDebouncedCallback((q: string) => { emitted.current = q; onSearch(q); }, SEARCH_DEBOUNCE_MS);
+  useEffect(() => {
+    if (value !== emitted.current) { emitted.current = value; setText(value); }
+  }, [value]);
   return (
     <div className="relative">
       <Search className="absolute left-2 top-1.5 size-3.5 text-muted-foreground" />

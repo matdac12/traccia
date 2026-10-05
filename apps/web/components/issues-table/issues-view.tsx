@@ -1,22 +1,24 @@
 "use client";
+import type { IssueStatus } from "@linear-matti/shared";
 import { Columns3, Rows3 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { ListTodo, SearchX, TriangleAlert } from "lucide-react";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { Button } from "@/components/ui/button";
-import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
+import type { Label, Milestone, Project } from "@/lib/api/schemas";
 import { activeFilterCount, clearFilters, filtersToSearchParams, type IssueFilters } from "@/lib/issue-filters";
 import { ActiveChips, FilterMenu, SearchBox } from "./filter-bar";
-import { IssuesTable, type IssueGroup } from "./issues-table";
+import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-table";
 
 export type IssuesData = { groups: IssueGroup[]; projects: Project[]; labels: Label[]; milestones: Milestone[] };
-export type { IssueRow };
 
 export function IssuesView({ filters, data, error }: { filters: IssueFilters; data?: IssuesData; error?: string }) {
   const router = useRouter();
   const path = usePathname();
   const [pending, startTransition] = useTransition();
+  // Kept here so re-sorting (which reloads the groups) does not re-collapse what the user opened.
+  const [collapsed, setCollapsed] = useState<Set<IssueStatus>>(new Set(COLLAPSED_BY_DEFAULT));
   const query = filtersToSearchParams(filters).toString();
   const go = (next: IssueFilters) => {
     const qs = filtersToSearchParams(next).toString();
@@ -40,7 +42,7 @@ export function IssuesView({ filters, data, error }: { filters: IssueFilters; da
         {data && <span className="text-xs text-muted-foreground" data-testid="total">{shown}{more ? "+" : ""}</span>}
         <div className="mx-2 h-4 w-px bg-border" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} />
-        <SearchBox key={filters.q} value={filters.q} onSearch={(q) => go({ ...filters, q })} />
+        <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
         <div className="ml-auto flex items-center gap-1 rounded-md border p-0.5" role="group" aria-label="View">
           {viewButton("table", "Table", <Rows3 className="size-3.5" />)}
           {viewButton("kanban", "Board", <Columns3 className="size-3.5" />)}
@@ -52,7 +54,7 @@ export function IssuesView({ filters, data, error }: { filters: IssueFilters; da
           <EmptyState icon={TriangleAlert} title="Could not load issues">{error}</EmptyState>
         ) : filters.view === "kanban" ? (
           <EmptyState icon={Columns3} title="Board view is coming">The Kanban board arrives in a later iteration. Your filters carry over.</EmptyState>
-        ) : shown === 0 ? (
+        ) : !data ? null : shown === 0 ? (
           filtered ? (
             <EmptyState icon={SearchX} title="No issues match">
               Try removing a filter or changing your search.
@@ -62,7 +64,7 @@ export function IssuesView({ filters, data, error }: { filters: IssueFilters; da
             <EmptyState icon={ListTodo} title="No issues yet">Create an issue from the API, MCP or the CLI and it shows up here.</EmptyState>
           )
         ) : (
-          <IssuesTable key={query} groups={data!.groups} query={query} filters={filters} milestones={lookups.milestones} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={filters} milestones={lookups.milestones} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
     </div>
