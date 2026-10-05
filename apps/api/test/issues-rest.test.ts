@@ -360,6 +360,83 @@ describe("issues", () => {
   });
 });
 
+describe("optimistic concurrency (If-Match / expectedUpdatedAt)", () => {
+  const STALE = '"1999-01-01T00:00:00.000Z"';
+
+  it("position: stale If-Match or body value is 409 and the issue is unchanged", async () => {
+    const t = setup();
+    const a = await t.mk("A", { status: "todo" });
+    const stale = await t.call("PATCH", `/issues/${a.identifier}/position`, {
+      who: "you",
+      body: { status: "done" },
+      headers: { "If-Match": STALE },
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.json.error.details.currentUpdatedAt).toBe(a.updatedAt);
+    const staleBody = await t.call(
+      "PATCH",
+      `/issues/${a.identifier}/position`,
+      {
+        who: "you",
+        body: { status: "done", expectedUpdatedAt: "1999-01-01T00:00:00.000Z" },
+      },
+    );
+    expect(staleBody.status).toBe(409);
+    const still = await t.call("GET", `/issues/${a.identifier}`);
+    expect(still.json).toMatchObject({
+      status: "todo",
+      updatedAt: a.updatedAt,
+    });
+    const fresh = await t.call("PATCH", `/issues/${a.identifier}/position`, {
+      who: "you",
+      body: { status: "done" },
+      headers: { "If-Match": `"${a.updatedAt}"` },
+    });
+    expect(fresh.status).toBe(200);
+    expect(fresh.json.status).toBe("done");
+  });
+
+  it("project PATCH: stale is 409 with the row unchanged; fresh succeeds", async () => {
+    const t = setup();
+    const before = (await t.call("GET", `/projects/${t.project.id}`)).json;
+    const stale = await t.call("PATCH", `/projects/${t.project.id}`, {
+      who: "you",
+      body: { description: "mine" },
+      headers: { "If-Match": STALE },
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.json.error.details.currentUpdatedAt).toBe(before.updatedAt);
+    expect(
+      (await t.call("GET", `/projects/${t.project.id}`)).json.description,
+    ).toBe(before.description);
+    const fresh = await t.call("PATCH", `/projects/${t.project.id}`, {
+      who: "you",
+      body: { description: "mine", expectedUpdatedAt: before.updatedAt },
+    });
+    expect(fresh.status).toBe(200);
+    expect(fresh.json.description).toBe("mine");
+  });
+
+  it("milestone PATCH: stale is 409 with the row unchanged; fresh succeeds", async () => {
+    const t = setup();
+    const m = t.services.milestones.create("you", t.project.id, { name: "M" });
+    const stale = await t.call("PATCH", `/milestones/${m.id}`, {
+      who: "you",
+      body: { name: "X" },
+      headers: { "If-Match": STALE },
+    });
+    expect(stale.status).toBe(409);
+    expect((await t.call("GET", `/milestones/${m.id}`)).json.name).toBe("M");
+    const fresh = await t.call("PATCH", `/milestones/${m.id}`, {
+      who: "you",
+      body: { name: "X" },
+      headers: { "If-Match": `"${m.updatedAt}"` },
+    });
+    expect(fresh.status).toBe(200);
+    expect(fresh.json.name).toBe("X");
+  });
+});
+
 describe("comments", () => {
   it("creates (stamping actor), lists threads, edits own, forbids others, deletes", async () => {
     const t = setup();

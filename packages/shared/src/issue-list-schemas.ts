@@ -55,6 +55,8 @@ export const moveIssuePositionInputSchema = z.object({
   beforeId: z.string().min(1).optional(),
   /** Place the issue directly below this issue (identifier or id). */
   afterId: z.string().min(1).optional(),
+  /** Last seen `updatedAt`; a stale value is a `conflict`. */
+  expectedUpdatedAt: z.string().optional(),
 });
 export type MoveIssuePositionInput = z.input<
   typeof moveIssuePositionInputSchema

@@ -56,6 +56,16 @@ export function createIssuePositionService(ctx: ServiceContext) {
       const data = parseInput(moveIssuePositionInputSchema, input);
       return ctx.write((tx) => {
         const issue = resolveIssue(tx, data.identifier);
+        if (
+          data.expectedUpdatedAt &&
+          data.expectedUpdatedAt !== issue.updatedAt
+        ) {
+          throw new ServiceError(
+            "conflict",
+            "Issue was modified since it was read",
+            { currentUpdatedAt: issue.updatedAt },
+          );
+        }
         const column = tx
           .select()
           .from(issues)

@@ -28,7 +28,7 @@ const data = (over: Partial<IssuesData> = {}): IssuesData => ({
   ] as IssuesData["groups"],
   projects: [{ id: "p1", name: "Traccia" }] as IssuesData["projects"],
   labels: [label],
-  milestones: [{ id: "m1", projectId: "p1", name: "P8 Dashboard", targetDate: null }],
+  milestones: [{ id: "m1", projectId: "p1", name: "P8 Dashboard", targetDate: null, updatedAt: "2026-01-01T00:00:00.000Z" }],
   ...over,
 });
 const setup = (filters: Partial<IssueFilters> = {}, d: IssuesData | undefined = data(), error?: string) =>

@@ -7,6 +7,7 @@ import {
   updateMilestoneAction,
   type MilestoneFormValues,
 } from "@/app/(app)/projects/[id]/actions";
+import { ConflictNotice } from "@/components/traccia/conflict-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ActionResult } from "@/lib/action-result";
@@ -18,11 +19,13 @@ function MilestoneForm({ initial, submitLabel, onSubmit, onCancel }: { initial: 
   const [values, setValues] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
+  const [conflict, setConflict] = useState(false);
   const [pending, start] = useTransition();
   const submit = () =>
     start(async () => {
       const res = await onSubmit(values);
       if (res.ok) return;
+      setConflict(res.conflict === true);
       setError(res.error);
       setFields(res.fieldErrors);
     });
@@ -32,7 +35,8 @@ function MilestoneForm({ initial, submitLabel, onSubmit, onCancel }: { initial: 
       {fields.name ? <p className="text-xs text-destructive">Name {fields.name}</p> : null}
       <Input aria-label="Target date" type="date" value={values.targetDate} onChange={(e) => setValues({ ...values, targetDate: e.target.value })} aria-invalid={fields.targetDate ? true : undefined} className="h-8 text-[13px]" />
       {fields.targetDate ? <p className="text-xs text-destructive">Target date {fields.targetDate}</p> : null}
-      {error && !fields.name && !fields.targetDate ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+      {conflict ? <ConflictNotice what="This milestone"> Your edit is kept; Save again to overwrite the latest version.</ConflictNotice> : null}
+      {error && !conflict && !fields.name && !fields.targetDate ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
       <div className="flex gap-2">
         <Button type="submit" size="xs" disabled={pending}>{submitLabel}</Button>
         <Button type="button" size="xs" variant="ghost" onClick={onCancel}>Cancel</Button>
@@ -58,7 +62,7 @@ function MilestoneItem({ projectId, milestone }: { projectId: string; milestone:
           submitLabel="Save"
           onCancel={() => setEditing(false)}
           onSubmit={async (v) => {
-            const res = await updateMilestoneAction(projectId, milestone.id, v);
+            const res = await updateMilestoneAction(projectId, milestone.id, v, milestone.updatedAt);
             if (res.ok) setEditing(false);
             return res;
           }}

@@ -6,19 +6,12 @@ import {
   listIssuesQuerySchema,
   patchIssueBodySchema,
 } from "@linear-matti/shared";
-import type { Context, Hono } from "hono";
+import type { Hono } from "hono";
 import { type Issue, listIssueLabels, type Tx } from "../service/index.js";
 import { setBlockersTx } from "../service/relations.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";
-import { validateBody, validateQuery } from "./validate.js";
-
-/** `If-Match: "<updated_at>"` (quotes and a weak prefix are tolerated). */
-function ifMatch(c: Context): string | undefined {
-  const raw = c.req.header("If-Match")?.trim();
-  if (!raw || raw === "*") return undefined;
-  return raw.replace(/^W\//, "").replace(/^"(.*)"$/, "$1");
-}
+import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 /**
  * Issue routes. Issue responses carry `labels`. `GET /issues/:identifier`
@@ -85,6 +78,7 @@ export function mountIssueRoutes(v1: Hono<AppEnv>, container: AppContainer) {
     const body = await validateBody(c, issuePositionBodySchema);
     const moved = issues.move(c.get("actor"), {
       ...body,
+      expectedUpdatedAt: body.expectedUpdatedAt ?? ifMatch(c),
       identifier: c.req.param("identifier"),
     });
     return c.json(withLabels(moved));

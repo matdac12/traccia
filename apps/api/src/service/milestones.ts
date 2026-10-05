@@ -71,12 +71,22 @@ export function createMilestonesService(ctx: ServiceContext) {
     },
 
     update(id: string, input: UpdateMilestoneInput): Milestone {
-      const patch = parseInput(updateMilestoneInputSchema, input);
+      const { expectedUpdatedAt, ...patch } = parseInput(
+        updateMilestoneInputSchema,
+        input,
+      );
       if (Object.values(patch).every((v) => v === undefined)) {
         throw new ServiceError("validation_error", "No fields to update");
       }
       return ctx.write((tx) => {
         const milestone = getMilestone(tx, id);
+        if (expectedUpdatedAt && expectedUpdatedAt !== milestone.updatedAt) {
+          throw new ServiceError(
+            "conflict",
+            "Milestone was modified since it was read",
+            { currentUpdatedAt: milestone.updatedAt },
+          );
+        }
         return tx
           .update(milestones)
           .set({ ...definedOnly(patch), updatedAt: nowIso() })

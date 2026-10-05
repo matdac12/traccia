@@ -10,7 +10,7 @@ import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { pageOfArray } from "./page-array.js";
 import { paginationQuery } from "./pagination.js";
-import { validateBody, validateQuery } from "./validate.js";
+import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   const { config, db } = container;
@@ -50,6 +50,7 @@ export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
 
   v1.patch("/projects/:idOrKey", async (c) => {
     const input = await validateBody(c, updateProjectInputSchema);
+    input.expectedUpdatedAt ??= ifMatch(c);
     const [project] = withCounts([
       projects.update(c.req.param("idOrKey"), input),
     ]);

@@ -40,3 +40,10 @@ export async function validateBody<S extends z.ZodType>(c: Context, schema: S) {
   }
   return parse(schema, json);
 }
+
+/** `If-Match: "<updated_at>"` (quotes and a weak prefix are tolerated). */
+export function ifMatch(c: Context): string | undefined {
+  const raw = c.req.header("If-Match")?.trim();
+  if (!raw || raw === "*") return undefined;
+  return raw.replace(/^W\//, "").replace(/^"(.*)"$/, "$1");
+}

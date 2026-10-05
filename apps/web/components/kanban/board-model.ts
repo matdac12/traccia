@@ -10,7 +10,7 @@ import type { IssueRow } from "@/lib/api/schemas";
 export type BoardColumn = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
 /** The body of `PATCH /issues/:identifier/position`. */
-export type MoveRequest = { identifier: string; status: IssueStatus; beforeId?: string; afterId?: string };
+export type MoveRequest = { identifier: string; status: IssueStatus; beforeId?: string; afterId?: string; /** The card's `updatedAt` when it was read; a stale one is a 409. */ expectedUpdatedAt?: string };
 
 export type MoveResult = { ok: true; issue: IssueRow } | { ok: false; code: string; message: string };
 
@@ -59,7 +59,7 @@ export function planMove(columns: BoardColumn[], id: string): MoveRequest | null
   const sameProject = (i: IssueRow | undefined) => i !== undefined && i.projectId === card.projectId;
   const above = items.slice(0, at.index).reverse().find(sameProject);
   const below = items.slice(at.index + 1).find(sameProject);
-  const request: MoveRequest = { identifier: card.identifier, status: at.status };
+  const request: MoveRequest = { identifier: card.identifier, status: at.status, expectedUpdatedAt: card.updatedAt };
   // Last loaded card of a column with more pages: the real bottom is unknown, so send neither (= bottom).
   const mayHaveMore = !below && columns.find((c) => c.status === at.status)!.nextCursor !== null;
   if (above && !mayHaveMore) request.afterId = above.identifier;
