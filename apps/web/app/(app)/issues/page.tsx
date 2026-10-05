@@ -1,5 +1,5 @@
 import { ApiError } from "@/lib/api/client";
-import { latestIssueChange, listBoardColumns, listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
+import { initialSyncToken, listBoardColumns, listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { listProjects } from "@/lib/api/projects";
 import { parseFilters } from "@/lib/issue-filters";
 import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
@@ -9,7 +9,7 @@ export const metadata = { title: "Issues" };
 async function load(filters: ReturnType<typeof parseFilters>): Promise<{ data: IssuesData } | { error: string }> {
   try {
     // Read before the lists: a change landing in between is then picked up by the first poll, never missed.
-    const syncToken = await latestIssueChange().catch(() => null);
+    const syncToken = await initialSyncToken();
     const projects = await listProjects();
     const [groups, labels, milestones] = await Promise.all([
       (filters.view === "kanban" ? listBoardColumns(filters) : listIssueGroups(filters)),

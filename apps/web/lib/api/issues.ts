@@ -50,6 +50,12 @@ export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<
 }
 
 /**
+ * Where a page's live refresh starts: the newest change now, or the epoch on an empty database (so the very
+ * first issue created is noticed). Null only when the probe itself failed; the poll then starts from a baseline.
+ */
+export const initialSyncToken = () => latestIssueChange().then((t) => t ?? "1970-01-01T00:00:00.000Z", () => null);
+
+/**
  * The cheap change probe behind polling: the newest `updatedAt` among issues changed after `since`
  * (soft-deleted ones included, so a delete is noticed too), or null when nothing changed. One row,
  * whatever the board holds. Deliberately unfiltered: a card that moved OUT of a filtered view would

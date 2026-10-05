@@ -5,6 +5,9 @@ import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll, type PollOptions } from "@/lib/polling/use-poll";
 import type { IssueGroup } from "./issues-table";
 
+/** What `refreshIssueGroups` re-reads per group at most (5 pages of 50). */
+const MAX_REFRESH_ROWS = 250;
+
 export type Counts = Partial<Record<IssueStatus, number>>;
 
 /** What the table or board gives the poll: how much it shows now, and a way to swap in fresh groups. */
@@ -40,6 +43,8 @@ export function useListSync({ query, syncToken, ...poll }: { query: string; sync
     const target = applier.current;
     if (!target) return;
     const asked = target.counts();
+    // More rows loaded than one refresh can re-read: replacing them would drop rows, so leave this view alone.
+    if (Object.values(asked).some((n) => n > MAX_REFRESH_ROWS)) return;
     const counts = ISSUE_STATUSES.map((s) => `${s}:${asked[s] ?? 0}`).join(",");
     const groups = await getJson<IssueGroup[]>(`/api/issues/groups?${new URLSearchParams({ query, counts })}`);
     // "Load more" finished while this was in flight: the answer no longer matches what is shown.
