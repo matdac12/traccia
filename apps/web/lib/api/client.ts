@@ -35,6 +35,7 @@ export type ApiClientConfig = {
 };
 
 const MAX_RETRY_WAIT_MS = 5000;
+const DEFAULT_RETRY_WAIT_MS = 1000;
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -45,12 +46,12 @@ const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
  */
 export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep = defaultSleep }: ApiClientConfig) {
   /** One retry on a 429, waiting `Retry-After` (capped) so a burst of page loads degrades to a short delay. */
-  const doFetch: typeof fetch = async (input, init) => {
+  const fetchWithRetry: typeof fetch = async (input, init) => {
     const res = await rawFetch(input, init);
     // Safe for writes too: the API rejects before running the handler.
     if (res.status !== 429) return res;
     const seconds = Number(res.headers.get("retry-after"));
-    await sleep(Math.min(Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000, MAX_RETRY_WAIT_MS));
+    await sleep(Math.min(Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : DEFAULT_RETRY_WAIT_MS, MAX_RETRY_WAIT_MS));
     return rawFetch(input, init);
   };
 
@@ -70,7 +71,7 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
 
     let res: Response;
     try {
-      res = await doFetch(url, {
+      res = await fetchWithRetry(url, {
         method,
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),
@@ -108,7 +109,7 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
   ): Promise<Response> {
     const url = `${baseUrl.replace(/\/+$/, "")}/v1${path}`;
     try {
-      return await doFetch(url, {
+      return await fetchWithRetry(url, {
         method,
         headers: { ...headers, authorization: `Bearer ${token}` },
         body,

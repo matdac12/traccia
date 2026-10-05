@@ -19,12 +19,12 @@ export function requireAuth(options: {
   verify: VerifyCredential;
   db: Db;
   rateLimitPerMin: number;
-  /** Budget for `you` tokens (the dashboard fans out several requests per page). Defaults to `rateLimitPerMin`. */
-  rateLimitYouPerMin?: number;
+  /** Budget for `you` tokens (the dashboard fans out several requests per page). */
+  rateLimitYouPerMin: number;
 }): MiddlewareHandler<AppEnv> {
   const { verify, db } = options;
   const limiter = new RateLimiter(options.rateLimitPerMin);
-  const youLimiter = new RateLimiter(options.rateLimitYouPerMin ?? options.rateLimitPerMin);
+  const youLimiter = new RateLimiter(options.rateLimitYouPerMin);
   const lastWrite = new Map<string, number>();
 
   return async (c, next) => {
