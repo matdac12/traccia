@@ -1,29 +1,30 @@
 "use client";
-import type { IssueStatus, Priority } from "@traccia/shared";
+import type { IssueStatus } from "@traccia/shared";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreIssues } from "@/app/(app)/issues/actions";
-import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { InlineEditNotice } from "@/components/inline-edit/notice";
+import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker } from "@/components/inline-edit/pickers";
+import { upsertRow } from "@/components/inline-edit/rows";
+import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
 import { Button } from "@/components/ui/button";
 import type { IssueRow, Label, Milestone } from "@/lib/api/schemas";
 import type { IssueFilters } from "@/lib/issue-filters";
 import { timeAgo } from "./format";
-import { LabelChip } from "./label-chip";
-import { PriorityIcon } from "./priority";
 import { countsOf, sameGroups, type GroupsApplier } from "./use-list-sync";
 
 export type IssueGroup = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
 export const COLLAPSED_BY_DEFAULT: IssueStatus[] = ["done", "canceled"];
-const VISIBLE_LABELS = 2;
 
 type GroupState = IssueGroup & { error?: string };
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, collapsed, onToggle, onSort, register,
+  groups: initial, query, filters, milestones, labels = [], collapsed, onToggle, onSort, register,
 }: {
-  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; collapsed: Set<IssueStatus>; onToggle: (s: IssueStatus) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
+  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; labels?: Label[]; collapsed: Set<IssueStatus>; onToggle: (s: IssueStatus) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -31,15 +32,19 @@ export function IssuesTable({
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   // Live refresh (MAT-1726): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
+  const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => upsertRow(gs, row)) });
+  const editor = { edit: inline.edit, labels };
   useEffect(() => {
     register?.({
       counts: () => countsOf(groupsRef.current),
       apply: (fresh) => {
+        if (inline.pending.current > 0) return false;
         if (!sameGroups(groupsRef.current, fresh)) setGroups(fresh);
         return true;
       },
     });
     return () => register?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [register]);
   const milestoneName = new Map(milestones.map((m) => [m.id, m.name]));
 
@@ -68,6 +73,7 @@ export function IssuesTable({
 
   return (
     <div className="min-w-[860px]" aria-busy={pending}>
+      {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       <div className="sticky top-0 z-10 flex h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur">
         {sortButton("priority", "Priority", "w-[96px]")}
         <span className="flex-1">Title</span>
@@ -91,25 +97,23 @@ export function IssuesTable({
             </h2>
             <div>
               {!isCollapsed && g.items.map((i) => (
-                <Link key={i.id} href={`/issues/${i.identifier}`} className="flex h-9 items-center gap-3 border-b px-4 text-[13px] outline-none hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                  <span className="flex w-[96px] shrink-0 items-center gap-2 font-mono text-xs text-muted-foreground">
-                    <PriorityIcon priority={i.priority as Priority} />
+                <div key={i.id} className="relative flex h-9 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/50 focus-within:bg-accent/50">
+                  <span className="flex w-[96px] shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                    <PriorityPicker issue={i} editor={editor} />
                     {i.identifier}
                   </span>
                   <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <StatusIcon status={i.status} />
-                    <span className="truncate">{i.title}</span>
+                    <StatusPicker issue={i} editor={editor} />
+                    {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
+                    <Link href={`/issues/${i.identifier}`} className="truncate rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{i.title}</Link>
                     {i.createdBy === "agent" && i.status === "backlog" && <AgentMark />}
-                    <span className="ml-1 flex shrink-0 gap-1">
-                      {i.labels.slice(0, VISIBLE_LABELS).map((l: Label) => <LabelChip key={l.id} name={l.name} color={l.color} />)}
-                      {i.labels.length > VISIBLE_LABELS && <span className="text-[11px] text-muted-foreground">+{i.labels.length - VISIBLE_LABELS}</span>}
-                    </span>
+                    <LabelsPicker issue={i} editor={editor} className="ml-1 shrink-0" />
                   </span>
                   <span className="w-32 truncate text-xs text-muted-foreground">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
                   <span className="w-8 text-center font-mono text-xs text-muted-foreground">{i.estimate ?? ""}</span>
-                  <ActorAvatar who={i.assignee} />
+                  <AssigneePicker issue={i} editor={editor} />
                   <time suppressHydrationWarning dateTime={i.updatedAt} className="w-12 text-right text-xs text-muted-foreground">{timeAgo(i.updatedAt)}</time>
-                </Link>
+                </div>
               ))}
               {!isCollapsed && g.nextCursor && (
                 <div className="flex items-center gap-3 border-b px-4 py-1.5">

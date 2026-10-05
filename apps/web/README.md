@@ -134,6 +134,15 @@ Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + r
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
 
+## Inline edit (table rows and board cards, MAT-1753)
+
+`components/inline-edit/`: `StatusPicker`, `PriorityPicker`, `AssigneePicker`, `LabelsPicker` (dropdowns, same options as the detail panel) and
+`useInlineEdit`, which saves through the detail page's `updateIssueAction` with the row's `updatedAt` as `If-Match`. The change shows at once;
+a failure restores the row, a conflict swaps in the current issue and `InlineEditNotice` offers "Re-apply my change" (the patch is rebuilt against
+the fresh row). `upsertRow` puts the saved row back into the table groups or board columns (a status change moves it). The live refresh is
+refused while a save is in flight. Table rows are a link overlay with the pickers above it; on cards the pickers stop key events so Space/Enter
+never starts a keyboard drag.
+
 ## Docker
 
 `docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t traccia-web:latest .` from the repo
