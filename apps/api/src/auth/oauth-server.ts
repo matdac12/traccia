@@ -1,11 +1,18 @@
 import { Hono } from "hono";
+import { createMiddleware } from "hono/factory";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import type { Context } from "hono";
 import type { AppEnv } from "../rest/env.js";
 import { errorHandler } from "../rest/errors.js";
 import {
+  createOAuthGuards,
+  type OAuthHardeningOptions,
+} from "./oauth-limits.js";
+import {
   exchangeAuthCode,
   findClient,
+  isAllowedRedirectUri,
   issueAuthCode,
   OAuthError,
   refreshGrant,
@@ -59,13 +66,20 @@ const consentHeaders = {
   "Referrer-Policy": "no-referrer",
 };
 
-function page(body: string, status: 200 | 400 | 403 = 200): Response {
+function page(
+  body: string,
+  status: 200 | 400 | 403 | 429 = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Traccia</title>
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:30rem;margin:4rem auto;padding:0 1rem}
 input[type=password]{width:100%;padding:.5rem;box-sizing:border-box}button{padding:.5rem 1rem;margin-right:.5rem}
 .err{color:#b00020}code{word-break:break-all}</style></head><body>${body}</body></html>`;
-  return new Response(html, { status, headers: consentHeaders });
+  return new Response(html, {
+    status,
+    headers: { ...consentHeaders, ...extraHeaders },
+  });
 }
 
 function consentPage(
@@ -121,15 +135,43 @@ function redirectWith(
  * Each endpoint is its own handler so route-level middleware (rate limiting,
  * lockout) can be added per route without touching the logic.
  */
-export function createOAuthServerRoutes() {
+export function createOAuthServerRoutes(hardening?: OAuthHardeningOptions) {
   const routes = new Hono<AppEnv>();
+  const guards = createOAuthGuards(hardening);
+  // Behind a proxy with no usable address every caller shares one bucket,
+  // which fails closed rather than open.
+  const ipOf = (c: Context<AppEnv>) => c.get("clientIp") ?? "unknown";
+
+  /** Per-IP rate limit; answers 429 + Retry-After once the window is full. */
+  const rateLimit = (
+    limiter: "register" | "authorize" | "token",
+    html: boolean,
+  ) =>
+    createMiddleware<AppEnv>(async (c, next) => {
+      const wait = guards[limiter].hit(ipOf(c), guards.config.now());
+      if (wait === null) return next();
+      if (html) {
+        return page("<h1>Too many requests</h1><p>Try again later.</p>", 429, {
+          "Retry-After": String(wait),
+        });
+      }
+      oauthJson(c);
+      c.header("Retry-After", String(wait));
+      return c.json(
+        {
+          error: "temporarily_unavailable",
+          error_description: "Too many requests; retry later",
+        },
+        429,
+      );
+    });
 
   routes.onError((err, c) => {
     if (err instanceof OAuthError) {
       oauthJson(c);
       return c.json(
         { error: err.error, error_description: err.message },
-        err.status as 400 | 401,
+        err.status as 400 | 401 | 503,
       );
     }
     return errorHandler(err, c);
@@ -156,6 +198,7 @@ export function createOAuthServerRoutes() {
 
   routes.post(
     "/register",
+    rateLimit("register", false),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: "invalid_client_metadata" }, 413),
@@ -169,10 +212,18 @@ export function createOAuthServerRoutes() {
           "Invalid client metadata: expect JSON with redirect_uris (and optionally client_name; token_endpoint_auth_method must be none)",
         );
       }
-      const client = registerClient(c.get("container").db, {
-        name: parsed.data.client_name ?? "MCP client",
-        redirectUris: parsed.data.redirect_uris,
-      });
+      const client = registerClient(
+        c.get("container").db,
+        {
+          name: parsed.data.client_name ?? "MCP client",
+          redirectUris: parsed.data.redirect_uris,
+        },
+        {
+          extraRedirectUris: c.get("container").config.oauthExtraRedirectUris,
+          limits: guards.config.clients,
+          now: guards.config.now(),
+        },
+      );
       oauthJson(c);
       return c.json(
         {
@@ -206,7 +257,15 @@ export function createOAuthServerRoutes() {
       typeof raw.redirect_uri === "string" ? raw.redirect_uri : "";
     const client = clientId ? findClient(container.db, clientId) : null;
     if (!client) return { ok: false, response: errorPage("Unknown client.") };
-    if (!client.redirectUris.includes(redirectUri)) {
+    // Re-checked against the allowlist so clients registered before it was
+    // tightened (or before it existed) cannot be used to reach an unlisted URI.
+    if (
+      !client.redirectUris.includes(redirectUri) ||
+      !isAllowedRedirectUri(
+        redirectUri,
+        container.config.oauthExtraRedirectUris,
+      )
+    ) {
       return {
         ok: false,
         response: errorPage("redirect_uri is not registered for this client."),
@@ -243,6 +302,7 @@ export function createOAuthServerRoutes() {
 
   routes.post(
     "/authorize",
+    rateLimit("authorize", true),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: () => errorPage("Request too large."),
@@ -263,9 +323,21 @@ export function createOAuthServerRoutes() {
       const presented =
         typeof form.admin_secret === "string" ? form.admin_secret : "";
       const expected = container.config.oauthAdminSecret ?? "";
+      const ip = ipOf(c);
+      // Locked out: the secret is not compared, so even a correct one fails.
+      const locked = guards.lockout.retryAfter(ip);
+      if (locked !== null) {
+        return page(
+          `<h1>Too many failed attempts</h1><p class="err">Locked out. Try again later.</p>`,
+          429,
+          { "Retry-After": String(locked) },
+        );
+      }
       if (!expected || !secretsMatch(presented, expected)) {
+        guards.lockout.recordFailure(ip);
         return consentPage(clientName, params, "Wrong admin secret.");
       }
+      guards.lockout.recordSuccess(ip);
       const code = issueAuthCode(container.db, {
         clientId: params.client_id,
         redirectUri: params.redirect_uri,
@@ -277,6 +349,7 @@ export function createOAuthServerRoutes() {
 
   routes.post(
     "/token",
+    rateLimit("token", false),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: (c) => c.json({ error: "invalid_request" }, 413),

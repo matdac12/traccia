@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAcceptableRedirectUri } from "./service/oauth.js";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 
@@ -17,6 +18,24 @@ const envSchema = z.object({
     .default("info"),
   TRUST_PROXY: bool.default(true),
   OAUTH_ADMIN_SECRET: z.string().min(16).optional(),
+  OAUTH_EXTRA_REDIRECT_URIS: z
+    .string()
+    .default("")
+    .transform((v, ctx) => {
+      const uris: string[] = [];
+      for (const part of v.split(",").map((p) => p.trim())) {
+        if (part === "") continue;
+        if (!isAcceptableRedirectUri(part)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `"${part}" is not an https URL (or http on localhost) without a fragment`,
+          });
+          return z.NEVER;
+        }
+        uris.push(part);
+      }
+      return uris;
+    }),
   SOURCE_URL_EXTRA_PORTS: z
     .string()
     .default("")
@@ -56,6 +75,8 @@ export type Config = {
   sourceUrlExtraPorts: number[];
   /** Consent-page secret; the OAuth server is disabled while unset. */
   oauthAdminSecret: string | undefined;
+  /** Redirect URIs allowed in addition to the built-in claude.ai and loopback ones. */
+  oauthExtraRedirectUris: string[];
 };
 
 export class ConfigError extends Error {
@@ -92,6 +113,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     trustProxy: e.TRUST_PROXY,
     sourceUrlExtraPorts: e.SOURCE_URL_EXTRA_PORTS,
     oauthAdminSecret: e.OAUTH_ADMIN_SECRET,
+    oauthExtraRedirectUris: e.OAUTH_EXTRA_REDIRECT_URIS,
   };
 }
 
