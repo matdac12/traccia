@@ -1,5 +1,5 @@
 "use client";
-import { Check, ChevronsUpDown, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Trash2, TriangleAlert } from "lucide-react";
+import { Check, ChevronsUpDown, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -119,6 +119,7 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
           </button>
         </RailTip>
         <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")} label="Issues" collapsed={collapsed}>Issues</NavItem>
+        <NavItem href="/settings" icon={<Settings className="size-3.5" />} active={path === "/settings"} label="Settings" collapsed={collapsed}>Settings</NavItem>
         <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"} label="Trash" collapsed={collapsed}>Trash</NavItem>
         <div className={cn("flex items-center pb-1 pt-4", collapsed ? "flex-col gap-1 border-t border-sidebar-border pt-2 mt-2" : "justify-between")}>
           {collapsed ? null : <Link href="/projects" className="px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground">Projects</Link>}

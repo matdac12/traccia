@@ -72,6 +72,46 @@ test("the desktop sidebar collapses to an icon rail, stays collapsed after a rel
   await expect(sidebar).toHaveAttribute("data-collapsed", "false");
 });
 
+test("accent color and font are picked live, apply in both themes, and survive a reload (TRC-57)", async ({ page }) => {
+  const brand = () => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand").trim());
+  const family = () => page.evaluate(() => getComputedStyle(document.body).fontFamily);
+  await page.emulateMedia({ colorScheme: "light" });
+  await visit(page, "/settings");
+  await expect(brand()).resolves.toBe("#ff9e0b");
+  await expect(page.locator("html")).toHaveAttribute("data-font", "mono");
+  const monoFamily = await family();
+
+  await page.getByRole("button", { name: "Purple" }).click();
+  await expect(page.getByRole("button", { name: "Purple" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(brand).toBe("#8b5cf6");
+  await page.getByRole("button", { name: "Geist Sans" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-font", "sans");
+  expect(await family()).not.toBe(monoFamily);
+
+  // Same accent in the dark theme.
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect.poll(brand).toBe("#8b5cf6");
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // A free hex; one with too little contrast is adjusted and warned about.
+  await page.getByLabel("Custom hex").fill("#ffffff");
+  await expect(page.locator("#accent-hex-note")).toContainText("Low contrast");
+  await expect.poll(brand).not.toBe("#ffffff");
+  await page.getByLabel("Custom hex").fill("#0a0");
+  await expect.poll(brand).toBe("#00aa00");
+
+  // Cookies: the server already renders the choice, no flash of the default.
+  await visit(page, "/settings");
+  await expect(page.locator("html")).toHaveAttribute("data-font", "sans");
+  await expect(brand()).resolves.toBe("#00aa00");
+  await expect(page.getByLabel("Custom hex")).toHaveValue("#00aa00");
+
+  await page.getByRole("button", { name: "Reset appearance" }).click();
+  await expect.poll(brand).toBe("#ff9e0b");
+  await expect(page.locator("html")).toHaveAttribute("data-font", "mono");
+});
+
 test("the mobile drawer is the full menu even when the desktop sidebar is collapsed", async ({ page }) => {
   await visit(page, "/projects");
   await page.locator("aside").getByRole("button", { name: "Collapse sidebar" }).click();
