@@ -8,6 +8,7 @@
     "start": "node .next/standalone/apps/web/server.js",
     "typecheck": "tsc -p .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "check:bundle": "TRACCIA_API_TOKEN=trk_bundle_check_sample_0123456789 next build --webpack && TRACCIA_API_TOKEN=trk_bundle_check_sample_0123456789 node scripts/check-client-bundle.mjs"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
