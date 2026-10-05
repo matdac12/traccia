@@ -75,11 +75,15 @@ export function CreateIssueDialog({
     setLabels([]);
     setOptions({ labels: [], milestones: [] });
     setOptionsError(null);
-    loadCreateIssueOptions(project).then((res) => {
-      if (stale) return;
-      if (res.ok) setOptions(res.data);
-      else setOptionsError(res.error);
-    });
+    loadCreateIssueOptions(project)
+      .then((res) => {
+        if (stale) return;
+        if (res.ok) setOptions(res.data);
+        else setOptionsError(res.error);
+      })
+      .catch(() => {
+        if (!stale) setOptionsError("Something went wrong.");
+      });
     return () => {
       stale = true;
     };
@@ -92,8 +96,10 @@ export function CreateIssueDialog({
     startTransition(async () => {
       setError(null);
       setFieldErrors({});
-      const res = await createIssueAction(values());
-      if (res.ok) {
+      const res = await createIssueAction(values()).catch(() => null);
+      if (!res) {
+        setError("Something went wrong. Check whether the issue was created before retrying.");
+      } else if (res.ok) {
         setCreated(res.data);
         onCreated?.(res.data.identifier);
       } else {
