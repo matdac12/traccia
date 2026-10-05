@@ -111,7 +111,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
         }
         saved = projects.create(ctx.actor, { ...fields, name: fields.name });
       } else {
-        const current = projects.get(id);
+        const current = resolveProjectRef(projects, id);
         if (fields.key !== undefined && fields.key !== current.key) {
           throw new ServiceError(
             "conflict",

@@ -24,6 +24,7 @@ export function milestoneView(
   db: DbHandle,
   rows: Milestone[],
   projects: Record<string, Project>,
+  options: { withDescription?: boolean } = {},
 ) {
   const progress = milestoneProgress(
     db,
@@ -34,7 +35,7 @@ export function milestoneView(
       id: m.id,
       project: projects[m.projectId]?.name,
       name: m.name,
-      description: m.description,
+      description: options.withDescription ? m.description : undefined,
       targetDate: m.targetDate,
       progress: progress.get(m.id),
       deleted: m.deletedAt ? true : undefined,
@@ -115,10 +116,9 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
         }
         saved = milestones.update(id, fields);
       }
-      return milestoneView(db, [saved], projectsById(true))[0] as Record<
-        string,
-        unknown
-      >;
+      return milestoneView(db, [saved], projectsById(true), {
+        withDescription: true,
+      })[0] as Record<string, unknown>;
     },
   );
 

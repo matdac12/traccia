@@ -322,3 +322,29 @@ describe("label tools", () => {
     );
   });
 });
+
+describe("restore tool", () => {
+  it("restores an issue and a comment by identifier and id, and errors clearly", async () => {
+    const { agent } = await setup();
+    await call(agent, "save_project", { name: "Alpha" });
+    const issue = app.services.issues.create("agent", {
+      project: "Alpha",
+      title: "t",
+    });
+    await app.services.trash.delete("agent", "issue", issue.id);
+    const res = await call(agent, "restore", {
+      type: "issue",
+      id: issue.identifier,
+    });
+    expect(res.isError).toBe(false);
+    expect(res.data).toMatchObject({ type: "issue" });
+    expect(app.services.issues.get(issue.id).deletedAt).toBeNull();
+
+    const missing = await call(agent, "restore", {
+      type: "issue",
+      id: "MAT-999",
+    });
+    expect(missing.isError).toBe(true);
+    expect(missing.text).toContain("not found");
+  });
+});
