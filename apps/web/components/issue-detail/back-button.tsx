@@ -4,11 +4,16 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { hasNavigatedInApp } from "@/lib/in-app-history";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-/** True when this tab holds an earlier entry of the app to go back to (false for a deep link or a new tab). */
+/**
+ * True when this tab holds an earlier entry of the app to go back to (false for a deep link or a new tab). The
+ * Navigation API answers exactly; browsers without it (Firefox, Safari) use the in-app navigation count instead.
+ */
 function hasInAppHistory() {
-  return (window as { navigation?: { canGoBack: boolean } }).navigation?.canGoBack === true;
+  const navigation = (window as { navigation?: { canGoBack: boolean } }).navigation;
+  return navigation ? navigation.canGoBack : hasNavigatedInApp();
 }
 
 /**

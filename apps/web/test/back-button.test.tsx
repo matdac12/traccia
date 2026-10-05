@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BackButton } from "../components/issue-detail/back-button";
+import { recordLocation, resetInAppHistory } from "../lib/in-app-history";
 import { TooltipProvider } from "../components/ui/tooltip";
 
 const back = vi.fn();
@@ -25,6 +26,7 @@ function clickLeavingDefault(init: MouseEventInit) {
 
 beforeEach(() => {
   back.mockReset();
+  resetInAppHistory();
   // The tooltip opens on hover/focus and Radix measures its arrow; jsdom has no ResizeObserver.
   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
 });
@@ -62,6 +64,57 @@ describe("BackButton", () => {
   });
 
   it("falls through to the fallback link when the Navigation API is unavailable", () => {
+    renderButton();
+    expect(clickLeavingDefault({})).toBe(true);
+    expect(back).not.toHaveBeenCalled();
+  });
+
+  describe("without the Navigation API (Firefox, Safari)", () => {
+    it("returns through browser history once the user navigated inside the app", async () => {
+      recordLocation("/projects/p1/issues?status=todo");
+      recordLocation("/issues/TRC-1");
+      renderButton();
+      await userEvent.click(screen.getByRole("link", { name: "Back" }));
+      expect(back).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the plain link on a deep link, a new tab or a reload (no in-app navigation yet)", () => {
+      recordLocation("/issues/TRC-1");
+      renderButton();
+      expect(clickLeavingDefault({})).toBe(true);
+      expect(back).not.toHaveBeenCalled();
+    });
+
+    it("does not count a repeated location as navigation", () => {
+      recordLocation("/issues/TRC-1");
+      recordLocation("/issues/TRC-1");
+      renderButton();
+      expect(clickLeavingDefault({})).toBe(true);
+      expect(back).not.toHaveBeenCalled();
+    });
+
+    it("leaves modified clicks to the browser", () => {
+      recordLocation("/a");
+      recordLocation("/b");
+      renderButton();
+      expect(clickLeavingDefault({ metaKey: true })).toBe(true);
+      expect(back).not.toHaveBeenCalled();
+    });
+
+    it("renders the same link before and after navigation (no hydration difference)", () => {
+      const { container, unmount } = renderButton();
+      const before = container.innerHTML;
+      unmount();
+      recordLocation("/a");
+      recordLocation("/b");
+      expect(renderButton().container.innerHTML).toBe(before);
+    });
+  });
+
+  it("prefers the Navigation API over the in-app count when both exist", () => {
+    recordLocation("/a");
+    recordLocation("/b");
+    navigationApi(false);
     renderButton();
     expect(clickLeavingDefault({})).toBe(true);
     expect(back).not.toHaveBeenCalled();
