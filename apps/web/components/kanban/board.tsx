@@ -256,7 +256,8 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
     const target = e.target as HTMLElement;
     if (dragged.current || e.defaultPrevented || !e.currentTarget.contains(target)) return;
     if (target.closest("a, button, input, textarea, select, [role=menu], [role=menuitem], [role=combobox], [role=dialog]")) return;
-    if (e.metaKey || e.ctrlKey) window.open(`/issues/${issue.identifier}`, "_blank");
+    if (window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) window.open(`/issues/${issue.identifier}`, "_blank", "noopener");
     else router.push(`/issues/${issue.identifier}`);
   };
   return (

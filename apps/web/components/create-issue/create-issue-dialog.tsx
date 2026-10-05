@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { IssueRef, Label, Milestone } from "@/lib/api/schemas";
-import { cn } from "@/lib/utils";
+import { cn, pointsLabel } from "@/lib/utils";
 import { createIssueAction, loadCreateIssueOptions } from "./actions";
 import { ESTIMATES, PRIORITY_LABEL } from "./constants";
 import type { CreateIssueValues } from "./form";
@@ -201,7 +201,7 @@ export function CreateIssueDialog({
                 <SelectTrigger size="sm" aria-label="Estimate" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No estimate</SelectItem>
-                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{n} {n === 1 ? "point" : "points"}</SelectItem>)}
+                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{pointsLabel(n)}</SelectItem>)}
                 </SelectContent>
               </Select>
               {parent ? (
