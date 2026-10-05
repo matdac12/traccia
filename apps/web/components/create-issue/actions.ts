@@ -1,9 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { failure, success, toFailure, type ActionResult } from "@/lib/action-result";
-import { createIssue } from "@/lib/api/issues";
-import { listLabels } from "@/lib/api/labels";
-import { listMilestones } from "@/lib/api/milestones";
+import { createIssue, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import type { Label, Milestone } from "@/lib/api/schemas";
 import { parseCreateIssue, type CreateIssueValues } from "./form";
 
@@ -12,7 +10,7 @@ export type CreateIssueOptions = { labels: Label[]; milestones: Milestone[] };
 /** Labels (global + the project's) and milestones the dialog offers once a project is picked. */
 export async function loadCreateIssueOptions(projectId: string): Promise<ActionResult<CreateIssueOptions>> {
   try {
-    const [labels, milestones] = await Promise.all([listLabels(projectId), listMilestones(projectId)]);
+    const [labels, milestones] = await Promise.all([listLabels(projectId), listProjectMilestones(projectId)]);
     return success({ labels, milestones });
   } catch (err) {
     return toFailure(err);

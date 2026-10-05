@@ -4,7 +4,7 @@ import { MilestoneSummary } from "../components/project/milestone-card";
 import { formatTargetDate, progressPercent } from "../components/project/milestone-progress";
 import type { Milestone } from "../lib/api/schemas";
 
-const base: Milestone = { id: "m1", projectId: "p", name: "Beta", description: "", targetDate: "2026-03-09", sortOrder: 0, createdAt: "", updatedAt: "", progress: { done: 3, total: 4 } };
+const base: Milestone = { id: "m1", projectId: "p", name: "Beta", description: "", targetDate: "2026-03-09", progress: { done: 3, total: 4 } };
 
 describe("milestone progress", () => {
   it("computes a rounded percent and guards empty milestones", () => {

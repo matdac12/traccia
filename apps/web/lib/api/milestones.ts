@@ -1,15 +1,7 @@
 import "server-only";
 import type { CreateMilestoneInput, UpdateMilestoneInput } from "@linear-matti/shared";
 import { api } from "./client";
-import { deletedResultSchema, milestoneSchema, pageOf } from "./schemas";
-
-export async function listMilestones(projectId: string) {
-  const page = await api().request(`/projects/${encodeURIComponent(projectId)}/milestones`, {
-    schema: pageOf(milestoneSchema),
-    query: { limit: 250 },
-  });
-  return page.items;
-}
+import { deletedResultSchema, milestoneSchema } from "./schemas";
 
 export function createMilestone(projectId: string, body: CreateMilestoneInput) {
   return api().request(`/projects/${encodeURIComponent(projectId)}/milestones`, { schema: milestoneSchema, method: "POST", body });

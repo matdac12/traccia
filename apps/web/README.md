@@ -112,7 +112,7 @@ test/                  vitest
   the server; the panels in `components/project/*` are client components that call the server actions in
   `app/(app)/projects/[id]/actions.ts` (validate with the shared Zod schema, call `lib/api`, `revalidatePath`).
   Actions return `ActionResult` (`lib/action-result.ts`): `{ ok, data }` or `{ error, fieldErrors }` for inline errors.
-- The issue list there is a minimal placeholder (`project-issue-list.tsx`); swap it for the shared issues table (MAT-1720).
+- The issue list there is the shared `IssuesView` (MAT-1720) locked to the project (`lockProject`), with filters in the page URL.
 - `components/create-issue/` is reusable: `CreateIssueProvider` (mounted in the `(app)` layout) exposes
   `useCreateIssue().open({ projectId?, status? })` and binds the `C` shortcut. Labels and milestones load per project
   through `loadCreateIssueOptions`. The create route has no `labels` field, so labels are set with a follow-up PATCH; if only

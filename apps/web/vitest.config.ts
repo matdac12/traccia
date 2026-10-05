@@ -10,5 +10,5 @@ export default defineConfig({
     },
   },
   esbuild: { jsx: "automatic" },
-  test: { include: ["test/**/*.test.{ts,tsx}"] },
+  test: { include: ["test/**/*.test.{ts,tsx}"], setupFiles: ["./test/setup.ts"] },
 });

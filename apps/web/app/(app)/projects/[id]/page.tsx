@@ -3,23 +3,25 @@ import { notFound } from "next/navigation";
 import { LabelsPanel } from "@/components/project/labels-panel";
 import { MilestonesPanel } from "@/components/project/milestones-panel";
 import { ProjectDescription } from "@/components/project/project-description";
-import { ProjectIssueList } from "@/components/project/project-issue-list";
+import { IssuesView, type IssuesData } from "@/components/issues-table/issues-view";
 import { ProjectStatusSelect } from "@/components/project/project-status-select";
 import { NewIssueButton } from "@/components/project/new-issue-button";
 import { PageHeader } from "@/components/traccia/page-header";
 import { ApiError } from "@/lib/api/client";
-import { listProjectIssues } from "@/lib/api/issues";
-import { listLabels } from "@/lib/api/labels";
-import { listMilestones } from "@/lib/api/milestones";
+import { listIssueGroups, listLabels, listProjectMilestones } from "@/lib/api/issues";
 import { getProject } from "@/lib/api/projects";
+import { parseFilters } from "@/lib/issue-filters";
 
-export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const project = await getProject(id).catch((err) => {
     if (err instanceof ApiError && err.status === 404) notFound();
     throw err;
   });
-  const [milestones, labels, issues] = await Promise.all([listMilestones(project.id), listLabels(project.id), listProjectIssues(project.id)]);
+  // The issue list is scoped to this project whatever `?project=` says.
+  const filters = { ...parseFilters(query), project: project.id };
+  const [milestones, labels, groups] = await Promise.all([listProjectMilestones(project.id), listLabels(project.id), listIssueGroups(filters)]);
+  const issues: IssuesData = { groups, projects: [project], labels, milestones };
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <PageHeader title={project.name}>
@@ -33,9 +35,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <LabelsPanel projectId={project.id} labels={labels} />
         </div>
       </div>
-      <div className="border-t">
-        <h2 className="px-4 pb-1 pt-3 text-[13px] font-medium">Issues</h2>
-        <ProjectIssueList issues={issues.items} hasMore={issues.nextCursor !== null} />
+      <div className="h-[560px] shrink-0 border-t">
+        <IssuesView filters={filters} data={issues} lockProject title="Issues" />
       </div>
     </div>
   );

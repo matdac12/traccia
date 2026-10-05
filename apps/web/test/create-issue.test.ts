@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../lib/api/client";
 
 const createIssue = vi.fn();
-vi.mock("@/lib/api/issues", () => ({ createIssue: (...a: unknown[]) => createIssue(...a) }));
-vi.mock("@/lib/api/labels", () => ({ listLabels: vi.fn(async () => [{ id: "l1", name: "bug", color: "#ff0000", projectId: null }]) }));
-vi.mock("@/lib/api/milestones", () => ({ listMilestones: vi.fn(async () => []) }));
+vi.mock("@/lib/api/issues", () => ({
+  createIssue: (...a: unknown[]) => createIssue(...a),
+  listLabels: vi.fn(async () => [{ id: "l1", name: "bug", color: "#ff0000", projectId: null }]),
+  listProjectMilestones: vi.fn(async () => []),
+}));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePath(...a) }));
 
