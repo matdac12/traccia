@@ -7,8 +7,10 @@ import { loadMoreIssues } from "@/app/(app)/issues/actions";
 import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
 import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker } from "@/components/inline-edit/pickers";
-import { upsertRow } from "@/components/inline-edit/rows";
+import { insertRow, removeRow, upsertRow } from "@/components/inline-edit/rows";
 import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
+import { IssueContextMenu, IssueMenuButton, type IssueMenuContext } from "@/components/issue-menu/issue-context-menu";
+import { useIssueDelete } from "@/components/issue-menu/use-issue-delete";
 import { Button } from "@/components/ui/button";
 import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import type { IssueFilters } from "@/lib/issue-filters";
@@ -37,6 +39,8 @@ export function IssuesTable({
   // Live refresh (MAT-1726): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
   const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => upsertRow(gs, row)) });
   const editor = { edit: inline.edit, labels };
+  const del = useIssueDelete({ onRemove: (row) => setGroups((gs) => removeRow(gs, row.id)), onRestore: (row) => setGroups((gs) => insertRow(gs, row)) });
+  const menu: IssueMenuContext = { editor, projects, milestones, onDelete: (row) => void del.deleteIssue(row) };
   useEffect(() => {
     register?.({
       counts: () => countsOf(groupsRef.current),
@@ -82,6 +86,7 @@ export function IssuesTable({
   return (
     <div className="min-w-[860px]" aria-busy={pending}>
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
+      {del.notice}
       <div className="sticky top-0 z-10 flex h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur">
         {sortButton("priority", "Priority", "w-[96px]")}
         {sortButton("title", "Title", "flex-1")}
@@ -89,6 +94,7 @@ export function IssuesTable({
         <span className="w-8 text-center">Est.</span>
         <span className="w-[18px]" />
         {sortButton("updatedAt", "Updated", "w-12 justify-end")}
+        <span className="w-5" />
       </div>
       {sections.map((g) => {
         const isCollapsed = collapsed.has(g.key);
@@ -108,7 +114,8 @@ export function IssuesTable({
                 const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
                 const sub = children.get(i.id);
                 return (
-                <div key={i.id} className="relative flex h-9 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/50 focus-within:bg-accent/50">
+                <IssueContextMenu key={i.id} issue={i} menu={menu}>
+                <div className="group relative flex h-9 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/50 focus-within:bg-accent/50 data-[state=open]:bg-accent/50">
                   <span className="flex w-[96px] shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
                     <PriorityPicker issue={i} editor={editor} />
                     {i.identifier}
@@ -134,7 +141,9 @@ export function IssuesTable({
                   <span className="w-8 text-center font-mono text-xs text-muted-foreground">{i.estimate ?? ""}</span>
                   <AssigneePicker issue={i} editor={editor} />
                   <time suppressHydrationWarning dateTime={i.updatedAt} className="w-12 text-right text-xs text-muted-foreground">{timeAgo(i.updatedAt)}</time>
+                  <IssueMenuButton issue={i} />
                 </div>
+                </IssueContextMenu>
                 );
               })}
               {!isCollapsed && group?.nextCursor && <LoadMore group={group} loading={loading.has(group.status)} onMore={more} />}
