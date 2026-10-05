@@ -3,6 +3,7 @@ import {
   deleteQuerySchema,
   getIssueQuerySchema,
   issuePositionBodySchema,
+  listIssueGroupsQuerySchema,
   listIssuesQuerySchema,
   patchIssueBodySchema,
 } from "@traccia/shared";
@@ -30,6 +31,15 @@ export function mountIssueRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   v1.get("/issues", (c) => {
     const page = issues.list(validateQuery(c, listIssuesQuerySchema));
     return c.json({ ...page, items: page.items.map(withLabels) });
+  });
+
+  // Registered before `/issues/:identifier`, which would otherwise take "groups" as an identifier.
+  v1.get("/issues/groups", (c) => {
+    const result = issues.listGroups(validateQuery(c, listIssueGroupsQuerySchema));
+    return c.json({
+      ...result,
+      groups: result.groups.map((g) => ({ ...g, items: g.items.map(withLabels) })),
+    });
   });
 
   v1.post("/issues", async (c) => {
