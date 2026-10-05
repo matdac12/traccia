@@ -345,7 +345,7 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 
 ### 6.5 Activity types
 
-`issue_created`, `title_changed`, `description_changed`, `status_changed`, `priority_changed`, `estimate_changed`, `assignee_changed`, `milestone_changed`, `project_changed`, `parent_changed`, `label_added`, `label_removed`, `blocker_added`, `blocker_removed`, `comment_added`, `comment_deleted`, `attachment_added`, `attachment_deleted`, `issue_deleted`, `issue_restored`.
+`issue_created`, `title_changed`, `description_changed`, `status_changed`, `priority_changed`, `estimate_changed`, `assignee_changed`, `milestone_changed`, `project_changed`, `parent_changed`, `label_added`, `label_removed`, `blocker_added`, `blocker_removed`, `comment_added`, `comment_deleted`, `comment_restored`, `attachment_added`, `attachment_deleted`, `attachment_restored`, `issue_deleted`, `issue_restored`.
 
 Rules:
 - Written in the same transaction as the change.

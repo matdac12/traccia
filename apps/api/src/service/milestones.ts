@@ -12,6 +12,7 @@ import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import {
   type DbHandle,
+  flagDeleted,
   definedOnly,
   parseInput,
   type ServiceContext,
@@ -100,9 +101,9 @@ export function createMilestonesService(ctx: ServiceContext) {
     list(
       projectRef: string,
       options: { includeDeleted?: boolean } = {},
-    ): Milestone[] {
+    ): (Milestone & { deleted?: boolean })[] {
       const project = resolveProject(ctx.db, projectRef, options);
-      return ctx.db
+      const rows = ctx.db
         .select()
         .from(milestones)
         .where(
@@ -113,6 +114,7 @@ export function createMilestonesService(ctx: ServiceContext) {
         )
         .orderBy(asc(milestones.sortOrder), asc(milestones.id))
         .all();
+      return flagDeleted(rows, options.includeDeleted);
     },
   };
 }

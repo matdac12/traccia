@@ -12,13 +12,19 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { comments, issues } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
-import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
+import {
+  type DbHandle,
+  flagDeleted,
+  parseInput,
+  type ServiceContext,
+} from "./context.js";
 import { recordActivity, resolveIssue } from "./issues.js";
 import { indexComment } from "./search-index.js";
 
 export type Comment = typeof comments.$inferSelect;
 /** A top-level comment with its replies (oldest first). Replies never have replies. */
-export type CommentThread = Comment & { replies: Comment[] };
+type Flagged<T> = T & { deleted?: boolean };
+export type CommentThread = Flagged<Comment> & { replies: Flagged<Comment>[] };
 
 /**
  * Threading is one level deep. Replying to a reply is REJECTED with
@@ -58,7 +64,7 @@ export function listIssueComments(
   issueId: string,
   includeDeleted = false,
 ): CommentThread[] {
-  const rows = db
+  const plain = db
     .select()
     .from(comments)
     .where(
@@ -68,6 +74,7 @@ export function listIssueComments(
     )
     .orderBy(asc(comments.createdAt), asc(comments.id))
     .all();
+  const rows = flagDeleted(plain, includeDeleted);
   const threads = new Map<string, CommentThread>();
   for (const c of rows) {
     if (c.parentId === null) threads.set(c.id, { ...c, replies: [] });

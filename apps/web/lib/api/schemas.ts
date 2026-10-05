@@ -51,6 +51,13 @@ export const trashItemSchema = z.object({
   deletedBatch: z.string().nullable(),
   /** Owning issue (id) for comments and attachments. */
   issueId: z.string().nullable(),
+  /** Parent issue (id) for sub-issues. */
+  parentId: z.string().nullable(),
+  /** Project (id and name) the item belongs to; a project is its own. */
+  projectId: z.string().nullable(),
+  projectName: z.string().nullable(),
+  /** Who deleted it; null for items deleted before this was recorded. */
+  deletedBy: z.enum(["agent", "you"]).nullable(),
 });
 export type TrashItem = z.infer<typeof trashItemSchema>;
 

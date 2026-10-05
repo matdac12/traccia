@@ -40,8 +40,10 @@ export const ACTIVITY_TYPES = [
   "blocker_removed",
   "comment_added",
   "comment_deleted",
+  "comment_restored",
   "attachment_added",
   "attachment_deleted",
+  "attachment_restored",
   "issue_deleted",
   "issue_restored",
 ] as const;

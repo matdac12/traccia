@@ -55,10 +55,14 @@ export function describeActivity(row: Pick<ActivityRow, "type" | "data">, lookup
       return d.parentId ? "replied to a comment" : "commented";
     case "comment_deleted":
       return "deleted a comment";
+    case "comment_restored":
+      return "restored a comment";
     case "attachment_added":
       return `attached ${str(d.filename) ?? "a file"}`;
     case "attachment_deleted":
       return "removed an attachment";
+    case "attachment_restored":
+      return "restored an attachment";
     case "issue_deleted":
       return "moved the issue to Trash";
     case "issue_restored":

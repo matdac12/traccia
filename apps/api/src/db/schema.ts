@@ -57,6 +57,7 @@ export const projects = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
     deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
   },
   () => [
     check("projects_status_check", inList("status", PROJECT_STATUSES)),
@@ -80,6 +81,7 @@ export const milestones = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
     deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
   },
   () => [actorCheck("milestones_created_by_check", "created_by")],
 );
@@ -113,6 +115,7 @@ export const issues = sqliteTable(
     canceledAt: text("canceled_at"),
     deletedAt: text("deleted_at"),
     deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
   },
   (t) => [
     check("issues_status_check", inList("status", ISSUE_STATUSES)),
@@ -201,6 +204,7 @@ export const comments = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
     deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
   },
   (t) => [
     actorCheck("comments_actor_check", "actor"),
@@ -225,6 +229,7 @@ export const attachments = sqliteTable(
     createdAt: text("created_at").notNull(),
     deletedAt: text("deleted_at"),
     deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
   },
   () => [actorCheck("attachments_actor_check", "actor")],
 );

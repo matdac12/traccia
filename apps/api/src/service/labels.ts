@@ -9,13 +9,14 @@ import {
   type UpdateLabelInput,
   updateLabelInputSchema,
 } from "@linear-matti/shared";
-import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { activity, issueLabels, issues, labels } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import {
   type DbHandle,
   definedOnly,
+  flagDeleted,
   parseInput,
   type ServiceContext,
   type Tx,
@@ -209,12 +210,38 @@ export function detachLabels(
   names: string[],
 ): Label[] {
   const issue = liveIssue(tx, issueId);
-  const wanted = resolveLabelNames(
-    tx,
-    issue.projectId,
-    parseInput(labelNamesSchema, names),
-  );
   const attached = attachedLabelIds(tx, issueId);
+  // A label soft-deleted while attached is no longer resolvable by name, yet
+  // the link row is still there; match those first so they can be detached.
+  const stale = attached.size
+    ? tx
+        .select()
+        .from(labels)
+        .where(
+          and(inArray(labels.id, [...attached]), isNotNull(labels.deletedAt)),
+        )
+        .all()
+    : [];
+  const parsed = parseInput(labelNamesSchema, names);
+  const staleMatches = new Map<string, Label>();
+  const rest: string[] = [];
+  const available = labelsAvailableTo(tx, issue.projectId);
+  for (const name of parsed) {
+    // A live label of that name that is attached wins; otherwise the stale one
+    // is what the caller means (a same-named live label may exist unattached).
+    const liveAttached = available.some(
+      (l) => lowerName(l.name) === lowerName(name) && attached.has(l.id),
+    );
+    const hit = liveAttached
+      ? undefined
+      : stale.find((l) => lowerName(l.name) === lowerName(name));
+    if (hit) staleMatches.set(hit.id, hit);
+    else rest.push(name);
+  }
+  const wanted = [
+    ...staleMatches.values(),
+    ...(rest.length ? resolveLabelNames(tx, issue.projectId, rest) : []),
+  ];
   const removed = wanted.filter((l) => attached.has(l.id));
   for (const label of removed) {
     tx.delete(issueLabels)
@@ -351,7 +378,7 @@ export function createLabelsService(ctx: ServiceContext) {
     },
 
     /** Global labels, plus `project`'s labels when given; by name. */
-    list(input: ListLabelsInput = {}): Label[] {
+    list(input: ListLabelsInput = {}): (Label & { deleted?: boolean })[] {
       const { project, includeDeleted } = parseInput(
         listLabelsInputSchema,
         input,
@@ -359,7 +386,7 @@ export function createLabelsService(ctx: ServiceContext) {
       const projectId = project
         ? resolveProject(ctx.db, project, { includeDeleted }).id
         : undefined;
-      return ctx.db
+      const rows = ctx.db
         .select()
         .from(labels)
         .where(
@@ -372,6 +399,7 @@ export function createLabelsService(ctx: ServiceContext) {
         )
         .orderBy(asc(labels.name), asc(labels.id))
         .all();
+      return flagDeleted(rows, includeDeleted);
     },
 
     attach: (actor: Actor, issueId: string, names: string[]) =>

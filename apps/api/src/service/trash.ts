@@ -1,5 +1,14 @@
 import { type Actor, ServiceError } from "@linear-matti/shared";
-import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { canPurge } from "../auth/permissions.js";
@@ -41,8 +50,9 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  *   comment    -> its replies and the attachments tied to them
  *   attachment -> itself
  *
- * Restoring a milestone does not re-link the issues it was cleared from (the
- * `milestone_changed` activity rows keep the old id). Purge also drops the
+ * Restoring a milestone re-links the issues that lost it (found through their
+ * `milestone_deleted` activity rows), unless an issue was given another
+ * milestone, or moved to another project, in the meantime. Purge also drops the
  * activity of purged issues and project-scoped labels, as foreign keys require.
  *
  * Other services never stamp `deleted_at` themselves. To delete an
@@ -105,6 +115,13 @@ export type TrashItem = {
   deletedBatch: string | null;
   /** Owning issue for comments and attachments. */
   issueId: string | null;
+  /** Parent issue, for sub-issues. */
+  parentId: string | null;
+  /** Project the item belongs to (a project is its own); null only for legacy rows. */
+  projectId: string | null;
+  projectName: string | null;
+  /** Actor that deleted it; null for rows deleted before this was recorded. */
+  deletedBy: Actor | null;
   deleted: true;
 };
 
@@ -249,8 +266,14 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
   }
 }
 
-function stamp(tx: Tx, s: Sets, batch: string, now: string): void {
-  const mark = { deletedAt: now, deletedBatch: batch };
+function stamp(
+  tx: Tx,
+  s: Sets,
+  batch: string,
+  now: string,
+  actor: Actor,
+): void {
+  const mark = { deletedAt: now, deletedBatch: batch, deletedBy: actor };
   if (s.projectIds.length)
     tx.update(projects)
       .set(mark)
@@ -322,7 +345,7 @@ function softDelete(
   const batch = newId();
   const now = nowIso();
   const sets = collect(tx, type, id, true);
-  stamp(tx, sets, batch, now);
+  stamp(tx, sets, batch, now, actor);
 
   if (type === "milestone") {
     // Issues keep living: only their milestone link goes (deleted ones too, so
@@ -345,7 +368,7 @@ function softDelete(
         issue.id,
         actor,
         "milestone_changed",
-        { from: id, to: null, cause: "milestone_deleted" },
+        { from: id, to: null, cause: "milestone_deleted", batch },
         now,
       );
     }
@@ -457,7 +480,7 @@ function restoreBatch(
         .all(),
     ),
   };
-  const clear = { deletedAt: null, deletedBatch: null };
+  const clear = { deletedAt: null, deletedBatch: null, deletedBy: null };
   if (sets.projectIds.length)
     tx.update(projects)
       .set(clear)
@@ -481,9 +504,9 @@ function restoreBatch(
       .where(inArray(attachments.id, sets.attachmentIds))
       .run();
 
-  // `issue_restored` is the only restore activity type. A restored issue gets
-  // one; a restored comment/attachment records on its owning issue with the
-  // ids in `data` (the issue itself was never hidden).
+  // A restored issue gets `issue_restored`; a restored comment/attachment
+  // records its own type on the owning issue with the ids in `data` (the issue
+  // itself was never hidden).
   const now = nowIso();
   const base = { batch, via: type, viaId: row.id };
   for (const issueId of sets.issueIds) {
@@ -495,7 +518,7 @@ function restoreBatch(
       tx,
       owner,
       actor,
-      "issue_restored",
+      type === "comment" ? "comment_restored" : "attachment_restored",
       {
         ...base,
         commentIds: sets.commentIds,
@@ -504,6 +527,7 @@ function restoreBatch(
       now,
     );
   }
+  if (type === "milestone") relinkIssues(tx, actor, row.id, now);
   // Re-adds each affected issue and its live comments (a restored comment
   // re-indexes its owning issue, which is a no-op for the rest).
   const commentOwners = sets.commentIds.length
@@ -516,6 +540,72 @@ function restoreBatch(
     : [];
   reindexIssues(tx, [...new Set([...sets.issueIds, ...commentOwners])]);
   return { type, id: row.id, batch: batch ?? "", counts: countsOf(sets) };
+}
+
+/**
+ * Gives a restored milestone back to the issues that lost it when it was
+ * deleted. An issue qualifies when its latest `milestone_changed` activity is
+ * that deletion and it still has no milestone (deleted issues included, they
+ * were cleared too).
+ */
+function relinkIssues(
+  tx: Tx,
+  actor: Actor,
+  milestoneId: string,
+  now: string,
+): void {
+  const milestone = tx
+    .select()
+    .from(milestones)
+    .where(eq(milestones.id, milestoneId))
+    .get();
+  if (!milestone) return;
+  const candidates = tx
+    .select({ issueId: activity.issueId })
+    .from(activity)
+    .innerJoin(issues, eq(issues.id, activity.issueId))
+    .where(
+      and(
+        eq(activity.type, "milestone_changed"),
+        sql`json_extract(${activity.data}, '$.cause') = 'milestone_deleted'`,
+        sql`json_extract(${activity.data}, '$.from') = ${milestoneId}`,
+        isNull(issues.milestoneId),
+        eq(issues.projectId, milestone.projectId),
+      ),
+    )
+    .all();
+  for (const issueId of new Set(candidates.map((c) => c.issueId))) {
+    const latest = tx
+      .select()
+      .from(activity)
+      .where(
+        and(
+          eq(activity.issueId, issueId),
+          eq(activity.type, "milestone_changed"),
+        ),
+      )
+      .orderBy(desc(activity.createdAt), desc(activity.id))
+      .get();
+    if (!latest) continue;
+    const d = JSON.parse(latest.data) as { cause?: string; from?: string };
+    if (d.cause !== "milestone_deleted" || d.from !== milestoneId) continue;
+    const issue = tx.select().from(issues).where(eq(issues.id, issueId)).get();
+    tx.update(issues)
+      .set({
+        milestoneId,
+        ...(issue?.deletedAt ? {} : { updatedAt: now }),
+      })
+      .where(eq(issues.id, issueId))
+      .run();
+    recordActivity(
+      tx,
+      issueId,
+      actor,
+      "milestone_changed",
+      { from: null, to: milestoneId, cause: "milestone_restored" },
+      now,
+    );
+  }
 }
 
 /** A batch member cannot come back while what it hangs off is still deleted. */
@@ -715,26 +805,33 @@ export function createTrashService(ctx: ServiceContext) {
         deleted_at: string;
         batch: string | null;
         issue_id: string | null;
+        parent_id: string | null;
+        project_id: string | null;
+        project_name: string | null;
+        deleted_by: Actor | null;
       }>(sql`
-        SELECT * FROM (
-          SELECT 'project' AS type, id, name AS label, deleted_at, deleted_batch AS batch, NULL AS issue_id
+        SELECT t.*, p.name AS project_name FROM (
+          SELECT 'project' AS type, id, name AS label, deleted_at, deleted_batch AS batch, NULL AS issue_id,
+                 NULL AS parent_id, id AS project_id, deleted_by
             FROM projects WHERE deleted_at IS NOT NULL
           UNION ALL
-          SELECT 'milestone', id, name, deleted_at, deleted_batch, NULL
+          SELECT 'milestone', id, name, deleted_at, deleted_batch, NULL, NULL, project_id, deleted_by
             FROM milestones WHERE deleted_at IS NOT NULL
           UNION ALL
-          SELECT 'issue', id, identifier || ' ' || title, deleted_at, deleted_batch, NULL
+          SELECT 'issue', id, identifier || ' ' || title, deleted_at, deleted_batch, NULL, parent_id, project_id, deleted_by
             FROM issues WHERE deleted_at IS NOT NULL
           UNION ALL
-          SELECT 'comment', id, substr(body, 1, 80), deleted_at, deleted_batch, issue_id
-            FROM comments WHERE deleted_at IS NOT NULL
+          SELECT 'comment', c.id, substr(c.body, 1, 80), c.deleted_at, c.deleted_batch, c.issue_id, NULL,
+                 (SELECT project_id FROM issues WHERE id = c.issue_id), c.deleted_by
+            FROM comments c WHERE c.deleted_at IS NOT NULL
           UNION ALL
-          SELECT 'attachment', id, filename, deleted_at, deleted_batch, issue_id
-            FROM attachments WHERE deleted_at IS NOT NULL
-        )
-        WHERE ${q.type ? sql`type = ${q.type}` : sql`1`}
-          AND ${after ? sql`(deleted_at < ${after.d} OR (deleted_at = ${after.d} AND id < ${after.i}))` : sql`1`}
-        ORDER BY deleted_at DESC, id DESC
+          SELECT 'attachment', a.id, a.filename, a.deleted_at, a.deleted_batch, a.issue_id, NULL,
+                 (SELECT project_id FROM issues WHERE id = a.issue_id), a.deleted_by
+            FROM attachments a WHERE a.deleted_at IS NOT NULL
+        ) t LEFT JOIN projects p ON p.id = t.project_id
+        WHERE ${q.type ? sql`t.type = ${q.type}` : sql`1`}
+          AND ${after ? sql`(t.deleted_at < ${after.d} OR (t.deleted_at = ${after.d} AND t.id < ${after.i}))` : sql`1`}
+        ORDER BY t.deleted_at DESC, t.id DESC
         LIMIT ${limit + 1}
       `);
       const items: TrashItem[] = rows.slice(0, limit).map((r) => ({
@@ -744,6 +841,10 @@ export function createTrashService(ctx: ServiceContext) {
         deletedAt: r.deleted_at,
         deletedBatch: r.batch,
         issueId: r.issue_id,
+        parentId: r.parent_id,
+        projectId: r.project_id,
+        projectName: r.project_name,
+        deletedBy: r.deleted_by,
         deleted: true,
       }));
       const last = items[items.length - 1];

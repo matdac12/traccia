@@ -37,16 +37,39 @@ export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashIte
 }
 
 /**
- * Other trashed items that go away with `item` when it is purged: its batch peers plus, for an
- * issue, every trashed comment and attachment that hangs off it (even from an earlier batch).
+ * Other trashed items that go away with `item` when it is purged, whatever batch they were deleted
+ * in: a project takes everything that belongs to it; an issue its sub-issues and their comments and
+ * attachments; a comment its replies and their attachments. A milestone or attachment goes alone.
  */
 export function companions(item: TrashItem, all: readonly TrashItem[]): TrashItem[] {
-  return all.filter(
-    (o) =>
-      !(o.type === item.type && o.id === item.id) &&
-      ((item.deletedBatch !== null && o.deletedBatch === item.deletedBatch) ||
-        (item.type === "issue" && o.issueId === item.id)),
-  );
+  const others = all.filter((o) => !(o.type === item.type && o.id === item.id));
+  switch (item.type) {
+    case "project":
+      return others.filter((o) => o.projectId === item.id);
+    case "issue": {
+      const tree = new Set([item.id]);
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const o of others) {
+          if (o.type === "issue" && o.parentId && tree.has(o.parentId) && !tree.has(o.id)) {
+            tree.add(o.id);
+            grew = true;
+          }
+        }
+      }
+      return others.filter((o) => (o.type === "issue" ? tree.has(o.id) : o.issueId !== null && tree.has(o.issueId)));
+    }
+    case "comment":
+      return item.deletedBatch === null ? [] : others.filter((o) => o.deletedBatch === item.deletedBatch);
+    case "milestone":
+    case "attachment":
+      return [];
+  }
+}
+
+/** "by you" / "by an agent"; empty for items deleted before the actor was recorded. */
+export function deletedByText(item: Pick<TrashItem, "deletedBy">): string {
+  return item.deletedBy === null ? "" : item.deletedBy === "you" ? "by you" : "by an agent";
 }
 
 export function summarize(items: readonly TrashItem[]): string {
@@ -62,12 +85,7 @@ export function purgeConfirmation(item: TrashItem, all: readonly TrashItem[]) {
     title: `Purge ${TYPE_LABEL[item.type].toLowerCase()} permanently?`,
     name: item.label,
     warning: "This cannot be undone.",
-    // Trash items do not say which project an issue belongs to, so for a project or issue the list
-    // can miss children deleted in an earlier batch: state it as a lower bound.
-    withIt:
-      others.length > 0
-        ? `This also permanently removes ${item.type === "project" || item.type === "issue" ? "at least " : ""}${summarize(others)} deleted with it.`
-        : null,
+    withIt: others.length > 0 ? `This also permanently removes ${summarize(others)} deleted with it.` : null,
   };
 }
 
