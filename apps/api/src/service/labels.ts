@@ -292,7 +292,8 @@ export function listIssueLabels(db: DbHandle, issueId: string): Label[] {
 
 export function createLabelsService(ctx: ServiceContext) {
   return {
-    create(_actor: Actor, input: CreateLabelInput): Label {
+    /** Labels carry no `created_by` column, so there is no actor to stamp. */
+    create(input: CreateLabelInput): Label {
       const data = parseInput(createLabelInputSchema, input);
       return ctx.write((tx) => {
         const projectId = data.project

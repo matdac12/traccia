@@ -46,9 +46,9 @@ function setup() {
 describe("label CRUD", () => {
   it("creates with default colour, global or project scoped", () => {
     const { services, p1 } = setup();
-    const g = services.labels.create("you", { name: "bug" });
+    const g = services.labels.create({ name: "bug" });
     expect(g).toMatchObject({ color: "#6b7280", projectId: null });
-    const l = services.labels.create("you", {
+    const l = services.labels.create({
       name: "bug",
       color: "#ff0000",
       project: p1.id,
@@ -59,30 +59,28 @@ describe("label CRUD", () => {
   it("rejects bad colours", () => {
     const { services } = setup();
     expect(
-      code(() => services.labels.create("you", { name: "x", color: "red" })),
+      code(() => services.labels.create({ name: "x", color: "red" })),
     ).toBe("validation_error");
   });
 
   it("rejects case-insensitive duplicates within a scope, allows across scopes", () => {
     const { services, p1, p2 } = setup();
-    services.labels.create("you", { name: "Bug" });
-    expect(code(() => services.labels.create("you", { name: "bUG" }))).toBe(
+    services.labels.create({ name: "Bug" });
+    expect(code(() => services.labels.create({ name: "bUG" }))).toBe(
       "conflict",
     );
     // project scope coexists with global, and with other projects
-    services.labels.create("you", { name: "bug", project: p1.id });
-    services.labels.create("you", { name: "bug", project: p2.id });
+    services.labels.create({ name: "bug", project: p1.id });
+    services.labels.create({ name: "bug", project: p2.id });
     expect(
-      code(() =>
-        services.labels.create("you", { name: "BUG", project: p1.id }),
-      ),
+      code(() => services.labels.create({ name: "BUG", project: p1.id })),
     ).toBe("conflict");
   });
 
   it("rename conflicts, and a deleted label frees its name", () => {
     const { services } = setup();
-    const a = services.labels.create("you", { name: "a" });
-    const b = services.labels.create("you", { name: "b" });
+    const a = services.labels.create({ name: "a" });
+    const b = services.labels.create({ name: "b" });
     expect(code(() => services.labels.update(b.id, { name: "A" }))).toBe(
       "conflict",
     );
@@ -98,10 +96,10 @@ describe("label CRUD", () => {
 
   it("lists global plus a project's labels, with includeDeleted", () => {
     const { services, p1, p2 } = setup();
-    services.labels.create("you", { name: "g" });
-    services.labels.create("you", { name: "p1", project: p1.id });
-    services.labels.create("you", { name: "p2", project: p2.id });
-    const gone = services.labels.create("you", { name: "old" });
+    services.labels.create({ name: "g" });
+    services.labels.create({ name: "p1", project: p1.id });
+    services.labels.create({ name: "p2", project: p2.id });
+    const gone = services.labels.create({ name: "old" });
     services.labels.delete(gone.id);
     const names = (x: { name: string }[]) => x.map((l) => l.name);
     expect(names(services.labels.list())).toEqual(["g"]);
@@ -115,7 +113,7 @@ describe("label CRUD", () => {
 describe("attach and detach", () => {
   it("attaches by name case-insensitively, idempotently, with activity only on change", () => {
     const { services, p1, makeIssue, activityTypes, attachedCount } = setup();
-    services.labels.create("you", { name: "bug" });
+    services.labels.create({ name: "bug" });
     const issue = makeIssue(p1.id);
     expect(services.labels.attach("agent", issue.id, ["BUG"])).toHaveLength(1);
     expect(services.labels.attach("agent", issue.id, ["bug"])).toEqual([]);
@@ -132,8 +130,8 @@ describe("attach and detach", () => {
 
   it("project label shadows a global one of the same name, others get the global", () => {
     const { services, p1, p2, makeIssue } = setup();
-    const global = services.labels.create("you", { name: "bug" });
-    const scoped = services.labels.create("you", {
+    const global = services.labels.create({ name: "bug" });
+    const scoped = services.labels.create({
       name: "Bug",
       project: p1.id,
     });
@@ -151,8 +149,8 @@ describe("attach and detach", () => {
 
   it("falls back to global when the project has no such label; other projects' labels are unknown", () => {
     const { services, p1, p2, makeIssue } = setup();
-    services.labels.create("you", { name: "g" });
-    services.labels.create("you", { name: "only2", project: p2.id });
+    services.labels.create({ name: "g" });
+    services.labels.create({ name: "only2", project: p2.id });
     const issue = makeIssue(p1.id);
     expect(services.labels.attach("you", issue.id, ["g"])).toHaveLength(1);
     expect(code(() => services.labels.attach("you", issue.id, ["only2"]))).toBe(
@@ -163,9 +161,9 @@ describe("attach and detach", () => {
   it("unknown name lists existing labels and hint, and attaches nothing", () => {
     const { services, p1, p2, makeIssue, attachedCount, activityTypes } =
       setup();
-    services.labels.create("you", { name: "bug" });
-    services.labels.create("you", { name: "feature", project: p1.id });
-    services.labels.create("you", { name: "hidden", project: p2.id });
+    services.labels.create({ name: "bug" });
+    services.labels.create({ name: "feature", project: p1.id });
+    services.labels.create({ name: "hidden", project: p2.id });
     const issue = makeIssue(p1.id);
     let message = "";
     try {
@@ -185,7 +183,7 @@ describe("attach and detach", () => {
 
   it("deleted labels are unknown and hidden from the issue", () => {
     const { services, p1, makeIssue } = setup();
-    const l = services.labels.create("you", { name: "bug" });
+    const l = services.labels.create({ name: "bug" });
     const issue = makeIssue(p1.id);
     services.labels.attach("you", issue.id, ["bug"]);
     services.labels.delete(l.id);
@@ -193,6 +191,24 @@ describe("attach and detach", () => {
     expect(code(() => services.labels.attach("you", issue.id, ["bug"]))).toBe(
       "validation_error",
     );
+  });
+
+  it("detach and setForIssue are all-or-nothing on unknown names", () => {
+    const { services, p1, makeIssue, attachedCount } = setup();
+    services.labels.create({ name: "a" });
+    services.labels.create({ name: "b" });
+    const issue = makeIssue(p1.id);
+    services.labels.attach("you", issue.id, ["a"]);
+    expect(
+      code(() => services.labels.detach("you", issue.id, ["a", "zz"])),
+    ).toBe("validation_error");
+    expect(
+      code(() => services.labels.setForIssue("you", issue.id, ["b", "zz"])),
+    ).toBe("validation_error");
+    expect(services.labels.listForIssue(issue.id).map((l) => l.name)).toEqual([
+      "a",
+    ]);
+    expect(attachedCount(issue.id)).toBe(1);
   });
 
   it("rejects missing issues", () => {
@@ -205,7 +221,7 @@ describe("attach and detach", () => {
   it("setForIssue replaces the set, writing activity only for the difference", () => {
     const { services, p1, makeIssue, activityTypes } = setup();
     for (const name of ["a", "b", "c"]) {
-      services.labels.create("you", { name });
+      services.labels.create({ name });
     }
     const issue = makeIssue(p1.id);
     services.labels.setForIssue("you", issue.id, ["a", "b"]);

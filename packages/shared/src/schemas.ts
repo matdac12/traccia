@@ -76,7 +76,7 @@ export const createLabelInputSchema = z.object({
   name: nameSchema,
   color: colorSchema.optional(),
   /** Project id, name or key. Omit or `null` for a global label. */
-  project: z.string().nullable().optional(),
+  project: z.string().min(1).nullable().optional(),
 });
 export type CreateLabelInput = z.infer<typeof createLabelInputSchema>;
 
