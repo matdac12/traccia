@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { ConfigError, loadConfig, loadConfigFromEnv } from "../config.js";
 import { type Db, databasePath, openDatabase } from "../db/connection.js";
 import { runMigrations } from "../db/migrate.js";
-import { rebuildSearchIndex } from "../service/search-index.js";
 import { SnapshotError, takeSnapshot } from "../db/snapshot.js";
+import { rebuildSearchIndex } from "../service/search-index.js";
 import { runTokenCommand, tokenHelp, UsageError } from "./token.js";
 
 type Env = Record<string, string | undefined>;

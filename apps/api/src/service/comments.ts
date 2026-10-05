@@ -13,8 +13,8 @@ import { comments, issues } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { nowIso } from "../time.js";
 import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
-import { indexComment } from "./search-index.js";
 import { recordActivity, resolveIssue } from "./issues.js";
+import { indexComment } from "./search-index.js";
 
 export type Comment = typeof comments.$inferSelect;
 /** A top-level comment with its replies (oldest first). Replies never have replies. */

@@ -1,8 +1,8 @@
+import { ServiceError } from "@linear-matti/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { canPurge } from "../../auth/permissions.js";
 import { decodeCursor, encodeCursor } from "../../rest/pagination.js";
-import { ServiceError } from "@linear-matti/shared";
 import { resolveIssue } from "../../service/issues.js";
 import { toolError, toolResult } from "../errors.js";
 import type { McpContext } from "../server.js";

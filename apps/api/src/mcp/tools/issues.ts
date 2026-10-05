@@ -1,5 +1,5 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type Actor, ServiceError } from "@linear-matti/shared";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { canPurge } from "../../auth/permissions.js";

@@ -4,12 +4,16 @@ import pkg from "../../package.json" with { type: "json" };
 import { errorFields } from "../logger.js";
 import type { AppContainer } from "../rest/env.js";
 import { runTool, toolResult } from "./errors.js";
-import { registerCommentTools } from "./tools/comments.js";
-import { registerIssueTools } from "./tools/issues.js";
 import {
   type AttachmentToolDeps,
   registerAttachmentTools,
 } from "./tools/attachments.js";
+import { registerCommentTools } from "./tools/comments.js";
+import { registerIssueTools } from "./tools/issues.js";
+import { registerLabelTools } from "./tools/labels.js";
+import { registerMilestoneTools } from "./tools/milestones.js";
+import { registerProjectTools } from "./tools/projects.js";
+import { registerRestoreTool } from "./tools/restore.js";
 
 /** The caller, resolved by the auth middleware before the transport runs. */
 export type McpContext = {
@@ -51,6 +55,10 @@ export function createMcpServer(
   registerIssueTools(server, ctx);
   registerCommentTools(server, ctx);
   registerAttachmentTools(server, ctx, deps.attachments);
+  registerProjectTools(server, ctx);
+  registerMilestoneTools(server, ctx);
+  registerLabelTools(server, ctx);
+  registerRestoreTool(server, ctx);
 
   return server;
 }

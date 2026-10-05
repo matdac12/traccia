@@ -2,8 +2,8 @@ import { ServiceError } from "@linear-matti/shared";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import {
-  decodeCursor,
   DEFAULT_LIMIT,
+  decodeCursor,
   encodeCursor,
   MAX_LIMIT,
   type Page,

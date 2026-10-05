@@ -2,19 +2,19 @@ import { Hono } from "hono";
 import { requireAuth } from "./auth/middleware.js";
 import { createBearerVerifier } from "./auth/verifier.js";
 import { createMcpRoute } from "./mcp/route.js";
+import { mountActivityRoutes } from "./rest/activity.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
+import { mountCommentRoutes } from "./rest/comments.js";
+import type { AppContainer, AppEnv } from "./rest/env.js";
+import { errorHandler, notFoundHandler } from "./rest/errors.js";
+import { mountIssueRoutes } from "./rest/issues.js";
 import { mountLabelRoutes } from "./rest/labels.js";
 import { mountMilestoneRoutes } from "./rest/milestones.js";
 import { mountProjectRoutes } from "./rest/projects.js";
+import { requestContext } from "./rest/request-context.js";
 import { mountRestoreRoutes } from "./rest/restore.js";
-import { mountActivityRoutes } from "./rest/activity.js";
-import { mountCommentRoutes } from "./rest/comments.js";
-import { mountIssueRoutes } from "./rest/issues.js";
 import { mountSearchRoutes } from "./rest/search.js";
 import { mountTrashRoutes } from "./rest/trash.js";
-import type { AppContainer, AppEnv } from "./rest/env.js";
-import { errorHandler, notFoundHandler } from "./rest/errors.js";
-import { requestContext } from "./rest/request-context.js";
 
 /**
  * Builds the Hono app. Unauthenticated routes (/healthz) are mounted on the
