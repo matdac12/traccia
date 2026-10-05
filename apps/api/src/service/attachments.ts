@@ -71,14 +71,9 @@ const notFound = (id: string) =>
 
 export function createAttachmentsService(ctx: ServiceContext) {
   return {
-    /**
-     * Resolves the issue an upload targets and checks the optional comment, so
-     * the caller can reject before any bytes are stored.
-     */
-    resolveTarget(issueRef: string, commentId?: string | null): Issue {
-      const issue = resolveIssue(ctx.db, issueRef);
-      if (commentId) assertCommentOnIssue(ctx.db, issue.id, commentId);
-      return issue;
+    /** Resolves the issue an upload targets, so an unknown one is rejected before any bytes are read. */
+    resolveTarget(issueRef: string): Issue {
+      return resolveIssue(ctx.db, issueRef);
     },
 
     /** Records an already stored file. Writes an `attachment_added` activity row. */

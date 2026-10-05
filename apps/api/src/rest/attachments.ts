@@ -27,6 +27,14 @@ const deleteQuerySchema = z.object({
   purge: z.enum(["true", "false"]).optional(),
 });
 
+/** Errors raised by busboy or the request stream, as opposed to storage I/O. */
+const isFormError = (err: unknown) =>
+  (err instanceof Error &&
+    /^(Unexpected end of form|Malformed|Multipart|Missing|Unsupported|Part terminated|Boundary)/i.test(
+      err.message,
+    )) ||
+  (err as { code?: string })?.code === "ERR_STREAM_PREMATURE_CLOSE";
+
 /** Parsed multipart form: at most one file plus the optional `comment_id` field. */
 type Upload = {
   storageKey: string;
@@ -66,6 +74,7 @@ async function receiveUpload(
   let commentId: string | undefined;
   let extraFile = false;
 
+  const source = Readable.fromWeb(req.body as never);
   const parsed = new Promise<void>((resolve, reject) => {
     busboy.on("field", (name, value) => {
       if (name === "comment_id" && value !== "") commentId = value;
@@ -89,7 +98,8 @@ async function receiveUpload(
     });
     busboy.on("error", reject);
     busboy.on("close", resolve);
-    Readable.fromWeb(req.body as never).pipe(busboy);
+    source.on("error", reject);
+    source.pipe(busboy);
   });
 
   try {
@@ -97,7 +107,11 @@ async function receiveUpload(
       await parsed;
     } catch (err) {
       if (err instanceof AttachmentValidationError) throw err;
-      throw new ValidationError("Malformed multipart/form-data request");
+      // Storage failures are ours (500); only a broken form is the client's.
+      if (isFormError(err)) {
+        throw new ValidationError("Malformed multipart/form-data request");
+      }
+      throw err;
     }
     const result = await upload;
     if (!result) {
@@ -108,6 +122,8 @@ async function receiveUpload(
     }
     return { storageKey, filename, result, commentId };
   } catch (err) {
+    source.unpipe(busboy);
+    source.destroy();
     await storage.delete(storageKey).catch(() => {});
     if (err instanceof AttachmentValidationError) {
       throw new ValidationError(err.message, { reason: err.code });
@@ -178,7 +194,13 @@ export function mountAttachmentRoutes(
         throw new ForbiddenError("This token may not purge attachments");
       }
       const record = attachments.purge(id);
-      await storage.delete(record.storageKey).catch(() => {});
+      await storage.delete(record.storageKey).catch((err) => {
+        c.get("logger").error("purged attachment file not removed", {
+          attachmentId: id,
+          storageKey: record.storageKey,
+          error: String(err),
+        });
+      });
       return c.json({ id, deleted: true, purged: true });
     }
     attachments.softDelete(c.get("actor"), id);
@@ -196,13 +218,14 @@ export function mountAttachmentRoutes(
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-cache",
     };
-    if (c.req.method === "HEAD") {
-      return new Response(null, {
-        headers: { ...headers, "Content-Length": String(record.sizeBytes) },
-      });
-    }
     try {
       const { stream, size } = await storage.get(record.storageKey);
+      if (c.req.method === "HEAD") {
+        stream.destroy();
+        return new Response(null, {
+          headers: { ...headers, "Content-Length": String(size) },
+        });
+      }
       return new Response(Readable.toWeb(stream) as ReadableStream, {
         headers: { ...headers, "Content-Length": String(size) },
       });
