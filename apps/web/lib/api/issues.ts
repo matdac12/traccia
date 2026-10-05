@@ -140,6 +140,6 @@ export const listBoardPage = (filters: IssueFilters, status: IssueStatus, cursor
 export const listBoardColumns = (filters: IssueFilters) => listIssueGroups(boardFilters(filters));
 
 /** `PATCH /issues/:identifier/position`: neighbour ids only, the service computes the position. */
-export function moveIssue(identifier: string, body: { status: IssueStatus; beforeId?: string; afterId?: string }) {
+export function moveIssue(identifier: string, body: { status: IssueStatus; beforeId?: string; afterId?: string; expectedUpdatedAt?: string }) {
   return api().request(`/issues/${encodeURIComponent(identifier)}/position`, { method: "PATCH", schema: issueSchema, body });
 }

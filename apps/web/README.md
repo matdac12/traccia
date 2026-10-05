@@ -56,9 +56,9 @@ names and the token value; run it before changing anything around the client.
   the input schemas from `@linear-matti/shared` (parse them in the server action before sending).
 - Failures throw `ApiError` (`status`, `code`, `details`). `code` is the API's error code (`not_found`, `conflict`,
   `validation_error`, ...) or `unreachable`, `bad_response`. For a stale write, `conflict` carries
-  `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`.
+  `details.currentUpdatedAt`; send the last seen `updatedAt` as `ifMatch`. Project, milestone and position writes take it as `expectedUpdatedAt` in the body instead (the API accepts either). In project-page server actions `toFailure` marks such a stale write with `conflict: true` (other 409s, like a duplicate label name, do not), and the panels show `components/traccia/conflict-notice.tsx` while keeping the user's draft.
 - Lists return `{ items, nextCursor }`; pass `nextCursor` back as `cursor`.
-- Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId? }`; a column is (project, status).
+- Kanban moves use `PATCH /issues/:id/position` with `{ status, beforeId?, afterId?, expectedUpdatedAt? }` (the board sends the card's `updatedAt`; a 409 rolls the move back); a column is (project, status).
   `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified
   against the service; the board sends the card above as `afterId`). Neighbours must share the issue's project.
   The board lives in `components/kanban/` (pure drop logic in `board-model.ts`) and lists columns by `sortOrder`.

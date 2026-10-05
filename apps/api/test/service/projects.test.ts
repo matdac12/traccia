@@ -145,6 +145,37 @@ describe("issue numbers across projects", () => {
   });
 });
 
+describe("projects.update expectedUpdatedAt", () => {
+  it("rejects a stale update with conflict and leaves the row unchanged", () => {
+    const { services } = setupServices();
+    const p = services.projects.create("you", { name: "A" });
+    expect(
+      code(() =>
+        services.projects.update(p.id, {
+          name: "B",
+          expectedUpdatedAt: "1999-01-01T00:00:00.000Z",
+        }),
+      ),
+    ).toBe("conflict");
+    expect(services.projects.get(p.id)).toEqual(p);
+    const u = services.projects.update(p.id, {
+      name: "B",
+      expectedUpdatedAt: p.updatedAt,
+    });
+    expect(u.name).toBe("B");
+  });
+
+  it("does not count expectedUpdatedAt as a field to update", () => {
+    const { services } = setupServices();
+    const p = services.projects.create("you", { name: "A" });
+    expect(
+      code(() =>
+        services.projects.update(p.id, { expectedUpdatedAt: p.updatedAt }),
+      ),
+    ).toBe("validation_error");
+  });
+});
+
 describe("projects.update", () => {
   it("updates fields and bumps updated_at only", () => {
     const { services } = setupServices();

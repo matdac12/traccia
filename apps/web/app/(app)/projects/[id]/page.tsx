@@ -25,11 +25,11 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <PageHeader title={project.name}>
-        <ProjectStatusSelect projectId={project.id} status={project.status} />
+        <ProjectStatusSelect projectId={project.id} status={project.status} updatedAt={project.updatedAt} />
         <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
       </PageHeader>
       <div className="grid gap-8 px-4 py-6 lg:grid-cols-[1fr_340px]">
-        <ProjectDescription projectId={project.id} description={project.description} />
+        <ProjectDescription projectId={project.id} description={project.description} updatedAt={project.updatedAt} />
         <div className="space-y-6">
           <MilestonesPanel projectId={project.id} milestones={milestones} />
           <LabelsPanel projectId={project.id} labels={labels} />

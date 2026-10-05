@@ -98,12 +98,22 @@ export function createProjectsService(ctx: ServiceContext) {
     },
 
     update(ref: string, input: UpdateProjectInput): Project {
-      const patch = parseInput(updateProjectInputSchema, input);
+      const { expectedUpdatedAt, ...patch } = parseInput(
+        updateProjectInputSchema,
+        input,
+      );
       if (Object.values(patch).every((v) => v === undefined)) {
         throw new ServiceError("validation_error", "No fields to update");
       }
       return ctx.write((tx) => {
         const project = resolveProject(tx, ref);
+        if (expectedUpdatedAt && expectedUpdatedAt !== project.updatedAt) {
+          throw new ServiceError(
+            "conflict",
+            "Project was modified since it was read",
+            { currentUpdatedAt: project.updatedAt },
+          );
+        }
         return tx
           .update(projects)
           .set({ ...definedOnly(patch), updatedAt: nowIso() })

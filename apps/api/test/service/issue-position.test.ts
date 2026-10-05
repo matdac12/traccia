@@ -25,6 +25,36 @@ function setup() {
   return { ...s, project, create, column, move };
 }
 
+describe("moveIssuePosition expectedUpdatedAt", () => {
+  it("moves when fresh and returns conflict (row unchanged) when stale", () => {
+    const { services, create, column } = setup();
+    const a = create("a");
+    const b = create("b");
+    expect(
+      code(() =>
+        services.issues.move("you", {
+          identifier: b.id,
+          status: "done",
+          expectedUpdatedAt: "1999-01-01T00:00:00.000Z",
+        }),
+      ),
+    ).toBe("conflict");
+    expect(services.issues.get(b.id)).toMatchObject({
+      status: "todo",
+      updatedAt: b.updatedAt,
+      sortOrder: b.sortOrder,
+    });
+    const ok = services.issues.move("you", {
+      identifier: b.id,
+      status: "todo",
+      afterId: a.id,
+      expectedUpdatedAt: b.updatedAt,
+    });
+    expect(ok.id).toBe(b.id);
+    expect(column()).toEqual(["a", "b"]);
+  });
+});
+
 describe("moveIssuePosition", () => {
   it("places between two items, at top, at bottom", () => {
     const { create, column, move } = setup();

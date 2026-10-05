@@ -85,6 +85,7 @@ export const milestoneSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
   targetDate: z.string().nullable(),
+  updatedAt: z.string(),
   /** Done issues out of live, non-canceled ones. */
   progress: milestoneProgressSchema.optional(),
 });

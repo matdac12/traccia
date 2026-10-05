@@ -47,6 +47,8 @@ export const updateProjectInputSchema = z.object({
   name: nameSchema.optional(),
   description: z.string().optional(),
   status: projectStatusSchema.optional(),
+  /** Last seen `updatedAt`; a stale value is a `conflict`. */
+  expectedUpdatedAt: z.string().optional(),
 });
 export type UpdateProjectInput = z.infer<typeof updateProjectInputSchema>;
 
@@ -70,6 +72,8 @@ export const updateMilestoneInputSchema = z.object({
   /** `null` clears the date. */
   targetDate: dateOnlySchema.nullable().optional(),
   sortOrder: z.number().finite().optional(),
+  /** Last seen `updatedAt`; a stale value is a `conflict`. */
+  expectedUpdatedAt: z.string().optional(),
 });
 export type UpdateMilestoneInput = z.infer<typeof updateMilestoneInputSchema>;
 

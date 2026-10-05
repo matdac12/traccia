@@ -60,8 +60,8 @@ describe("milestone flows", () => {
     expect(res).toMatchObject({ ok: false, fieldErrors: { targetDate: expect.any(String) } });
   });
   it("edits (clearing the date) and soft-deletes", async () => {
-    await actions.updateMilestoneAction("P1", "m1", { name: "Beta 2", targetDate: "" });
-    expect(m.updateMilestone).toHaveBeenCalledWith("m1", { name: "Beta 2", targetDate: null });
+    await actions.updateMilestoneAction("P1", "m1", { name: "Beta 2", targetDate: "" }, "T1");
+    expect(m.updateMilestone).toHaveBeenCalledWith("m1", { name: "Beta 2", targetDate: null, expectedUpdatedAt: "T1" });
     await actions.deleteMilestoneAction("P1", "m1");
     expect(m.deleteMilestone).toHaveBeenCalledWith("m1");
   });
@@ -69,13 +69,23 @@ describe("milestone flows", () => {
 
 describe("project edits", () => {
   it("saves the description and the status", async () => {
-    await actions.updateProjectDescriptionAction("P1", "# Hi");
-    expect(m.updateProject).toHaveBeenLastCalledWith("P1", { description: "# Hi" });
-    await actions.updateProjectStatusAction("P1", "paused");
-    expect(m.updateProject).toHaveBeenLastCalledWith("P1", { status: "paused" });
+    await actions.updateProjectDescriptionAction("P1", "# Hi", "T1");
+    expect(m.updateProject).toHaveBeenLastCalledWith("P1", { description: "# Hi", expectedUpdatedAt: "T1" });
+    await actions.updateProjectStatusAction("P1", "paused", "T1");
+    expect(m.updateProject).toHaveBeenLastCalledWith("P1", { status: "paused", expectedUpdatedAt: "T1" });
+  });
+  it("reports a stale save as a conflict, refreshes the page, and keeps the message non-destructive", async () => {
+    m.updateProject.mockRejectedValue(new ApiError(409, "conflict", "Project was modified since it was read", { currentUpdatedAt: "T9" }));
+    const res = await actions.updateProjectDescriptionAction("P1", "mine", "T0");
+    expect(res).toMatchObject({ ok: false, conflict: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/projects/P1");
+    m.updateMilestone.mockRejectedValue(new ApiError(409, "conflict", "Milestone was modified since it was read", { currentUpdatedAt: "T9" }));
+    expect(await actions.updateMilestoneAction("P1", "m1", { name: "x", targetDate: "" }, "T0")).toMatchObject({ ok: false, conflict: true });
+    m.updateProject.mockRejectedValue(new ApiError(404, "not_found", "gone"));
+    expect(await actions.updateProjectStatusAction("P1", "paused", "T0")).not.toHaveProperty("conflict");
   });
   it("rejects an unknown status", async () => {
-    expect(await actions.updateProjectStatusAction("P1", "nope")).toMatchObject({ ok: false });
+    expect(await actions.updateProjectStatusAction("P1", "nope", "T1")).toMatchObject({ ok: false });
     expect(m.updateProject).not.toHaveBeenCalledWith("P1", { status: "nope" });
   });
 });

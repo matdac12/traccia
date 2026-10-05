@@ -9,7 +9,7 @@ import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { pageOfArray } from "./page-array.js";
 import { paginationQuery } from "./pagination.js";
-import { validateBody, validateQuery } from "./validate.js";
+import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 export function mountMilestoneRoutes(
   v1: Hono<AppEnv>,
@@ -50,6 +50,7 @@ export function mountMilestoneRoutes(
 
   v1.patch("/milestones/:id", async (c) => {
     const input = await validateBody(c, updateMilestoneInputSchema);
+    input.expectedUpdatedAt ??= ifMatch(c);
     return c.json(
       withProgress([milestones.update(c.req.param("id"), input)])[0],
     );

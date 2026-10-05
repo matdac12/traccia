@@ -65,7 +65,7 @@ describe("Board drop handling", () => {
     render(<Board columns={cols()} query="" move={move} />);
     act(() => drop(captured!, "i1", "done"));
     expect(screen.getByTestId("count-done")).toHaveTextContent("1");
-    await waitFor(() => expect(move).toHaveBeenCalledWith({ identifier: "TRK-1", status: "done" }));
+    await waitFor(() => expect(move).toHaveBeenCalledWith({ identifier: "TRK-1", status: "done", expectedUpdatedAt: expect.any(String) }));
     expect(screen.getByTestId("count-todo")).toHaveTextContent("1");
   });
 

@@ -104,6 +104,31 @@ describe("milestones", () => {
     expect(services.milestones.get(m.id)).toEqual(u);
   });
 
+  it("rejects a stale update with conflict and leaves the row unchanged", () => {
+    const { services, project } = setup();
+    const m = services.milestones.create("you", project.id, { name: "M" });
+    expect(
+      code(() =>
+        services.milestones.update(m.id, {
+          name: "X",
+          expectedUpdatedAt: "1999-01-01T00:00:00.000Z",
+        }),
+      ),
+    ).toBe("conflict");
+    expect(services.milestones.get(m.id)).toEqual(m);
+    expect(
+      services.milestones.update(m.id, {
+        name: "X",
+        expectedUpdatedAt: m.updatedAt,
+      }).name,
+    ).toBe("X");
+    expect(
+      code(() =>
+        services.milestones.update(m.id, { expectedUpdatedAt: m.updatedAt }),
+      ),
+    ).toBe("validation_error");
+  });
+
   it("update validates date and rejects empty patch / unknown id", () => {
     const { services, project } = setup();
     const m = services.milestones.create("you", project.id, { name: "M" });

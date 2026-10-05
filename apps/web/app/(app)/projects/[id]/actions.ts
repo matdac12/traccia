@@ -23,19 +23,23 @@ async function run<S extends z.ZodType>(projectId: string, schema: S, input: unk
   try {
     await call(parsed.data);
   } catch (err) {
-    return toFailure(err);
+    const result = toFailure(err);
+    // On a conflict the page refreshes to the latest version; the caller keeps the user's draft.
+    if (!result.ok && result.conflict) revalidatePath(`/projects/${projectId}`);
+    return result;
   }
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/projects");
   return success(undefined);
 }
 
-export async function updateProjectDescriptionAction(projectId: string, description: string) {
-  return run(projectId, updateProjectInputSchema.pick({ description: true }), { description }, (d) => updateProject(projectId, d));
+/** `expectedUpdatedAt` is the project's `updatedAt` as the user last saw it; a stale value is a conflict and nothing is saved. */
+export async function updateProjectDescriptionAction(projectId: string, description: string, expectedUpdatedAt: string) {
+  return run(projectId, updateProjectInputSchema.pick({ description: true, expectedUpdatedAt: true }), { description, expectedUpdatedAt }, (d) => updateProject(projectId, d));
 }
 
-export async function updateProjectStatusAction(projectId: string, status: string) {
-  return run(projectId, z.object({ status: projectStatusSchema }), { status }, (d) => updateProject(projectId, d));
+export async function updateProjectStatusAction(projectId: string, status: string, expectedUpdatedAt: string) {
+  return run(projectId, z.object({ status: projectStatusSchema, expectedUpdatedAt: z.string() }), { status, expectedUpdatedAt }, (d) => updateProject(projectId, d));
 }
 
 export type MilestoneFormValues = { name: string; /** `YYYY-MM-DD`, or empty for none. */ targetDate: string };
@@ -44,8 +48,8 @@ export async function createMilestoneAction(projectId: string, values: Milestone
   return run(projectId, createMilestoneInputSchema, { name: values.name, targetDate: values.targetDate || null }, (d) => createMilestone(projectId, d));
 }
 
-export async function updateMilestoneAction(projectId: string, id: string, values: MilestoneFormValues) {
-  return run(projectId, updateMilestoneInputSchema, { name: values.name, targetDate: values.targetDate || null }, (d) => updateMilestone(id, d));
+export async function updateMilestoneAction(projectId: string, id: string, values: MilestoneFormValues, expectedUpdatedAt: string) {
+  return run(projectId, updateMilestoneInputSchema, { name: values.name, targetDate: values.targetDate || null, expectedUpdatedAt }, (d) => updateMilestone(id, d));
 }
 
 /** Soft delete: the milestone can be restored from the trash. */
