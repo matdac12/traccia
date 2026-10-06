@@ -10,7 +10,6 @@ import {
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
-import { listProjectActivity } from "@/lib/api/activity";
 import { createLabel, deleteLabel, updateLabel } from "@/lib/api/labels";
 import { createMilestone, deleteMilestone, updateMilestone } from "@/lib/api/milestones";
 import { deleteProject, updateProject } from "@/lib/api/projects";
@@ -103,13 +102,3 @@ export async function deleteLabelAction(projectId: string, id: string) {
   return run(projectId, noInput, {}, () => deleteLabel(id));
 }
 
-/** One more page of the project's activity feed (a read, so nothing is revalidated). */
-export async function loadMoreActivityAction(projectId: string, cursor: string) {
-  const parsed = z.object({ projectId: z.string().min(1), cursor: z.string().min(1) }).safeParse({ projectId, cursor });
-  if (!parsed.success) return failure("Could not load more activity.");
-  try {
-    return success(await listProjectActivity(parsed.data.projectId, parsed.data.cursor));
-  } catch (err) {
-    return toFailure(err);
-  }
-}

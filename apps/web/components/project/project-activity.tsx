@@ -2,7 +2,6 @@
 import { Activity, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { loadMoreActivityAction } from "@/app/(app)/projects/[id]/actions";
 import { TimeAgo } from "@/components/issue-detail/atoms";
 import { ActorAvatar } from "@/components/traccia/atoms";
 import { EmptyState } from "@/components/traccia/empty-state";
@@ -22,12 +21,20 @@ export function ProjectActivity({ projectId, initial, nextCursor, milestoneNames
     if (!cursor || loading) return;
     setLoading(true);
     setError(null);
-    const res = await loadMoreActivityAction(projectId, cursor).catch(() => null);
-    setLoading(false);
-    if (!res) return setError("Could not load more activity. Try again.");
-    if (!res.ok) return setError(res.error);
-    setItems((prev) => [...prev, ...res.data.items.filter((n) => !prev.some((p) => p.id === n.id))]);
-    setCursor(res.data.nextCursor);
+    try {
+      const res = await fetch(`/api/activity?${new URLSearchParams({ project: projectId, cursor })}`, { headers: { accept: "application/json" } });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        return setError(body?.error?.message ?? "Could not load more activity. Try again.");
+      }
+      const page = (await res.json()) as { items: ActivityFeedItem[]; nextCursor: string | null };
+      setItems((prev) => [...prev, ...page.items]);
+      setCursor(page.nextCursor);
+    } catch {
+      setError("Could not load more activity. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (items.length === 0) return <EmptyState icon={Activity} title="No activity yet">Changes to this project's issues show up here.</EmptyState>;

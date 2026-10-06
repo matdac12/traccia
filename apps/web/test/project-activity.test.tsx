@@ -1,18 +1,22 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActivityFeedItem } from "../lib/api/schemas";
 
-const loadMore = vi.fn();
-vi.mock("../app/(app)/projects/[id]/actions", () => ({ loadMoreActivityAction: (...a: unknown[]) => loadMore(...a) }));
+const fetchMock = vi.fn();
 const { ProjectActivity } = await import("../components/project/project-activity");
 
 const row = (id: string, over: Partial<ActivityFeedItem> = {}): ActivityFeedItem => ({
   id, issueId: `i-${id}`, identifier: `TRC-${id}`, title: `Issue ${id}`, actor: "agent", type: "status_changed", data: { from: "todo", to: "done" }, createdAt: "2026-01-01T00:00:00.000Z", ...over,
 });
 const props = { projectId: "p1", milestoneNames: { m1: "Beta" }, projectNames: {} };
-beforeEach(() => loadMore.mockReset());
+const ok = (body: unknown) => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+beforeEach(() => {
+  fetchMock.mockReset();
+  vi.stubGlobal("fetch", fetchMock);
+});
+afterEach(() => vi.unstubAllGlobals());
 
 describe("project activity", () => {
   it("lists rows newest first with actor, description, issue link and time", () => {
@@ -32,18 +36,18 @@ describe("project activity", () => {
     expect(screen.getByText("No activity yet")).toBeInTheDocument();
   });
 
-  it("loads the next page with the cursor and hides the button at the end", async () => {
-    loadMore.mockResolvedValue({ ok: true, data: { items: [row("2"), row("3")], nextCursor: null } });
+  it("loads the next page through the route handler with the cursor and hides the button at the end", async () => {
+    fetchMock.mockResolvedValue(ok({ items: [row("3")], nextCursor: null }));
     const user = userEvent.setup();
     render(<ProjectActivity {...props} initial={[row("1"), row("2")]} nextCursor="c1" />);
     await user.click(screen.getByRole("button", { name: "Load more" }));
     await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(3));
-    expect(loadMore).toHaveBeenCalledWith("p1", "c1");
+    expect(fetchMock).toHaveBeenCalledWith("/api/activity?project=p1&cursor=c1", { headers: { accept: "application/json" } });
     expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   });
 
   it("reports a failed page and keeps the button to retry", async () => {
-    loadMore.mockResolvedValue({ ok: false, error: "API down", fieldErrors: {} });
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: { code: "unreachable", message: "API down" } }), { status: 502, headers: { "content-type": "application/json" } }));
     const user = userEvent.setup();
     render(<ProjectActivity {...props} initial={[row("1")]} nextCursor="c1" />);
     await user.click(screen.getByRole("button", { name: "Load more" }));
