@@ -1,4 +1,5 @@
 import { Readable } from "node:stream";
+import { PURGE_NOTE } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -82,28 +83,14 @@ export function registerAttachmentTools(
     "create_attachment",
     {
       description:
-        "Attach a file (typically a screenshot) to an issue or one of its comments. Provide exactly one of contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS URL the server downloads). Returns a ready-to-paste markdown snippet.",
+        "Attach a file (e.g. a screenshot) to an issue or comment. Give exactly one of contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS, downloaded by the server). Returns a markdown snippet to paste.",
       inputSchema: {
-        issueId: z
-          .string()
-          .min(1)
-          .describe("Issue identifier (MAT-123) or id."),
-        commentId: z
-          .string()
-          .optional()
-          .describe("Attach to a specific comment instead of the issue."),
-        filename: z.string().min(1).describe("e.g. login-bug.png"),
-        mimeType: z
-          .string()
-          .optional()
-          .describe(
-            "Inferred from content if omitted; verified by content sniffing.",
-          ),
-        contentBase64: z.string().optional().describe("Max ~5 MB decoded."),
-        sourceUrl: z
-          .string()
-          .optional()
-          .describe("HTTPS URL the server will download (size-capped)."),
+        issueId: z.string().min(1).describe("Issue identifier or id."),
+        commentId: z.string().optional().describe("Attach to this comment."),
+        filename: z.string().min(1),
+        mimeType: z.string().optional().describe("Inferred if omitted."),
+        contentBase64: z.string().optional(),
+        sourceUrl: z.string().optional(),
       },
     },
     (input) =>
@@ -194,14 +181,10 @@ export function registerAttachmentTools(
     "get_attachment",
     {
       description:
-        "Get an attachment's metadata. Images under 2 MB are also returned inline unless includeContent is false.",
+        "Get an attachment's metadata; images under 2 MB are also returned inline unless includeContent is false.",
       inputSchema: {
         id: z.string().min(1).describe("Attachment id."),
-        includeContent: z
-          .boolean()
-          .default(true)
-          .optional()
-          .describe("Default true; inline the image if it is under 2 MB."),
+        includeContent: z.boolean().default(true).optional(),
       },
     },
     ({ id, includeContent }) =>
@@ -245,11 +228,10 @@ export function registerAttachmentTools(
   server.registerTool(
     "delete_attachment",
     {
-      description:
-        "Soft-deletes an attachment (restorable). purge=true permanently removes an ALREADY deleted attachment and its file; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+      description: `Soft-delete an attachment (restorable). ${PURGE_NOTE}`,
       inputSchema: {
         id: z.string().min(1).describe("Attachment id."),
-        purge: z.boolean().default(false).optional().describe("Default false."),
+        purge: z.boolean().default(false).optional(),
       },
     },
     ({ id, purge }) =>

@@ -37,12 +37,13 @@ const SPEC_TOOLS = [
 const WHOAMI = "whoami";
 
 /**
- * Serialized size of `tools/list` in bytes, paid in every agent's context.
- * Growing past 15% of this fails the test; bump it deliberately in the PR
- * that adds the tools or text.
+ * Size of the `tools/list` HTTP response in bytes, paid in every agent's
+ * context. Measured by POSTing initialize then tools/list to /mcp. The
+ * budget is the measured size plus ~3% margin; raise it deliberately in the
+ * PR that adds tools or text (TRC-123 cut it from 15454).
  */
-const SIZE_BASELINE_BYTES = 15402;
-const MAX_TOOLS_LIST_BYTES = Math.floor(SIZE_BASELINE_BYTES * 1.15);
+const SIZE_BASELINE_BYTES = 11964;
+const MAX_TOOLS_LIST_BYTES = Math.ceil(SIZE_BASELINE_BYTES * 1.03);
 
 let server: ReturnType<typeof serve> | undefined;
 let client: Client | undefined;
@@ -88,7 +89,32 @@ describe("MCP tool list", () => {
   });
 
   it("stays within the context size budget", async () => {
-    const size = Buffer.byteLength(JSON.stringify(await listTools()));
+    const t = createTestApp();
+    const { token } = createToken(t.db, { name: "agent", actor: "agent" });
+    const post = (body: unknown) =>
+      t.app.request("/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+    await post({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "size", version: "0" },
+      },
+    });
+    const text = await (
+      await post({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+    ).text();
+    const size = Buffer.byteLength(text);
     expect(
       size,
       `tools/list is ${size} bytes; baseline ${SIZE_BASELINE_BYTES}. Trim descriptions or bump SIZE_BASELINE_BYTES deliberately.`,

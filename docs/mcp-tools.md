@@ -32,7 +32,7 @@ Failures come back as an `isError` result with a message you can act on. Success
 
 ## whoami
 
-Returns the actor ('agent' or 'you') and token name this connection writes as.
+The actor ('agent' or 'you') and token name this connection writes as.
 
 No arguments.
 
@@ -40,143 +40,143 @@ No arguments.
 
 ## list_issues
 
-List issues, newest update first. Compact items (description truncated; use get_issue for full text). Filters are AND-ed; `status` values are OR-ed; `label` array requires ALL labels. Deleted issues are hidden unless includeDeleted. Page with nextCursor.
+List issues, newest update first, as compact items (get_issue for full text). Filters AND together; status values OR; a label array needs ALL labels. Page with nextCursor.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `query` | string | no | Full-text search over titles, descriptions, comments. |
-| `project` | string | no | Project key, name, or id. |
-| `status` | string \| string[] | no | One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog\|todo\|in_progress\|in_review\|done\|canceled). |
+| `query` | string | no | Full-text search (titles, descriptions, comments). |
+| `project` | string | no | Project key, name or id. |
+| `status` | string \| string[] | no | Backlog, Todo, In Progress, In Review, Done or Canceled (case-insensitive; in_progress style ok). |
 | `assignee` | `agent` \| `you` \| `none` | no |  |
-| `label` | string \| string[] | no | Label name(s); issues must have all. |
+| `label` | string \| string[] | no | Label name(s); all required. |
 | `milestone` | string | no | Milestone name or id. |
-| `parentId` | string | no | List sub-issues of this issue (identifier). |
-| `priority` | integer \| string | no | 0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear). |
+| `parentId` | string | no | Sub-issues of this issue. |
+| `priority` | integer \| string | no | 0/none, 1/urgent, 2/high, 3/medium, 4/low. |
 | `createdBy` | `agent` \| `you` | no |  |
 | `updatedAfter` | string | no | ISO 8601 timestamp or duration like -P1D. |
-| `includeDeleted` | boolean | no | Include soft-deleted issues. |
+| `includeDeleted` | boolean | no |  |
 | `orderBy` | `updatedAt` \| `createdAt` \| `priority` \| `sortOrder` \| `title` | no | Default updatedAt. |
-| `limit` | integer | no | Default 50. |
-| `cursor` | string | no | From a previous nextCursor. |
+| `limit` | integer | no |  |
+| `cursor` | string | no | Previous nextCursor. |
 
 **Returns:** `{ items, nextCursor? }`. Each item is a compact issue: `identifier`, `title`, `status`, `priority`, `assignee`, `labels`, `project`, `milestone`, `parent`, `estimate`, `updatedAt`, `descriptionSnippet`, `deleted`. Empty fields are omitted.
 
 ## get_issue
 
-Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations ({blockedBy, blocks}); add 'activity' for the change log.
+Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations; add 'activity' for the change log.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | yes | Issue identifier like ABC-123. |
-| `include` | `comments` \| `attachments` \| `activity` \| `children` \| `relations`[] | no | Default: comments, attachments, children, relations. |
+| `id` | string | yes | Issue identifier (ABC-123). |
+| `include` | `comments` \| `attachments` \| `activity` \| `children` \| `relations`[] | no |  |
 
 **Returns:** A compact issue with the full `description` (no snippet), plus `createdBy`, `createdAt`, `startedAt`, `completedAt`, `canceledAt` and the requested `include` sections: `comments`, `attachments`, `children`, `relations` (`{ blockedBy, blocks }`, each `{ identifier, title, status }`), `activity`.
 
 ## save_issue
 
-Create (no id; needs title + project) or update (with id; only provided fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set. `project` on update moves the issue (identifier unchanged; parent/milestone reset). Labels must exist (list_issue_labels / save_issue_label). Pass expectedUpdatedAt to fail on concurrent edits. Returns the compact issue.
+Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | no | Issue identifier. Omit to create. |
-| `title` | string | no | Required on create. |
-| `project` | string | no | Project key, name, or id. Required on create; on update, moves the issue. |
-| `description` | string | no | Markdown. Replaces the whole description. |
-| `status` | string | no | One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog\|todo\|in_progress\|in_review\|done\|canceled). Default on create: Backlog. |
-| `priority` | integer \| string | no | 0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear). |
+| `id` | string | no |  |
+| `title` | string | no |  |
+| `project` | string | no | Project key, name or id. |
+| `description` | string | no | Markdown; replaces the whole text. |
+| `status` | string | no | Backlog, Todo, In Progress, In Review, Done or Canceled (case-insensitive; in_progress style ok). Default: Backlog. |
+| `priority` | integer \| string | no | 0/none, 1/urgent, 2/high, 3/medium, 4/low. |
 | `estimate` | integer \| null | no |  |
 | `assignee` | `agent` \| `you` \| null | no | null unassigns. |
-| `labels` | string[] | no | Replaces the label set. Names must already exist. |
-| `milestone` | string,null | no | Milestone name or id in the issue's project; null clears. |
-| `parentId` | string,null | no | Makes this a sub-issue; null detaches. Same project only. |
-| `blockedBy` | string[] | no | Replaces the set of issues blocking this one. |
-| `blocks` | string[] | no | Replaces the set of issues this one blocks. |
-| `expectedUpdatedAt` | string | no | Fail if the issue changed since this updatedAt (update only). |
+| `labels` | string[] | no |  |
+| `milestone` | string,null | no | Milestone name or id; null clears. |
+| `parentId` | string,null | no | Parent issue (same project); null detaches. |
+| `blockedBy` | string[] | no | Issues blocking this one. |
+| `blocks` | string[] | no | Issues this one blocks. |
+| `expectedUpdatedAt` | string | no |  |
 
 **Returns:** The saved compact issue, plus `relations` when `blockedBy` or `blocks` was given.
 
 ## delete_issue
 
-Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an ALREADY deleted issue; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
+Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Issue identifier. |
-| `purge` | boolean | no | Default false. |
+| `purge` | boolean | no |  |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
 ## list_comments
 
-List an issue's comments oldest first, replies directly after their parent (parentId set). Deleted comments are hidden unless includeDeleted.
+List an issue's comments oldest first, replies right after their parent (parentId set).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `issueId` | string | yes | Issue identifier like ABC-123. |
-| `includeDeleted` | boolean | no | Include soft-deleted comments. |
-| `limit` | integer | no | Default 50. |
-| `cursor` | string | no | From a previous nextCursor. |
+| `issueId` | string | yes | Issue identifier (ABC-123). |
+| `includeDeleted` | boolean | no |  |
+| `limit` | integer | no |  |
+| `cursor` | string | no | Previous nextCursor. |
 
 **Returns:** `{ items, nextCursor }`. Each comment: `id`, `body`, `actor`, `parentId`, `createdAt`, `updatedAt`, `attachments`, `deleted`.
 
 ## save_comment
 
-Create (no id; needs issueId) or edit (with id) a markdown comment. You can only edit comments written by your own actor. parentId replies to a top-level comment (one level of threading).
+Create (no id; needs issueId) or edit (with id; own comments only) a comment. parentId replies to a top-level comment (one level of threading).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | no | Comment id. Omit to create. |
-| `issueId` | string | no | Required on create. |
+| `id` | string | no |  |
+| `issueId` | string | no |  |
 | `body` | string | yes | Markdown. |
-| `parentId` | string | no | Reply to a top-level comment (create only). |
+| `parentId` | string | no |  |
 
 **Returns:** The saved comment (same shape as in `list_comments`).
 
 ## delete_comment
 
-Soft-delete a comment and its replies (restorable via restore). purge=true permanently removes an ALREADY deleted comment; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
+Soft-delete a comment and its replies (restorable via restore). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Comment id. |
-| `purge` | boolean | no | Default false. |
+| `purge` | boolean | no |  |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
 ## create_attachment
 
-Attach a file (typically a screenshot) to an issue or one of its comments. Provide exactly one of contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS URL the server downloads). Returns a ready-to-paste markdown snippet.
+Attach a file (e.g. a screenshot) to an issue or comment. Give exactly one of contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS, downloaded by the server). Returns a markdown snippet to paste.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `issueId` | string | yes | Issue identifier (MAT-123) or id. |
-| `commentId` | string | no | Attach to a specific comment instead of the issue. |
-| `filename` | string | yes | e.g. login-bug.png |
-| `mimeType` | string | no | Inferred from content if omitted; verified by content sniffing. |
-| `contentBase64` | string | no | Max ~5 MB decoded. |
-| `sourceUrl` | string | no | HTTPS URL the server will download (size-capped). |
+| `issueId` | string | yes | Issue identifier or id. |
+| `commentId` | string | no | Attach to this comment. |
+| `filename` | string | yes |  |
+| `mimeType` | string | no | Inferred if omitted. |
+| `contentBase64` | string | no |  |
+| `sourceUrl` | string | no |  |
 
 **Returns:** `{ id, filename, mimeType, sizeBytes, url, markdown }`. Paste `markdown` into a comment or description.
 
 ## get_attachment
 
-Get an attachment's metadata. Images under 2 MB are also returned inline unless includeContent is false.
+Get an attachment's metadata; images under 2 MB are also returned inline unless includeContent is false.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Attachment id. |
-| `includeContent` | boolean | no | Default true; inline the image if it is under 2 MB. |
+| `includeContent` | boolean | no |  |
 
 **Returns:** Metadata `{ id, filename, mimeType, sizeBytes, commentId, createdAt }`, plus the image itself as image content when `includeContent` is true and the file is an image under 2 MB.
 
 ## delete_attachment
 
-Soft-deletes an attachment (restorable). purge=true permanently removes an ALREADY deleted attachment and its file; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
+Soft-delete an attachment (restorable). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Attachment id. |
-| `purge` | boolean | no | Default false. |
+| `purge` | boolean | no |  |
 
 **Returns:** `{ id, deleted: true, purged }`.
 
@@ -188,9 +188,9 @@ List projects with issue counts per status.
 | --- | --- | --- | --- |
 | `query` | string | no | Match against name/key. |
 | `status` | `active` \| `paused` \| `completed` \| `canceled` | no |  |
-| `includeDeleted` | boolean | no | Include soft-deleted projects (flagged deleted:true). |
-| `limit` | integer | no | Default 50. |
-| `cursor` | string | no | From a previous response's nextCursor. |
+| `includeDeleted` | boolean | no |  |
+| `limit` | integer | no |  |
+| `cursor` | string | no | Previous nextCursor. |
 
 **Returns:** `{ items, nextCursor? }`. Each project: `id`, `key`, `name`, `status`, `issueCounts` (per status), `deleted`.
 
@@ -200,46 +200,46 @@ Get a project with its description and milestones (with progress).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `project` | string | yes | Project key (e.g. ABC), name, or id. |
+| `project` | string | yes | Project key, name or id. |
 | `includeMilestones` | boolean | no | Default true. |
 
 **Returns:** A project (as in `list_projects`) plus `description`, `createdAt`, `updatedAt` and `milestones` with progress.
 
 ## save_project
 
-Create a project (omit id; name required) or update one (with id). Key defaults to MAT and cannot change after creation.
+Create a project (omit id; name required) or update one (with id).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | no | Omit to create. |
-| `name` | string | no | Required on create. |
-| `key` | string | no | Issue prefix. Omit to use the default (MAT). Cannot be changed after creation. |
-| `description` | string | no | Markdown. |
-| `status` | `active` \| `paused` \| `completed` \| `canceled` | no | Default on create: active. |
+| `id` | string | no |  |
+| `name` | string | no |  |
+| `key` | string | no | Issue prefix (default MAT); fixed after creation. |
+| `description` | string | no |  |
+| `status` | `active` \| `paused` \| `completed` \| `canceled` | no | Default: active. |
 
 **Returns:** The saved project: `id`, `key`, `name`, `status`, `description`.
 
 ## delete_project
 
-Soft-delete a project (hides its milestones and issues); restorable with restore. purge=true permanently removes an ALREADY deleted project; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
+Soft-delete a project (hides its milestones and issues; restorable via restore). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `project` | string | yes | Project key (e.g. ABC), name, or id. |
-| `purge` | boolean | no | Default false. |
+| `project` | string | yes | Project key, name or id. |
+| `purge` | boolean | no |  |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
 ## list_milestones
 
-List milestones (all projects, or one) with progress {done,total}; canceled issues are not counted.
+List milestones (all projects, or one) with progress {done,total}; canceled issues excluded.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `project` | string | no | Omit for all projects. |
-| `includeDeleted` | boolean | no | Include soft-deleted milestones. |
-| `limit` | integer | no | Default 50. |
-| `cursor` | string | no | From a previous response's nextCursor. |
+| `includeDeleted` | boolean | no |  |
+| `limit` | integer | no |  |
+| `cursor` | string | no | Previous nextCursor. |
 
 **Returns:** `{ items }`. Each milestone: `id`, `project` (name), `name`, `targetDate`, `progress` (`{ done, total }`), `deleted`.
 
@@ -249,22 +249,22 @@ Create a milestone (omit id; project and name required) or update one (with id).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | no | Omit to create. |
-| `project` | string | no | Required on create. |
-| `name` | string | no | Required on create. |
-| `description` | string | no | Markdown. |
+| `id` | string | no |  |
+| `project` | string | no | Project key, name or id. |
+| `name` | string | no |  |
+| `description` | string | no |  |
 | `targetDate` | string \| null | no | YYYY-MM-DD; null clears. |
 
 **Returns:** The saved milestone (as in `list_milestones`, with `description`).
 
 ## delete_milestone
 
-Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge=true permanently removes an ALREADY deleted milestone; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).
+Soft-delete a milestone; its issues are kept with milestone cleared (restorable via restore). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string | yes | Milestone id. |
-| `purge` | boolean | no | Default false. |
+| `purge` | boolean | no |  |
 
 **Returns:** Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.
 
@@ -274,9 +274,9 @@ List global labels, plus a project's labels when project is given. There is no d
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `project` | string | no | Include this project's labels plus global ones. |
-| `limit` | integer | no | Default 50. |
-| `cursor` | string | no | From a previous response's nextCursor. |
+| `project` | string | no | Add this project's labels. |
+| `limit` | integer | no |  |
+| `cursor` | string | no | Previous nextCursor. |
 
 **Returns:** `{ items }`. Each label: `id`, `name`, `color`, `project` (name, absent for global labels).
 
@@ -286,10 +286,10 @@ Create a label (omit id; name required; no project = global) or update name/colo
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
-| `id` | string | no | Omit to create. |
-| `name` | string | no | Required on create. |
+| `id` | string | no |  |
+| `name` | string | no |  |
 | `color` | string | no | Hex #rrggbb. |
-| `project` | string \| null | no | Omit/null = global label. Cannot change on update. |
+| `project` | string,null | no | Project key, name or id; omit/null = global. Fixed after creation. |
 
 **Returns:** The saved label (as in `list_issue_labels`).
 
@@ -300,6 +300,6 @@ Undo a soft delete: restores the item and everything deleted with it in the same
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `type` | `issue` \| `comment` \| `project` \| `milestone` \| `attachment` | yes |  |
-| `id` | string | yes | Identifier (ABC-123) for issues; id for others. |
+| `id` | string | yes | Identifier for issues; id for others. |
 
 **Returns:** `{ type, id, batch, counts }`: everything deleted in the same action comes back.

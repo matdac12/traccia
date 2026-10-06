@@ -1,5 +1,6 @@
 import {
   deleteProjectToolShape,
+  PURGE_NOTE,
   getProjectToolShape,
   listProjectsToolShape,
   ServiceError,
@@ -91,7 +92,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "save_project",
-    "Create a project (omit id; name required) or update one (with id). Key defaults to MAT and cannot change after creation.",
+    "Create a project (omit id; name required) or update one (with id).",
     saveProjectToolShape,
     (args) => {
       const { id, ...fields } = args;
@@ -126,7 +127,7 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "delete_project",
-    "Soft-delete a project (hides its milestones and issues); restorable with restore. purge=true permanently removes an ALREADY deleted project; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    `Soft-delete a project (hides its milestones and issues; restorable via restore). ${PURGE_NOTE}`,
     deleteProjectToolShape,
     async (args) => {
       const p = resolveProjectRef(projects, args.project, {

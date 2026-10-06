@@ -1,5 +1,6 @@
 import {
   deleteMilestoneToolShape,
+  PURGE_NOTE,
   listMilestonesToolShape,
   ServiceError,
   saveMilestoneToolShape,
@@ -48,7 +49,7 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "list_milestones",
-    "List milestones (all projects, or one) with progress {done,total}; canceled issues are not counted.",
+    "List milestones (all projects, or one) with progress {done,total}; canceled issues excluded.",
     listMilestonesToolShape,
     (args) => {
       const byId = projectsById(args.includeDeleted);
@@ -121,7 +122,7 @@ export function registerMilestoneTools(server: McpServer, ctx: McpContext) {
     server,
     ctx,
     "delete_milestone",
-    "Soft-delete a milestone by id; its issues are kept and their milestone cleared. Restorable with restore. purge=true permanently removes an ALREADY deleted milestone; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+    `Soft-delete a milestone; its issues are kept with milestone cleared (restorable via restore). ${PURGE_NOTE}`,
     deleteMilestoneToolShape,
     async (args) => {
       try {

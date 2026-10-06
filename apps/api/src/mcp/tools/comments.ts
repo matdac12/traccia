@@ -1,4 +1,4 @@
-import { ServiceError } from "@traccia/shared";
+import { mcpPaginationShape, PURGE_NOTE, ServiceError } from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { canPurge } from "../../auth/permissions.js";
@@ -21,21 +21,11 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
     "list_comments",
     {
       description:
-        "List an issue's comments oldest first, replies directly after their parent (parentId set). Deleted comments are hidden unless includeDeleted.",
+        "List an issue's comments oldest first, replies right after their parent (parentId set).",
       inputSchema: {
-        issueId: z.string().describe("Issue identifier like ABC-123."),
-        includeDeleted: z
-          .boolean()
-          .optional()
-          .describe("Include soft-deleted comments."),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(250)
-          .optional()
-          .describe("Default 50."),
-        cursor: z.string().optional().describe("From a previous nextCursor."),
+        issueId: z.string().describe("Issue identifier (ABC-123)."),
+        includeDeleted: z.boolean().optional(),
+        ...mcpPaginationShape,
       },
     },
     ({ issueId, includeDeleted, limit, cursor }) =>
@@ -77,15 +67,12 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
     "save_comment",
     {
       description:
-        "Create (no id; needs issueId) or edit (with id) a markdown comment. You can only edit comments written by your own actor. parentId replies to a top-level comment (one level of threading).",
+        "Create (no id; needs issueId) or edit (with id; own comments only) a comment. parentId replies to a top-level comment (one level of threading).",
       inputSchema: {
-        id: z.string().optional().describe("Comment id. Omit to create."),
-        issueId: z.string().optional().describe("Required on create."),
+        id: z.string().optional(),
+        issueId: z.string().optional(),
         body: z.string().min(1).describe("Markdown."),
-        parentId: z
-          .string()
-          .optional()
-          .describe("Reply to a top-level comment (create only)."),
+        parentId: z.string().optional(),
       },
     },
     ({ id, issueId, body, parentId }) =>
@@ -120,11 +107,10 @@ export function registerCommentTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "delete_comment",
     {
-      description:
-        "Soft-delete a comment and its replies (restorable via restore). purge=true permanently removes an ALREADY deleted comment; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+      description: `Soft-delete a comment and its replies (restorable via restore). ${PURGE_NOTE}`,
       inputSchema: {
         id: z.string().describe("Comment id."),
-        purge: z.boolean().optional().describe("Default false."),
+        purge: z.boolean().optional(),
       },
     },
     ({ id, purge }) =>

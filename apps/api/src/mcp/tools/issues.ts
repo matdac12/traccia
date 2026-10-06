@@ -1,4 +1,9 @@
-import { type Actor, ServiceError } from "@traccia/shared";
+import {
+  type Actor,
+  mcpPaginationShape,
+  PURGE_NOTE,
+  ServiceError,
+} from "@traccia/shared";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -25,11 +30,10 @@ import { runLogged } from "./run.js";
 import { mcpServices } from "./services.js";
 
 const STATUS_HELP =
-  "One of: Backlog, Todo, In Progress, In Review, Done, Canceled (case-insensitive; also backlog|todo|in_progress|in_review|done|canceled).";
-const PRIORITY_HELP =
-  "0/none, 1/urgent, 2/high, 3/medium, 4/low (same as Linear).";
+  "Backlog, Todo, In Progress, In Review, Done or Canceled (case-insensitive; in_progress style ok).";
+const PRIORITY_HELP = "0/none, 1/urgent, 2/high, 3/medium, 4/low.";
 
-const status = z.string().describe(STATUS_HELP);
+const status = z.string();
 const priority = z
   .union([z.number().int(), z.string()])
   .describe(PRIORITY_HELP);
@@ -93,45 +97,32 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     "list_issues",
     {
       description:
-        "List issues, newest update first. Compact items (description truncated; use get_issue for full text). Filters are AND-ed; `status` values are OR-ed; `label` array requires ALL labels. Deleted issues are hidden unless includeDeleted. Page with nextCursor.",
+        "List issues, newest update first, as compact items (get_issue for full text). Filters AND together; status values OR; a label array needs ALL labels. Page with nextCursor.",
       inputSchema: {
         query: z
           .string()
           .optional()
-          .describe("Full-text search over titles, descriptions, comments."),
-        project: z.string().optional().describe("Project key, name, or id."),
-        status: oneOrMany(status).optional(),
+          .describe("Full-text search (titles, descriptions, comments)."),
+        project: z.string().optional().describe("Project key, name or id."),
+        status: oneOrMany(status).optional().describe(STATUS_HELP),
         assignee: z.enum(["agent", "you", "none"]).optional(),
         label: oneOrMany(z.string())
           .optional()
-          .describe("Label name(s); issues must have all."),
+          .describe("Label name(s); all required."),
         milestone: z.string().optional().describe("Milestone name or id."),
-        parentId: z
-          .string()
-          .optional()
-          .describe("List sub-issues of this issue (identifier)."),
+        parentId: z.string().optional().describe("Sub-issues of this issue."),
         priority: priority.optional(),
         createdBy: z.enum(["agent", "you"]).optional(),
         updatedAfter: z
           .string()
           .optional()
           .describe("ISO 8601 timestamp or duration like -P1D."),
-        includeDeleted: z
-          .boolean()
-          .optional()
-          .describe("Include soft-deleted issues."),
+        includeDeleted: z.boolean().optional(),
         orderBy: z
           .enum(["updatedAt", "createdAt", "priority", "sortOrder", "title"])
           .optional()
           .describe("Default updatedAt."),
-        limit: z
-          .number()
-          .int()
-          .min(1)
-          .max(250)
-          .optional()
-          .describe("Default 50."),
-        cursor: z.string().optional().describe("From a previous nextCursor."),
+        ...mcpPaginationShape,
       },
     },
     (args) =>
@@ -156,13 +147,10 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     "get_issue",
     {
       description:
-        "Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations ({blockedBy, blocks}); add 'activity' for the change log.",
+        "Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations; add 'activity' for the change log.",
       inputSchema: {
-        id: z.string().describe("Issue identifier like ABC-123."),
-        include: z
-          .array(z.enum(INCLUDES))
-          .optional()
-          .describe("Default: comments, attachments, children, relations."),
+        id: z.string().describe("Issue identifier (ABC-123)."),
+        include: z.array(z.enum(INCLUDES)).optional(),
       },
     },
     ({ id, include = ["comments", "attachments", "children", "relations"] }) =>
@@ -220,23 +208,16 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     "save_issue",
     {
       description:
-        "Create (no id; needs title + project) or update (with id; only provided fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set. `project` on update moves the issue (identifier unchanged; parent/milestone reset). Labels must exist (list_issue_labels / save_issue_label). Pass expectedUpdatedAt to fail on concurrent edits. Returns the compact issue.",
+        "Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.",
       inputSchema: {
-        id: z.string().optional().describe("Issue identifier. Omit to create."),
-        title: z.string().optional().describe("Required on create."),
-        project: z
-          .string()
-          .optional()
-          .describe(
-            "Project key, name, or id. Required on create; on update, moves the issue.",
-          ),
+        id: z.string().optional(),
+        title: z.string().optional(),
+        project: z.string().optional().describe("Project key, name or id."),
         description: z
           .string()
           .optional()
-          .describe("Markdown. Replaces the whole description."),
-        status: status
-          .optional()
-          .describe(`${STATUS_HELP} Default on create: Backlog.`),
+          .describe("Markdown; replaces the whole text."),
+        status: status.optional().describe(`${STATUS_HELP} Default: Backlog.`),
         priority: priority.optional(),
         estimate: z.number().int().min(0).nullable().optional(),
         assignee: z
@@ -244,38 +225,26 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
           .nullable()
           .optional()
           .describe("null unassigns."),
-        labels: z
-          .array(z.string())
-          .optional()
-          .describe("Replaces the label set. Names must already exist."),
+        labels: z.array(z.string()).optional(),
         milestone: z
           .string()
           .nullable()
           .optional()
-          .describe(
-            "Milestone name or id in the issue's project; null clears.",
-          ),
+          .describe("Milestone name or id; null clears."),
         parentId: z
           .string()
           .nullable()
           .optional()
-          .describe(
-            "Makes this a sub-issue; null detaches. Same project only.",
-          ),
+          .describe("Parent issue (same project); null detaches."),
         blockedBy: z
           .array(z.string())
           .optional()
-          .describe("Replaces the set of issues blocking this one."),
+          .describe("Issues blocking this one."),
         blocks: z
           .array(z.string())
           .optional()
-          .describe("Replaces the set of issues this one blocks."),
-        expectedUpdatedAt: z
-          .string()
-          .optional()
-          .describe(
-            "Fail if the issue changed since this updatedAt (update only).",
-          ),
+          .describe("Issues this one blocks."),
+        expectedUpdatedAt: z.string().optional(),
       },
     },
     (args) =>
@@ -437,11 +406,10 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
   server.registerTool(
     "delete_issue",
     {
-      description:
-        "Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an ALREADY deleted issue; only allowed for actor 'you' (or agents when ALLOW_AGENT_PURGE is on).",
+      description: `Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). ${PURGE_NOTE}`,
       inputSchema: {
         id: z.string().describe("Issue identifier."),
-        purge: z.boolean().optional().describe("Default false."),
+        purge: z.boolean().optional(),
       },
     },
     ({ id, purge }) =>

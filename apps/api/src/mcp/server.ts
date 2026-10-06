@@ -38,7 +38,7 @@ export function createMcpServer(
     "whoami",
     {
       description:
-        "Returns the actor ('agent' or 'you') and token name this connection writes as.",
+        "The actor ('agent' or 'you') and token name this connection writes as.",
     },
     () =>
       runTool(
@@ -58,6 +58,22 @@ export function createMcpServer(
   registerMilestoneTools(server, ctx);
   registerLabelTools(server, ctx);
   registerRestoreTool(server, ctx);
+  dropDefaultExecution(server);
 
   return server;
+}
+
+/**
+ * The SDK stamps `execution: { taskSupport: "forbidden" }` on every tool, which
+ * is what an absent `execution` already means; it costs ~40 bytes per tool in
+ * every `tools/list` (TRC-123). The size test in mcp-tool-list.test.ts fails if
+ * an SDK upgrade stops this from taking effect.
+ */
+function dropDefaultExecution(server: McpServer) {
+  const tools = (
+    server as unknown as {
+      _registeredTools?: Record<string, { execution?: unknown }>;
+    }
+  )._registeredTools;
+  for (const tool of Object.values(tools ?? {})) delete tool.execution;
 }
