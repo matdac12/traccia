@@ -7,25 +7,25 @@ import { colorSchema, dateOnlySchema, issueKeySchema } from "./schemas.js";
 // MCP SDK builds the object schema itself. Descriptions are terse on purpose:
 // they are sent to the agent in every session.
 
-export const projectRefSchema = z
-  .string()
-  .describe("Project key (e.g. ABC), name, or id.");
+const projectRefBase = z.string();
+
+export const projectRefSchema = projectRefBase.describe(
+  "Project key, name or id.",
+);
+
+/** Shared tail of every delete tool description. */
+export const PURGE_NOTE =
+  "purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).";
 
 export const mcpPaginationShape = {
-  limit: z.number().int().min(1).max(250).optional().describe("Default 50."),
-  cursor: z
-    .string()
-    .optional()
-    .describe("From a previous response's nextCursor."),
+  limit: z.number().int().min(1).max(250).optional(),
+  cursor: z.string().optional().describe("Previous nextCursor."),
 };
 
 export const listProjectsToolShape = {
   query: z.string().optional().describe("Match against name/key."),
   status: z.enum(PROJECT_STATUSES).optional(),
-  includeDeleted: z
-    .boolean()
-    .optional()
-    .describe("Include soft-deleted projects (flagged deleted:true)."),
+  includeDeleted: z.boolean().optional(),
   ...mcpPaginationShape,
 };
 
@@ -35,21 +35,16 @@ export const getProjectToolShape = {
 };
 
 export const saveProjectToolShape = {
-  id: z.string().optional().describe("Omit to create."),
-  name: z.string().min(1).optional().describe("Required on create."),
+  id: z.string().optional(),
+  name: z.string().min(1).optional(),
   key: issueKeySchema
     .optional()
-    .describe(
-      "Issue prefix. Omit to use the default (MAT). Cannot be changed after creation.",
-    ),
-  description: z.string().optional().describe("Markdown."),
-  status: z
-    .enum(PROJECT_STATUSES)
-    .optional()
-    .describe("Default on create: active."),
+    .describe("Issue prefix (default MAT); fixed after creation."),
+  description: z.string().optional(),
+  status: z.enum(PROJECT_STATUSES).optional().describe("Default: active."),
 };
 
-const purgeSchema = z.boolean().optional().describe("Default false.");
+const purgeSchema = z.boolean().optional();
 
 export const deleteProjectToolShape = {
   project: projectRefSchema,
@@ -58,18 +53,15 @@ export const deleteProjectToolShape = {
 
 export const listMilestonesToolShape = {
   project: projectRefSchema.optional().describe("Omit for all projects."),
-  includeDeleted: z
-    .boolean()
-    .optional()
-    .describe("Include soft-deleted milestones."),
+  includeDeleted: z.boolean().optional(),
   ...mcpPaginationShape,
 };
 
 export const saveMilestoneToolShape = {
-  id: z.string().optional().describe("Omit to create."),
-  project: projectRefSchema.optional().describe("Required on create."),
-  name: z.string().min(1).optional().describe("Required on create."),
-  description: z.string().optional().describe("Markdown."),
+  id: z.string().optional(),
+  project: projectRefSchema.optional(),
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
   targetDate: dateOnlySchema
     .nullable()
     .optional()
@@ -82,23 +74,23 @@ export const deleteMilestoneToolShape = {
 };
 
 export const listIssueLabelsToolShape = {
-  project: projectRefSchema
-    .optional()
-    .describe("Include this project's labels plus global ones."),
+  project: projectRefSchema.optional().describe("Add this project's labels."),
   ...mcpPaginationShape,
 };
 
 export const saveIssueLabelToolShape = {
-  id: z.string().optional().describe("Omit to create."),
-  name: z.string().min(1).optional().describe("Required on create."),
+  id: z.string().optional(),
+  name: z.string().min(1).optional(),
   color: colorSchema.optional().describe("Hex #rrggbb."),
-  project: projectRefSchema
+  project: projectRefBase
     .nullable()
     .optional()
-    .describe("Omit/null = global label. Cannot change on update."),
+    .describe(
+      "Project key, name or id; omit/null = global. Fixed after creation.",
+    ),
 };
 
 export const restoreToolShape = {
   type: z.enum(RESTORE_TYPES),
-  id: z.string().describe("Identifier (ABC-123) for issues; id for others."),
+  id: z.string().describe("Identifier for issues; id for others."),
 };
