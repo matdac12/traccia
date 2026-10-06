@@ -37,20 +37,37 @@ describe("project pages", () => {
     expect(paths).toEqual(["/v1/labels", "/v1/projects/p1", "/v1/projects/p1/milestones"]);
   });
 
-  it("Activity asks for the activity feed of this project only", async () => {
+  it("Activity asks for the activity feed of this project only, and reuses the project list's milestones", async () => {
     const { default: Page } = await import("../app/(app)/projects/[id]/activity/page");
     await Page({ params: Promise.resolve({ id: "p1" }) });
-    const feed = urls().filter((u) => u.pathname === "/v1/activity");
-    expect(feed).toHaveLength(1);
-    expect(feed[0]?.searchParams.get("project")).toBe("p1");
+    const paths = urls().map((u) => u.pathname).sort();
+    // The feed, the project itself and the shared project list; no separate milestones call (TRC-107).
+    expect(paths).toEqual(["/v1/activity", "/v1/projects", "/v1/projects/p1"]);
+    const feed = urls().find((u) => u.pathname === "/v1/activity");
+    expect(feed?.searchParams.get("project")).toBe("p1");
   });
 
-  it("Issues is scoped to the project whatever ?project= says, and keeps the other filters", async () => {
+  it("Issues is scoped to the project whatever ?project= says, keeps the filters, and skips a milestones call", async () => {
     const { default: Page } = await import("../app/(app)/projects/[id]/issues/page");
     await Page({ params: Promise.resolve({ id: "p1" }), searchParams: Promise.resolve({ project: "other", status: "todo" }) });
+    const paths = urls().map((u) => u.pathname).sort();
+    expect(paths).toEqual(["/v1/issues/groups", "/v1/labels", "/v1/projects", "/v1/projects/p1"]);
     const groups = urls().find((u) => u.pathname === "/v1/issues/groups");
     expect(groups?.searchParams.get("project")).toBe("p1");
     expect(groups?.searchParams.getAll("status")).toEqual(["todo"]);
+  });
+
+  it("a route key stands in for the project id in the reads, while the project read is authoritative", async () => {
+    fetchMock.mockImplementation(async (u: URL) => {
+      const url = new URL(String(u));
+      if (url.pathname === "/v1/projects") return json({ items: [{ ...project, milestones: [milestone] }], nextCursor: null });
+      if (url.pathname === "/v1/projects/K") return json({ ...project, id: "p1" });
+      if (url.pathname === "/v1/activity") return json({ items: [], nextCursor: null });
+      return new Response("unexpected " + url.pathname, { status: 500 });
+    });
+    const { default: Page } = await import("../app/(app)/projects/[id]/activity/page");
+    await Page({ params: Promise.resolve({ id: "K" }) });
+    expect(urls().find((u) => u.pathname === "/v1/activity")?.searchParams.get("project")).toBe("K");
   });
 
   it("an unknown project is a 404 on every tab", async () => {
