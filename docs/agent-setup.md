@@ -285,17 +285,17 @@ Settings → Connectors → Add custom connector. Name it anything, URL `https:/
 | `429 Too Many Requests` | The token exceeded its per-minute request limit (default 120 per minute). The response carries a `Retry-After` header; wait that long, and avoid tight loops; use `list_issues` filters and `limit` instead of fetching everything. |
 | Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge unless the server has agent purge switched on, and deletes are soft and restorable. Ask the owner to purge from the dashboard. |
 
-## Not supported in v1
+## Not supported
 
-The default tailnet-only setup cannot be reached by these runtimes, and they are intentionally unsupported:
+The default tailnet-only setup cannot be reached from outside your tailnet, so these runtimes are intentionally unsupported there:
 
 - CI runners
 - Cloud-hosted agents
 - Phones
 
-(Claude Code on a claude.ai account is the exception: it reaches Traccia through the [optional custom connector](#optional-connect-through-a-claudeai-custom-connector) above, not through the bearer setup.)
+Phones and claude.ai accounts are the exception if you set up the [optional custom connector](#optional-connect-through-a-claudeai-custom-connector): the Claude app on a phone, and Claude Code on that claude.ai account, then reach Traccia from anywhere without the tailnet. CI runners and other cloud-hosted agents stay unsupported with or without the connector, which is meant for claude.ai accounts, not arbitrary runtimes.
 
-Agents in these places should report to you, and you record the outcome in the dashboard.
+Agents in places that cannot reach Traccia should report to you, and you record the outcome in the dashboard.
 
 ## Verification status
 
@@ -307,5 +307,7 @@ Verified end to end with `whoami` on 2026-10-05:
 | OpenCode 1.18.34 | Windows (native PowerShell) | `opencode-windows` | `opencode mcp list` shows `connected`; `whoami` → `opencode-windows` |
 | Codex 0.160.0 | Windows (native PowerShell) | `codex-windows` | `codex mcp list` lists `traccia` as `Bearer token`; `codex exec` `whoami` → `codex-windows` |
 | Claude Code | macOS | `claude-code-mac` | connected via a literal header (TRC-89) |
+
+The optional claude.ai connector was verified end to end on 2026-10-06: it connects from the Claude app on an iPhone and from Claude Code on the same claude.ai account (listed as `claude.ai <name>` with 21 tools), and `whoami`, `list_projects`, `list_issues`, `get_issue`, `list_milestones` and `save_comment` all worked through it, written as `agent` with the token name `oauth: <client name>`.
 
 Still unverified: Codex on macOS, and Claude Code on Windows end to end (the `claude-code-windows` token exists but has not been exercised here). The macOS `launchctl setenv` advice is general macOS knowledge, not tested here. When you connect another tool or machine, correct this page if a step did not work as written.
