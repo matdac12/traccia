@@ -98,6 +98,8 @@ The full walkthrough is [`docs/self-hosting.md`](docs/self-hosting.md): a Linux 
 
 Create one token per tool and machine, then point the tool at `https://<host>/mcp`. Claude Code, Codex and OpenCode are covered in [`docs/agent-setup.md`](docs/agent-setup.md). Paste [`docs/agent-snippet.md`](docs/agent-snippet.md) into a repo's `AGENTS.md` so its agents follow the tracker's conventions.
 
+To add Traccia to a whole claude.ai account instead, without a token per machine, there is an optional claude.ai custom connector; it is not required, and the setup above stays the default. See the [optional connector section](docs/agent-setup.md#optional-connect-through-a-claudeai-custom-connector).
+
 ## Configuration
 
 One `.env` file in `/opt/tracker` (never committed): the api reads it directly, and the compose file passes the web variables through to the dashboard. The template is [`deploy/.env.example`](deploy/.env.example). The api validates its variables with Zod at startup and exits with a clear message on a bad value; [`apps/api/src/config.ts`](apps/api/src/config.ts) is the only place that reads `process.env`. A test (`apps/api/test/readme.test.ts`) fails if this table misses a variable from `config.ts`.

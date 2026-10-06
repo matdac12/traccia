@@ -2,6 +2,8 @@
 
 How to connect Claude Code, Codex and OpenCode to the Traccia MCP server from a Mac or a Windows machine. Both must be on the tailnet. Once connected, agents follow the workflow in [agent-snippet.md](agent-snippet.md) and use the tools listed in [mcp-tools.md](mcp-tools.md).
 
+There are two ways to connect, and you can use either or both. The default is the tailnet + bearer-token setup below (Claude Code, Codex, OpenCode). The [optional claude.ai custom connector](#optional-connect-through-a-claudeai-custom-connector) publishes a small public endpoint so a whole claude.ai account gets Traccia with no per-machine config. The connector is a preference, not a requirement: the default setup keeps working unchanged either way.
+
 - Endpoint: `https://<your-tailnet-host>/mcp`
 - Auth: `Authorization: Bearer <token>`. Keep the repo free of real tokens. Each tool reads the token its own way: OpenCode from a small file next to its config (`{file:...}`), Codex and Claude Code from a literal header in their own per-machine config, or any of them from a `TRACCIA_TOKEN` environment variable. GUI-launched apps often do not inherit shell variables, so the file or literal header is the reliable default here; see [Section 2](#2-store-the-token-per-tool).
 
@@ -161,6 +163,116 @@ Start a new agent session (environment changes apply only to new processes) and 
 
 The `actor` and `tokenName` must match the token you created. The `tokenName` should follow the `<tool>-<machine>` convention above. Then ask for `list_projects` to confirm reads work.
 
+## Optional: connect through a claude.ai custom connector
+
+This is a **preference, not a requirement**. Everything above (tailnet + bearer token) keeps working unchanged and stays the default for Claude Code, Codex and OpenCode. Use either, or both.
+
+The connector is for one thing: add Traccia once in claude.ai and every Claude Code instance logged into that claude.ai account gets it automatically, shown as `claude.ai <name>` in `/mcp`, with no per-machine `claude mcp add` and no token file. The cost is that the MCP endpoint becomes reachable from the public internet, not only from the tailnet.
+
+The public endpoint is a second Tailscale node of its own, on its own hostname. Only `/mcp`, `/.well-known/*`, `/register`, `/authorize` and `/token` are published there. The dashboard, `/v1` and `/files` stay tailnet-only on the main host name.
+
+### Why a dedicated node
+
+Tailscale Funnel is per host:port, not per path. Funnelling the main host's 443 would also publish the dashboard and the REST API, so the public endpoint needs its own node with its own hostname. Funnel only listens on ports 443, 8443 and 10000. We first tried 8443 and claude.ai's "Add custom connector" failed with "Couldn't reach" while zero requests reached the server; moving the public endpoint to 443 on its own node fixed it. Anthropic does not document a 443-only rule (third-party reports suggest it), so take it plainly: we could not get 8443 to work; 443 works.
+
+### Prerequisites
+
+- Funnel allowed for your devices in the tailnet policy: a `nodeAttrs` entry with attr `funnel`, for example targeting `autogroup:member`. Many tailnets already have it.
+- MagicDNS and HTTPS certificates enabled.
+- Docker on the server.
+
+### 1. Configure the public node
+
+Create `/opt/tracker/ts-mcp/{state,config}` and write this `config/serve.json`. `${TS_CERT_DOMAIN}` is literal: Tailscale expands it.
+
+```json
+{
+  "TCP": { "443": { "HTTPS": true } },
+  "Web": { "${TS_CERT_DOMAIN}:443": { "Handlers": {
+    "/mcp":         { "Proxy": "http://127.0.0.1:8787/mcp" },
+    "/.well-known": { "Proxy": "http://127.0.0.1:8787/.well-known" },
+    "/register":    { "Proxy": "http://127.0.0.1:8787/register" },
+    "/authorize":   { "Proxy": "http://127.0.0.1:8787/authorize" },
+    "/token":       { "Proxy": "http://127.0.0.1:8787/token" }
+  } } },
+  "AllowFunnel": { "${TS_CERT_DOMAIN}:443": true }
+}
+```
+
+### 2. Run the node
+
+```bash
+docker run -d --name traccia-mcp-ts --restart unless-stopped --network host \
+  -e TS_HOSTNAME=<node-name> \
+  -e TS_USERSPACE=true \
+  -e TS_STATE_DIR=/var/lib/tailscale \
+  -e TS_SOCKET=/tmp/tailscaled-mcp.sock \
+  -e TS_SERVE_CONFIG=/config/serve.json \
+  -v /opt/tracker/ts-mcp/state:/var/lib/tailscale \
+  -v /opt/tracker/ts-mcp/config:/config \
+  tailscale/tailscale:stable
+```
+
+Userspace mode keeps this node from interfering with the host's own Tailscale. Host networking lets it reach the API on `127.0.0.1:8787`.
+
+### 3. Approve the node
+
+No auth key is needed. `docker logs traccia-mcp-ts` prints a login URL ("To authenticate, visit: ..."); open it signed in to your Tailscale account and approve the new machine. Then check the Funnel is up:
+
+```bash
+docker exec traccia-mcp-ts tailscale --socket=/tmp/tailscaled-mcp.sock funnel status
+```
+
+Expect "Funnel on" with the five paths.
+
+### 4. Point the API at the public origin
+
+In `/opt/tracker/.env`:
+
+```ini
+OAUTH_ADMIN_SECRET=<long random value, at least 16 characters>
+OAUTH_PUBLIC_URL=https://<node-name>.<your-tailnet>.ts.net
+```
+
+Generate the secret with `openssl rand -base64 36`. `OAUTH_PUBLIC_URL` is the public origin; leave `BASE_URL` alone, it keeps building attachment links. Apply with `docker compose up -d api` (use the currently deployed `TAG`). Public DNS for a new Funnel name can take a few minutes to appear.
+
+### 5. Verify from outside the tailnet
+
+Use a device outside the tailnet (a phone on mobile data with Tailscale off), or force the public IP:
+
+```bash
+curl --resolve <host>:443:<public-ip> https://<host>/.well-known/oauth-protected-resource
+```
+
+On the public name, `/`, `/v1/me`, `/files/x` and `/healthz` must all return `404`. A laptop on the tailnet resolves the name to a `100.x` address, so a plain `curl` from it does not prove public reachability.
+
+### 6. Add the connector in claude.ai
+
+Settings → Connectors → Add custom connector. Name it anything, URL `https://<node-name>.<your-tailnet>.ts.net/mcp`. Authentication: sign in now ("Accedi ora" in the Italian UI). For the OAuth client, choose **register automatically (DCR)**; do not keep the default "use Claude's published identity" option (CIMD), because the server supports DCR, not CIMD. Leave client ID and secret blank. Click Connect, enter `OAUTH_ADMIN_SECRET` on the consent page, and Approve.
+
+### What the server enforces
+
+- Redirect URI allowlist: claude.ai and claude.com `/api/mcp/auth_callback`, plus loopback; extend with `OAUTH_EXTRA_REDIRECT_URIS`.
+- PKCE S256 only.
+- Per-IP rate limits: register 10 per 10 min, authorize POST 20 per min, token 30 per min.
+- Lockout after 5 bad admin secrets from one IP, or 30 globally in 15 minutes; it lasts 15 minutes. A global lockout can lock you out too; restarting the api container clears it.
+- At most 100 registered clients; unused ones are deleted after 1 hour.
+- Access tokens last 1 hour with rotating refresh tokens (30 days).
+- Every grant is a token row with actor `agent`, named `oauth: <client name>`, visible in `token list` and revocable with `token revoke <id>` (takes effect immediately).
+- Rotating `OAUTH_ADMIN_SECRET` only affects approving new connections; existing grants keep working.
+
+### Kill switch
+
+`docker rm -f traccia-mcp-ts` (and removing the node in the Tailscale admin console) takes the public endpoint offline immediately. The bearer-token setup is unaffected. Unsetting `OAUTH_ADMIN_SECRET` makes the OAuth endpoints answer `503`.
+
+### Connector troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| "Couldn't reach" and no request in the API logs | Anthropic's side never connected. Check the public DNS has an A record, that the port is 443, and that there is no redirect. Report with the `ofid_` reference on the anthropics/claude-ai-mcp issue tracker (it is time-limited). |
+| Consent page shows "Wrong admin secret" (`403`) | The value did not match `OAUTH_ADMIN_SECRET`, or you hit the lockout. Wait it out, or restart the api container to clear it. |
+| claude.ai rejects the redirect URI at registration | Add it to `OAUTH_EXTRA_REDIRECT_URIS`. |
+
 ## Troubleshooting
 
 | Symptom | Cause and fix |
@@ -175,12 +287,13 @@ The `actor` and `tokenName` must match the token you created. The `tokenName` sh
 
 ## Not supported in v1
 
-Traccia is tailnet-only. These runtimes cannot reach it and are intentionally unsupported:
+The default tailnet-only setup cannot be reached by these runtimes, and they are intentionally unsupported:
 
 - CI runners
 - Cloud-hosted agents
 - Phones
-- claude.ai connectors (they connect from Anthropic's servers, not from your tailnet)
+
+(Claude Code on a claude.ai account is the exception: it reaches Traccia through the [optional custom connector](#optional-connect-through-a-claudeai-custom-connector) above, not through the bearer setup.)
 
 Agents in these places should report to you, and you record the outcome in the dashboard.
 
