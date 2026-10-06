@@ -5,8 +5,15 @@ import { bodyLimit } from "hono/body-limit";
 import { requireAuth } from "../auth/middleware.js";
 import { bearerChallenge } from "../auth/oauth-metadata.js";
 import { createBearerVerifier } from "../auth/verifier.js";
+import type { LogFields } from "../logger.js";
 import type { AppContainer, AppEnv } from "../rest/env.js";
 import { type AttachmentStorage, LocalDiskStorage } from "../storage/index.js";
+import {
+  describeCalls,
+  headerForLog,
+  readErrorDetail,
+  serverTiming,
+} from "./observe.js";
 import { createMcpServer } from "./server.js";
 import { createSourceFetcher, type SourceFetcher } from "./ssrf-fetch.js";
 
@@ -43,6 +50,21 @@ export function createMcpRoute(
 
   mcp.post(
     "/",
+    // Outermost: adds the MCP detail to the request log line, and for 4xx
+    // (including auth and size rejections) the error code, message, protocol
+    // version and user agent. Never reads the request body.
+    async (c, next) => {
+      await next();
+      const fields: LogFields = { ...c.get("logFields") };
+      if (c.res.status >= 400 && c.res.status < 500) {
+        Object.assign(fields, await readErrorDetail(c.res));
+        fields.protocolVersion = headerForLog(
+          c.req.header("mcp-protocol-version"),
+        );
+        fields.userAgent = headerForLog(c.req.header("user-agent"));
+      }
+      c.set("logFields", fields);
+    },
     // Set before auth so a thrown 401 carries it; cleared again on success.
     async (c, next) => {
       c.header(
@@ -73,6 +95,21 @@ export function createMcpRoute(
     }),
     async (c) => {
       c.header("WWW-Authenticate", undefined);
+      // Peek at the (already size-limited) body for the method and tool name,
+      // then hand the transport the parsed message, or a fresh request with
+      // the same bytes when it is not JSON so the transport reports the error.
+      const text = await c.req.text();
+      let parsed: unknown;
+      let parseFailed = false;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parseFailed = true;
+      }
+      const { count, calls } = parseFailed
+        ? { count: 0, calls: [] }
+        : describeCalls(parsed);
+      const started = performance.now();
       const server = createMcpServer(
         {
           container,
@@ -87,9 +124,25 @@ export function createMcpRoute(
         maxRequestBodySize: maxBytes,
       });
       await server.connect(transport);
-      const response = await transport.handleRequest(c.req.raw);
+      const response = await transport.handleRequest(
+        parseFailed
+          ? new Request(c.req.raw.url, {
+              method: "POST",
+              headers: c.req.raw.headers,
+              body: text,
+            })
+          : c.req.raw,
+        parseFailed ? undefined : { parsedBody: parsed },
+      );
       // Stateless: nothing outlives the request.
       void server.close();
+      const ms = performance.now() - started;
+      c.set("logFields", {
+        mcpCalls: calls,
+        mcpCount: count,
+        mcpMs: Math.round(ms * 10) / 10,
+      });
+      response.headers.set("Server-Timing", serverTiming(ms, calls, count));
       return response;
     },
   );
