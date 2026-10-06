@@ -2,6 +2,15 @@
 
 You are one small server and one tailnet away from your own tracker. This page is written so that an agent can follow it end to end. The quick version lives in the [README](../README.md#set-it-up-with-your-agent).
 
+## How this guide installs Traccia
+
+There is no published Traccia image and no CI to publish one. The repo ships a [compose file](../deploy/docker-compose.yml) and two Dockerfiles, and the images are built from source. So this guide builds `traccia-api` and `traccia-web` from the repo and starts them with the checked-in compose file:
+
+- Build both images on the server (step 4). If the server is too small to build, build on a bigger machine and ship the images with `docker save` / `docker load` instead.
+- Start both services with the checked-in `docker-compose.yml`, which binds them to `127.0.0.1` only and expects images tagged `traccia-api` and `traccia-web`.
+
+There is no registry, no `docker pull`, and no hosted Traccia. [`deploy/deploy.sh`](../deploy/deploy.sh) and [`deploy/README.md`](../deploy/README.md) wrap the same build-ship-restart flow for a Mac that deploys to a VPS over SSH; if that is not your setup, the manual commands below replace it.
+
 ## What you end up with
 
 - The `api` and the `web` dashboard, both bound to `127.0.0.1` only, on a server you own.
@@ -130,7 +139,7 @@ From any device on the tailnet (a browser, or `curl`):
 
 - `https://<host>/healthz` answers `{"ok":true}`.
 - `https://<host>/` loads the dashboard. A `403` means your login is not in `DASHBOARD_ALLOWED_LOGINS`.
-- `https://<host>/mcp` answers `401` without a token. That is correct.
+- An unauthenticated `POST https://<host>/mcp` answers `401` with a `WWW-Authenticate` header. That is correct. The MCP endpoint is POST-only, so a plain `GET` answers `405` with `Allow: POST` instead; both are the server working as intended.
 
 ## 10. Connect your agents
 
@@ -172,3 +181,30 @@ The compose file pins `TAG=latest` by default, so `up -d` picks up the rebuilt i
 | `tailscale serve` fails about certificates | Enable HTTPS Certificates and MagicDNS in the admin console, then retry. |
 | `Address already in use` on 443 | Another `tailscale serve` config holds 443. Inspect with `tailscale serve status` and reset with `tailscale serve reset` if it is stale. |
 | Containers restart in a loop on a small box | The host is out of memory. Add swap, or build on a bigger machine and ship the images. |
+| `docker compose up` warns the image platform (`linux/amd64`) does not match the host (`linux/arm64`) | You are on an ARM server. The images are built for `linux/amd64` only; use an amd64 box (see below). |
+
+## What is not supported
+
+Traccia is one tracker for one person, reached over a private tailnet. These are deliberate limits, and they are the things most likely to disappoint a stranger:
+
+- **Public access.** Nothing is published to the public internet and Funnel stays off. A device that is not on your tailnet cannot reach the dashboard, the REST API, or `/mcp`. The single exception is the optional [claude.ai custom connector](agent-setup.md#optional-connect-through-a-claudeai-custom-connector), which publishes only the MCP and OAuth routes from a second node.
+- **Cloud-hosted or CI agents.** Runners and hosted agents cannot reach a tailnet-only host. Agents have to run on a machine that is on the tailnet.
+- **Teams, accounts and permissions.** There are exactly two actors, `you` and `agent`; no sign-up, seats, user accounts or per-user permissions ([spec §1](../traccia-spec.md)).
+- **A mobile app.** The dashboard is a web page served from your server. There is no app to install and no hosted service to buy.
+- **arm64 hosts (most Raspberry Pis and ARM home servers).** The images are built and tested for `linux/amd64` only; on an ARM host the amd64 image runs under emulation at best, and a native arm64 build is untested. Use an amd64 server.
+- **Automatic off-site backup.** The daily snapshot stays on the same server until you pull it to another machine, so losing the server can lose recent work. That is accepted for v1 ([backup and restore](backup-restore.md)).
+
+## Verification status
+
+What was actually run for this guide, so you know how far to trust each step:
+
+| Step | Status |
+| --- | --- |
+| `docker compose config` against [`deploy/docker-compose.yml`](../deploy/docker-compose.yml) | Passed: both services render bound to `127.0.0.1`, with the `traccia-data` volume and the 256 MB / 512 MB memory limits. |
+| Build both images (step 4) | Passed on the machine this guide was verified on, using the exact `docker buildx build --platform linux/amd64` commands: both images built, and the api image's `better-sqlite3` prebuilt-binary check ran. |
+| First run and first token (steps 5-6) | Passed: with the checked-in compose file and the built images, the api migrated on first start, answered `{"ok":true}` on `/healthz`, and `token create` printed a token. |
+| Dashboard access check and `/mcp` (step 9) | Passed: `/` answered `403` with no identity header and loaded with `Tailscale-User-Login` set; unauthenticated `POST /mcp` answered `401`, `GET /mcp` answered `405`. |
+| A clean install on a fresh VPS or VM | **Not run.** No clean machine was available, so the install above was exercised on an existing host with the same images and compose file. |
+| `tailscale serve`, backups, restore and upgrades | **Not run in this pass.** The commands match [`deploy/README.md`](../deploy/README.md) and [`backup-restore.md`](backup-restore.md); run them once on a throwaway host before you rely on them. |
+
+When you follow this guide and a step does not work as written, correct this page.
