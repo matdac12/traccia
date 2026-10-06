@@ -8,7 +8,9 @@ services:
     image: traccia-api:${TAG:-latest}
     pull_policy: never
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       PORT: "8787"
       DATA_DIR: /data
