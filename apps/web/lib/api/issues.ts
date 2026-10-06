@@ -154,7 +154,7 @@ const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 
 /**
  * Issues to pick as a blocker or parent. An identifier (`MAT-12`) is looked up directly; anything
- * else is a full-word search (the API's search has no prefix matching).
+ * else is a full-text search whose last word may be partial (the API prefix-matches it).
  */
 export async function findIssues(query: string, limit = 8) {
   const q = query.trim();

@@ -499,7 +499,13 @@ describe("search, activity and trash", () => {
       identifier: a.identifier,
       source: "issue",
     });
-    expect(r.json.items[0].snippet).toContain("<mark>");
+    const snippet = r.json.items[0].snippet as {
+      text: string;
+      match: boolean;
+    }[];
+    expect(Array.isArray(snippet)).toBe(true);
+    expect(snippet.some((s) => s.match && s.text === "Zebra")).toBe(true);
+    expect(JSON.stringify(snippet)).not.toContain("<mark>");
     expect(
       (await t.call("GET", "/search?q=giraffe")).json.items[0].source,
     ).toBe("comment");
@@ -512,6 +518,24 @@ describe("search, activity and trash", () => {
       (await t.call("GET", `/search?q=zebra&project=${q.id}`)).json.items,
     ).toEqual([]);
     expect((await t.call("GET", "/search?q=")).json.items).toEqual([]);
+  });
+
+  it("prefix-matches a partial last word and returns a safe snippet structure", async () => {
+    const t = setup();
+    const a = await t.mk("Spiegare perché", {
+      description: "body with <script>alert(1)</script>",
+    });
+    const partial = await t.call("GET", "/search?q=perch");
+    expect(
+      partial.json.items.map((i: { identifier: string }) => i.identifier),
+    ).toEqual([a.identifier]);
+    const snippet = partial.json.items[0].snippet as {
+      text: string;
+      match: boolean;
+    }[];
+    expect(Array.isArray(snippet)).toBe(true);
+    expect(snippet.some((s) => s.match)).toBe(true);
+    expect(JSON.stringify(partial.json)).not.toContain("<mark>");
   });
 
   it("serves the activity feed newest first with identifier and title, paginated", async () => {

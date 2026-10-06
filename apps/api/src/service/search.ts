@@ -20,6 +20,13 @@ export const searchInputSchema = z.object({
 });
 export type SearchInput = z.input<typeof searchInputSchema>;
 
+/** One plain-text fragment of a snippet. Never HTML: safe as a React child. */
+export type SnippetSegment = {
+  text: string;
+  /** True when this fragment is a search hit (render it emphasised). */
+  match: boolean;
+};
+
 export type SearchResult = {
   issueId: string;
   identifier: string;
@@ -27,21 +34,28 @@ export type SearchResult = {
   /** Where the best match was found. */
   source: "issue" | "comment";
   /**
-   * The matching fragment, with hits wrapped in `<mark>…</mark>`. The rest is
-   * raw issue/comment text, NOT HTML-escaped: escape it before rendering as HTML.
+   * The matching fragment as plain-text segments with the hits flagged. The API
+   * never returns HTML: the surrounding issue/comment text stays raw text, so a
+   * consumer cannot render unescaped user input as markup by mistake.
    */
-  snippet: string;
+  snippet: SnippetSegment[];
 };
 
 /**
  * Turns free text into a safe FTS5 MATCH expression. Every run of letters or
  * digits becomes its own double-quoted token (implicitly AND-ed), so operators
  * and punctuation (`" * AND ( ) - :` ...) in agent input are inert and can
- * never cause a syntax error. Returns null when no token is left.
+ * never cause a syntax error. The last token is a prefix query (`"perch"*`), so
+ * a partial last word matches (`perch` finds `perché`, `deplo` finds `deploy`);
+ * earlier tokens must match whole. Returns null when no token is left.
  */
 export function buildMatchExpression(q: string): string | null {
   const tokens = q.match(/[\p{L}\p{N}]+/gu);
-  return tokens ? tokens.map((t) => `"${t}"`).join(" ") : null;
+  if (!tokens) return null;
+  const last = tokens.length - 1;
+  return tokens
+    .map((t, i) => (i === last ? `"${t}"*` : `"${t}"`))
+    .join(" ");
 }
 
 /**
@@ -59,6 +73,38 @@ export function issueMatchesCondition(q: string) {
 // Title hits weigh 10x body hits; the three UNINDEXED columns come first.
 const BM25 = sql.raw("bm25(search_index, 0, 0, 0, 10.0, 1.0)");
 
+/**
+ * FTS5 `snippet()` wraps hits in these markers. They are private-use code
+ * points, so real text never contains them; the raw snippet can be split back
+ * into plain-text segments without HTML escaping.
+ */
+const HIT_START = "\uE000";
+const HIT_END = "\uE001";
+
+/** Splits a raw FTS5 snippet (with the markers above) into plain-text segments. */
+function parseSnippet(raw: string): SnippetSegment[] {
+  const segments: SnippetSegment[] = [];
+  let text = "";
+  let match = false;
+  const flush = () => {
+    if (text) segments.push({ text, match });
+    text = "";
+  };
+  for (const ch of raw) {
+    if (ch === HIT_START) {
+      flush();
+      match = true;
+    } else if (ch === HIT_END) {
+      flush();
+      match = false;
+    } else {
+      text += ch;
+    }
+  }
+  flush();
+  return segments;
+}
+
 type Row = {
   issue_id: string;
   identifier: string;
@@ -72,7 +118,7 @@ function runSearch(db: DbHandle, match: string, projectId?: string): Row[] {
   return db.all<Row>(sql`
     SELECT i.id AS issue_id, i.identifier AS identifier, i.title AS title,
            s.kind AS kind,
-           snippet(search_index, -1, '<mark>', '</mark>', '…', 12) AS snippet
+           snippet(search_index, -1, ${HIT_START}, ${HIT_END}, '…', 12) AS snippet
     FROM search_index s
     JOIN issues i ON i.id = s.issue_id
     WHERE search_index MATCH ${match}
@@ -123,7 +169,7 @@ export function createSearchService(ctx: ServiceContext) {
           identifier: r.identifier,
           title: r.title,
           source: r.kind,
-          snippet: r.snippet,
+          snippet: parseSnippet(r.snippet),
         });
       }
       const items = grouped.slice(offset, offset + limit);

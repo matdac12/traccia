@@ -34,7 +34,7 @@ export {
 export type { Milestone } from "./milestones.js";
 export type { Project } from "./projects.js";
 export type { IssueRelations, RelatedIssue } from "./relations.js";
-export type { SearchResult } from "./search.js";
+export type { SearchResult, SnippetSegment } from "./search.js";
 export {
   indexComment,
   indexIssue,
