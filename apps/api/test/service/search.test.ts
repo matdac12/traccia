@@ -101,6 +101,24 @@ describe("search", () => {
     expect(ids("running")).toEqual([b.identifier]);
   });
 
+  it("matches a partial last word (prefix query)", () => {
+    const { mk, ids } = setup();
+    const a = mk("Spiegare perché");
+    const b = mk("refactoring notes");
+    expect(ids("perch")).toEqual([a.identifier]); // accented word, partial
+    expect(ids("per")).toEqual([a.identifier]);
+    expect(ids("refact")).toEqual([b.identifier]);
+    expect(ids("refactoring")).toEqual([b.identifier]);
+  });
+
+  it("prefix-matches only the last token; earlier tokens must be whole", () => {
+    const { mk, ids } = setup();
+    const a = mk("alphabet soup");
+    expect(ids("alph soup")).toEqual([]); // "alph" is not a whole earlier token
+    expect(ids("alphabet sou")).toEqual([a.identifier]);
+    expect(ids("alphabet soup")).toEqual([a.identifier]);
+  });
+
   it("ranks a title match above a body-only match", () => {
     const { mk, ids } = setup();
     const body = mk("other", "deploy deploy deploy notes");
@@ -108,13 +126,27 @@ describe("search", () => {
     expect(ids("deploy")).toEqual([title.identifier, body.identifier]);
   });
 
-  it("groups by issue with a highlighted snippet", () => {
+  it("groups by issue with a safe, structured snippet", () => {
     const { services, mk, find } = setup();
     const a = mk("needle title", "needle body");
     services.comments.create("you", a.identifier, { body: "needle comment" });
     const r = find("needle");
     expect(r.items).toHaveLength(1);
-    expect(r.items[0]?.snippet).toContain("<mark>needle</mark>");
+    const snippet = r.items[0]?.snippet ?? [];
+    expect(Array.isArray(snippet)).toBe(true);
+    expect(snippet.some((s) => s.match && s.text === "needle")).toBe(true);
+    expect(JSON.stringify(snippet)).not.toContain("<mark>");
+  });
+
+  it("never returns user HTML in a snippet, only plain-text segments", () => {
+    const { mk, find } = setup();
+    mk("safe", "before <script>needle</script> after");
+    const [hit] = find("needle").items;
+    const snippet = hit?.snippet ?? [];
+    // The raw markup stays data, and only the hit is flagged.
+    expect(snippet.map((s) => s.text).join("")).toContain("<script>");
+    expect(snippet.some((s) => s.match && s.text === "needle")).toBe(true);
+    expect(JSON.stringify(snippet)).not.toContain("<mark>");
   });
 
   it("filters by project", () => {
@@ -155,6 +187,12 @@ describe("search", () => {
     "a:b -c *",
     "   ",
     "",
+    "perch*",
+    "*perch",
+    '"perch"*',
+    "perch AND",
+    "NEAR(perch)",
+    "perch\u0000end",
   ])("never throws on hostile query %j", (q) => {
     const { mk, find, services } = setup();
     mk("foo bar AND baz");

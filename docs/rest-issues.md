@@ -23,7 +23,7 @@ All routes live under `/v1` and need a bearer token; every write is stamped with
 
 ## Search
 
-`GET /v1/search?q=&project=` returns one result per issue with a `snippet`. The snippet wraps hits in `<mark>…</mark>` but the surrounding text is raw issue/comment text and is **not HTML-escaped**. The dashboard must escape it, then re-enable the `<mark>` tags, before rendering it as HTML.
+`GET /v1/search?q=&project=` returns one result per issue. The last word of `q` is prefix-matched, so `perch` finds `perché`. Each result carries `snippet`: an array of `{ text, match }` plain-text segments (the API returns no HTML), so a consumer renders `text` and emphasises the `match` fragments itself.
 
 ## Activity feed
 

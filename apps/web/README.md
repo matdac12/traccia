@@ -69,8 +69,9 @@ names and the token value; run it before changing anything around the client.
   `beforeId` is the card the moved issue lands directly ABOVE, `afterId` the card it lands directly BELOW (verified
   against the service; the board sends the card above as `afterId`). Neighbours must share the issue's project.
   The board lives in `components/kanban/` (pure drop logic in `board-model.ts`) and lists columns by `sortOrder`.
-- **Search snippets** (`GET /search`) contain `<mark>` around hits and are NOT HTML-escaped. Escape the whole string,
-  then re-enable only `<mark>` and `</mark>`, before using it as HTML. Never `dangerouslySetInnerHTML` raw snippets.
+- **Search snippets** (`GET /search`) are plain-text segments (`{ text, match }[]`), not HTML and never
+  escaped by the API. Render `text` as a React child (or escape it if you must build a string); mark the
+  `match` segments yourself. Never `dangerouslySetInnerHTML` a snippet.
 
 ## Server components, server actions, route handlers
 
@@ -156,7 +157,7 @@ Project server actions revalidate `/projects/<id>` with type `"layout"` so the h
 change" (patches are rebuilt against the fresh issue, and title/description are refused if the same field moved).
 Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
-The API's search matches whole words only, so the blocker/parent picker looks `MAT-12`-style input up directly.
+The API's search prefix-matches the last word (so `perch` finds `perché`); the blocker/parent picker also looks `MAT-12`-style input up directly.
 
 ## Browser smoke tests (`pnpm test:e2e`, TRC-61)
 

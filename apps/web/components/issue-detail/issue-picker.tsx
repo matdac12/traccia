@@ -56,7 +56,7 @@ export function IssuePicker({
         {state === "loading" && <Loader2 className="absolute right-2 top-2 size-3.5 animate-spin text-muted-foreground" />}
       </div>
       {state === "error" && <p className="px-2 py-1.5 text-xs text-destructive">Search failed. Try again.</p>}
-      {q.trim() && state === "idle" && shown.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No matching issues. Search matches whole words; an identifier like MAT-12 always works.</p>}
+      {q.trim() && state === "idle" && shown.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground">No matching issues. The last word may be partial; an identifier like MAT-12 always works.</p>}
       {shown.length > 0 && (
         <ul className="mt-1 max-h-56 overflow-y-auto">
           {shown.map((r) => (
