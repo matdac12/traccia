@@ -490,7 +490,7 @@
   },
   {
     "name": "save_issue",
-    "description": "Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.",
+    "description": "Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks`, `related` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -581,6 +581,13 @@
         },
         "blocks": {
           "description": "Issues this one blocks.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "related": {
+          "description": "Loosely related issues (symmetric, non-blocking).",
           "type": "array",
           "items": {
             "type": "string"

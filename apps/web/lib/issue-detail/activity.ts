@@ -51,6 +51,10 @@ export function describeActivity(row: Pick<ActivityRow, "type" | "data">, lookup
       return `marked ${str(d.blocker) ?? "?"} as blocking ${str(d.blocked) ?? "?"}`;
     case "blocker_removed":
       return `removed the block of ${str(d.blocker) ?? "?"} on ${str(d.blocked) ?? "?"}`;
+    case "related_added":
+      return `marked this related to ${str(d.related) ?? "?"}`;
+    case "related_removed":
+      return `removed the related link to ${str(d.related) ?? "?"}`;
     case "comment_added":
       return d.parentId ? "replied to a comment" : "commented";
     case "comment_deleted":

@@ -270,6 +270,15 @@ export function IssueDetail(props: IssueDetailProps) {
               onRemove={(r) => change(`stop blocking ${r.identifier}`, (cur) => ({ blocks: refs(cur.relations.blocks).filter((x) => x !== r.identifier) }))}
             />
 
+            <BlockerList
+              title="Related"
+              issues={issue.relations.related}
+              disabled={busy}
+              exclude={[issue.identifier, ...refs(issue.relations.related)]}
+              onAdd={(r) => change(`related to ${r.identifier}`, (cur) => ({ related: [...new Set([...refs(cur.relations.related), r.identifier])] }))}
+              onRemove={(r) => change(`remove related ${r.identifier}`, (cur) => ({ related: refs(cur.relations.related).filter((x) => x !== r.identifier) }))}
+            />
+
             <section className="mt-10" aria-label="Activity">
               <h3 className="mb-3 text-[13px] font-medium">Activity</h3>
               <ActivityTimeline rows={issue.activity} lookups={lookups} />

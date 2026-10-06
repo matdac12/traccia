@@ -60,6 +60,7 @@ describe("baseline schema", () => {
         "labels",
         "issue_labels",
         "issue_relations",
+        "issue_related",
         "comments",
         "attachments",
         "activity",
@@ -191,6 +192,20 @@ describe("baseline schema", () => {
       );
       expect(() => insert.run(a, a, T)).toThrow(/CHECK/);
       insert.run(a, b, T);
+    });
+
+    it("canonicalises related pairs and rejects self-links", () => {
+      const { sqlite, insertIssue } = setup();
+      // ids are i1 < i2 < i3, so canonical order is already a<b.
+      const a = insertIssue();
+      const b = insertIssue();
+      const insert = sqlite.prepare(
+        "INSERT INTO issue_related (issue_a_id, issue_b_id, created_at) VALUES (?,?,?)",
+      );
+      expect(() => insert.run(a, a, T)).toThrow(/CHECK/);
+      expect(() => insert.run(b, a, T)).toThrow(/CHECK/);
+      insert.run(a, b, T);
+      expect(() => insert.run(a, b, T)).toThrow(/PRIMARY KEY|UNIQUE/);
     });
   });
 

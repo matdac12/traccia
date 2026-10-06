@@ -64,12 +64,14 @@ export const getIssueQuerySchema = z.object({
 });
 
 /**
- * `PATCH /v1/issues/:identifier`. `blockedBy` / `blocks` are issue identifiers
- * and REPLACE the whole set, like `labels`; omit a key to leave it alone.
+ * `PATCH /v1/issues/:identifier`. `blockedBy` / `blocks` / `related` are issue
+ * identifiers and REPLACE the whole set, like `labels`; omit a key to leave it
+ * alone. `related` is symmetric: one stored pair, shown on both issues.
  */
 export const patchIssueBodySchema = updateIssueInputSchema.extend({
   blockedBy: z.array(z.string().min(1)).optional(),
   blocks: z.array(z.string().min(1)).optional(),
+  related: z.array(z.string().min(1)).optional(),
 });
 export type PatchIssueBody = z.input<typeof patchIssueBodySchema>;
 

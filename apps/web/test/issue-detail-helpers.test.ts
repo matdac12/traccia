@@ -52,6 +52,8 @@ describe("activity", () => {
     expect(describeActivity({ type: "priority_changed", data: { from: 0, to: 1 } })).toBe("changed priority from No priority to Urgent");
     expect(describeActivity({ type: "assignee_changed", data: { from: null, to: "agent" } })).toBe("changed assignee from nobody to an agent");
     expect(describeActivity({ type: "blocker_added", data: { blocker: "MAT-1", blocked: "MAT-2" } })).toBe("marked MAT-1 as blocking MAT-2");
+    expect(describeActivity({ type: "related_added", data: { related: "MAT-2" } })).toBe("marked this related to MAT-2");
+    expect(describeActivity({ type: "related_removed", data: { related: "MAT-2" } })).toBe("removed the related link to MAT-2");
     expect(describeActivity({ type: "comment_added", data: { parentId: "x" } })).toBe("replied to a comment");
     expect(describeActivity({ type: "milestone_changed", data: { from: null, to: "m1" } }, { milestone: () => "M1" })).toBe("changed milestone from none to M1");
     expect(describeActivity({ type: "status_changed", data: {} })).toBe("changed status from ? to ?");

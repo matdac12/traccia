@@ -65,6 +65,10 @@ _Avoid_: child task, subtask
 An issue that must finish before another can proceed. "A blocks B" is a directed relation, and it may cross projects.
 _Avoid_: dependency
 
+**Related**:
+A loose, symmetric, non-blocking link between two issues: one stored pair, shown on both. Distinct from a Blocker, which is directed.
+_Avoid_: linked, see also
+
 **Label**:
 A named, coloured tag that is either global or scoped to one project. Names are unique within their scope, ignoring case.
 

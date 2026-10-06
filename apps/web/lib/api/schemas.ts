@@ -197,6 +197,8 @@ export type IssueRef = z.infer<typeof issueRefSchema>;
 export const relationsSchema = z.object({
   blockedBy: z.array(issueRefSchema),
   blocks: z.array(issueRefSchema),
+  /** Symmetric, non-blocking links; the same list appears on both issues. */
+  related: z.array(issueRefSchema).default([]),
 });
 
 export const issueDetailSchema = issueSchema.extend({

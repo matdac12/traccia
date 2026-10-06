@@ -12,9 +12,9 @@ export const RETURNS: Record<string, string> = {
   list_issues:
     "`{ items, nextCursor? }`. Each item is a compact issue: `identifier`, `title`, `status`, `priority`, `assignee`, `labels`, `project`, `milestone`, `parent`, `estimate`, `updatedAt`, `descriptionSnippet`, `deleted`. Empty fields are omitted.",
   get_issue:
-    "A compact issue with the full `description` (no snippet), plus `createdBy`, `createdAt`, `startedAt`, `completedAt`, `canceledAt` and the requested `include` sections: `comments`, `attachments`, `children`, `relations` (`{ blockedBy, blocks }`, each `{ identifier, title, status }`), `activity`.",
+    "A compact issue with the full `description` (no snippet), plus `createdBy`, `createdAt`, `startedAt`, `completedAt`, `canceledAt` and the requested `include` sections: `comments`, `attachments`, `children`, `relations` (`{ blockedBy, blocks, related }`, each `{ identifier, title, status }`), `activity`.",
   save_issue:
-    "The saved compact issue, plus `relations` when `blockedBy` or `blocks` was given.",
+    "The saved compact issue, plus `relations` when `blockedBy`, `blocks` or `related` was given.",
   delete_issue:
     "Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.",
   list_comments:

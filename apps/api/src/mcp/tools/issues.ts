@@ -12,7 +12,7 @@ import type { Db } from "../../db/connection.js";
 import { milestones } from "../../db/schema.js";
 import { type IssueUpdateHook, resolveIssue } from "../../service/issues.js";
 import { resolveProject } from "../../service/projects.js";
-import { loadRelations, setBlockersTx } from "../../service/relations.js";
+import { loadRelations, setBlockersTx, setRelatedTx } from "../../service/relations.js";
 import { resolveUpdatedAfter } from "../duration.js";
 import { toolError, toolResult } from "../errors.js";
 import { PURGE_DENIED_MESSAGE } from "./helpers.js";
@@ -189,6 +189,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
               ? {
                   blockedBy: issue.relations.blockedBy.map(relationItem),
                   blocks: issue.relations.blocks.map(relationItem),
+                  related: issue.relations.related.map(relationItem),
                 }
               : undefined,
             activity: include.includes("activity")
@@ -208,7 +209,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     "save_issue",
     {
       description:
-        "Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.",
+        "Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks`, `related` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.",
       inputSchema: {
         id: z.string().optional(),
         title: z.string().optional(),
@@ -244,16 +245,20 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
           .array(z.string())
           .optional()
           .describe("Issues this one blocks."),
+        related: z
+          .array(z.string())
+          .optional()
+          .describe("Loosely related issues (symmetric, non-blocking)."),
         expectedUpdatedAt: z.string().optional(),
       },
     },
     (args) =>
       runLogged(ctx, "save_issue", () => {
-        const { id, milestone, blockedBy, blocks, ...fields } = args;
+        const { id, milestone, blockedBy, blocks, related, ...fields } = args;
         try {
           return id
-            ? updateIssue(id, fields, milestone, blockedBy, blocks)
-            : createIssue(fields, milestone, blockedBy, blocks);
+            ? updateIssue(id, fields, milestone, blockedBy, blocks, related)
+            : createIssue(fields, milestone, blockedBy, blocks, related);
         } catch (err) {
           return explainConflict(err);
         }
@@ -278,6 +283,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     milestone: string | null | undefined,
     blockedBy: string[] | undefined,
     blocks: string[] | undefined,
+    related: string[] | undefined,
   ) {
     const {
       title,
@@ -297,7 +303,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
       );
     }
     // Validate everything that can fail before writing, so a bad label or
-    // blocker never leaves a half-created issue behind.
+    // relation never leaves a half-created issue behind.
     const project = resolveProject(db, projectRef);
     const milestoneId = milestone
       ? resolveMilestoneRef(db, project.id, milestone)
@@ -318,7 +324,11 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
         );
       }
     }
-    for (const ref of [...(blockedBy ?? []), ...(blocks ?? [])]) {
+    for (const ref of [
+      ...(blockedBy ?? []),
+      ...(blocks ?? []),
+      ...(related ?? []),
+    ]) {
       resolveIssue(db, ref);
     }
     const created = services.issues.create(actor, {
@@ -327,16 +337,17 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
       project: projectRef,
       milestoneId,
     });
-    if (labels?.length || blockedBy?.length || blocks?.length) {
-      // Labels and blockers attach in one transaction.
+    const hook = relationsHook(blockedBy, blocks, related);
+    if (labels?.length || hook) {
+      // Labels and relations attach in one transaction.
       services.issues.update(
         actor,
         created.identifier,
         { labels },
-        blockedBy || blocks ? blockersHook(blockedBy, blocks) : undefined,
+        hook,
       );
     }
-    return presentSaved(created.identifier, !!(blockedBy || blocks));
+    return presentSaved(created.identifier, hasRelations(blockedBy, blocks, related));
   }
 
   function updateIssue(
@@ -345,6 +356,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     milestone: string | null | undefined,
     blockedBy: string[] | undefined,
     blocks: string[] | undefined,
+    related: string[] | undefined,
   ) {
     const issue = resolveIssue(db, id);
     const project = fields.project
@@ -363,25 +375,49 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
         );
       }
     }
-    // Fields, labels, blocker sets, project move and the optimistic-concurrency
+    // Fields, labels, relation sets, project move and the optimistic-concurrency
     // check commit atomically: any failure leaves the issue untouched.
     services.issues.update(
       actor,
       issue.identifier,
       { ...rest, title, milestoneId },
-      blockersHook(blockedBy, blocks),
+      relationsHook(blockedBy, blocks, related),
     );
-    return presentSaved(issue.identifier, !!(blockedBy || blocks));
+    return presentSaved(issue.identifier, hasRelations(blockedBy, blocks, related));
   }
 
-  /** Update hook that syncs blocker sets in the update transaction, if given. */
-  function blockersHook(
+  function hasRelations(
     blockedBy: string[] | undefined,
     blocks: string[] | undefined,
+    related: string[] | undefined,
+  ): boolean {
+    return !!(blockedBy || blocks || related);
+  }
+
+  /** Update hook that syncs blocker and related sets in the update transaction, if given. */
+  function relationsHook(
+    blockedBy: string[] | undefined,
+    blocks: string[] | undefined,
+    related: string[] | undefined,
   ): IssueUpdateHook | undefined {
-    if (blockedBy === undefined && blocks === undefined) return undefined;
-    return (tx, updated, by) =>
-      setBlockersTx(tx, by, updated.id, { blockedBy, blocks });
+    if (
+      blockedBy === undefined &&
+      blocks === undefined &&
+      related === undefined
+    ) {
+      return undefined;
+    }
+    return (tx, updated, by) => {
+      let changed = false;
+      if (blockedBy !== undefined || blocks !== undefined) {
+        changed =
+          setBlockersTx(tx, by, updated.id, { blockedBy, blocks }) || changed;
+      }
+      if (related !== undefined) {
+        changed = setRelatedTx(tx, by, updated.id, related) || changed;
+      }
+      return changed;
+    };
   }
 
   function presentSaved(identifier: string, withRelations: boolean) {
@@ -392,6 +428,7 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
           return {
             blockedBy: r.blockedBy.map(relationItem),
             blocks: r.blocks.map(relationItem),
+            related: r.related.map(relationItem),
           };
         })()
       : undefined;

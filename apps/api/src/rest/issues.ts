@@ -9,7 +9,7 @@ import {
 } from "@traccia/shared";
 import type { Hono } from "hono";
 import { type Issue, listIssueLabels, type Tx } from "../service/index.js";
-import { setBlockersTx } from "../service/relations.js";
+import { setBlockersTx, setRelatedTx } from "../service/relations.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";
 import { ifMatch, validateBody, validateQuery } from "./validate.js";
@@ -67,18 +67,28 @@ export function mountIssueRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.patch("/issues/:identifier", async (c) => {
-    const { blockedBy, blocks, ...fields } = await validateBody(
+    const { blockedBy, blocks, related, ...fields } = await validateBody(
       c,
       patchIssueBodySchema,
     );
     // The body field wins over the header when both are present.
     fields.expectedUpdatedAt ??= ifMatch(c);
     const actor = c.get("actor");
-    // Blocker changes run inside the update transaction: all or nothing.
+    // Blocker and related changes run inside the update transaction: all or nothing.
     const hook =
-      blockedBy !== undefined || blocks !== undefined
-        ? (tx: Tx, issue: Issue) =>
-            setBlockersTx(tx, actor, issue.id, { blockedBy, blocks })
+      blockedBy !== undefined || blocks !== undefined || related !== undefined
+        ? (tx: Tx, issue: Issue) => {
+            let changed = false;
+            if (blockedBy !== undefined || blocks !== undefined) {
+              changed =
+                setBlockersTx(tx, actor, issue.id, { blockedBy, blocks }) ||
+                changed;
+            }
+            if (related !== undefined) {
+              changed = setRelatedTx(tx, actor, issue.id, related) || changed;
+            }
+            return changed;
+          }
         : undefined;
     const updated = issues.update(
       actor,
