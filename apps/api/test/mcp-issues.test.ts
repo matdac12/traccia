@@ -184,7 +184,41 @@ describe("MCP issue tools", () => {
       blockedBy: [],
       blocks: [],
     });
-    expect(r3.data.relations).toEqual({ blockedBy: [], blocks: [] });
+    expect(r3.data.relations).toEqual({ blockedBy: [], blocks: [], related: [] });
+  });
+
+  it("sets symmetric related links, reads them on both issues and rejects a self-link", async () => {
+    const { connect } = await start();
+    const call = await connect("agent");
+    for (const t of ["a", "b", "c"]) {
+      await call("save_issue", { title: t, project: "ALP" });
+    }
+    const r = await call("save_issue", {
+      id: "ALP-1",
+      related: ["ALP-2", "ALP-3"],
+    });
+    expect(r.isError).toBe(false);
+    expect(
+      r.data.relations.related.map((x: { identifier: string }) => x.identifier),
+    ).toEqual(["ALP-2", "ALP-3"]);
+
+    const got = await call("get_issue", { id: "ALP-2" });
+    expect(got.data.relations.related[0].identifier).toBe("ALP-1");
+
+    // The same link given the other way round is a no-op.
+    const again = await call("save_issue", { id: "ALP-2", related: ["ALP-1"] });
+    expect(
+      again.data.relations.related.map(
+        (x: { identifier: string }) => x.identifier,
+      ),
+    ).toEqual(["ALP-1"]);
+
+    const cleared = await call("save_issue", { id: "ALP-1", related: [] });
+    expect(cleared.data.relations.related).toEqual([]);
+
+    const self = await call("save_issue", { id: "ALP-1", related: ["ALP-1"] });
+    expect(self.isError).toBe(true);
+    expect(self.text).toContain("related to itself");
   });
 
   it("rejects a stale expectedUpdatedAt and accepts the current one", async () => {

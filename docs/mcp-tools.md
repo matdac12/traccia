@@ -70,11 +70,11 @@ Get one issue with its full markdown description. `include` defaults to comments
 | `id` | string | yes | Issue identifier (ABC-123). |
 | `include` | `comments` \| `attachments` \| `activity` \| `children` \| `relations`[] | no |  |
 
-**Returns:** A compact issue with the full `description` (no snippet), plus `createdBy`, `createdAt`, `startedAt`, `completedAt`, `canceledAt` and the requested `include` sections: `comments`, `attachments`, `children`, `relations` (`{ blockedBy, blocks }`, each `{ identifier, title, status }`), `activity`.
+**Returns:** A compact issue with the full `description` (no snippet), plus `createdBy`, `createdAt`, `startedAt`, `completedAt`, `canceledAt` and the requested `include` sections: `comments`, `attachments`, `children`, `relations` (`{ blockedBy, blocks, related }`, each `{ identifier, title, status }`), `activity`.
 
 ## save_issue
 
-Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.
+Create (no id; needs title + project) or update (with id; only given fields change). `labels`, `blockedBy`, `blocks`, `related` REPLACE the whole set; labels must exist (save_issue_label). `project` on update moves the issue (identifier kept; parent/milestone reset). expectedUpdatedAt fails on concurrent edits.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -91,9 +91,10 @@ Create (no id; needs title + project) or update (with id; only given fields chan
 | `parentId` | string,null | no | Parent issue (same project); null detaches. |
 | `blockedBy` | string[] | no | Issues blocking this one. |
 | `blocks` | string[] | no | Issues this one blocks. |
+| `related` | string[] | no | Loosely related issues (symmetric, non-blocking). |
 | `expectedUpdatedAt` | string | no |  |
 
-**Returns:** The saved compact issue, plus `relations` when `blockedBy` or `blocks` was given.
+**Returns:** The saved compact issue, plus `relations` when `blockedBy`, `blocks` or `related` was given.
 
 ## delete_issue
 

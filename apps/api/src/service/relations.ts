@@ -1,12 +1,12 @@
 import { type Actor, type IssueStatus, ServiceError } from "@traccia/shared";
-import { and, asc, eq, isNull } from "drizzle-orm";
-import { issueRelations, issues } from "../db/schema.js";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
+import { issueRelated, issueRelations, issues } from "../db/schema.js";
 import { nowIso } from "../time.js";
 import type { DbHandle, ServiceContext, Tx } from "./context.js";
 import { findBlockerPath, identifiersFor } from "./blocker-cycles.js";
 import { recordActivity, resolveIssue } from "./issues.js";
 
-/** The other end of a blocker relation. */
+/** The other end of a relation. */
 export type RelatedIssue = {
   id: string;
   identifier: string;
@@ -19,9 +19,15 @@ export type IssueRelations = {
   blockedBy: RelatedIssue[];
   /** Issues this one blocks. */
   blocks: RelatedIssue[];
+  /** Loose, symmetric, non-blocking links; the same list on both issues. */
+  related: RelatedIssue[];
 };
 
-export const NO_RELATIONS: IssueRelations = { blockedBy: [], blocks: [] };
+export const NO_RELATIONS: IssueRelations = {
+  blockedBy: [],
+  blocks: [],
+  related: [],
+};
 
 const relatedColumns = {
   id: issues.id,
@@ -30,8 +36,10 @@ const relatedColumns = {
   status: issues.status,
 };
 
-/** Both directions of blocker relations for an issue; deleted issues are hidden. */
+/** Both directions of blocker relations and the symmetric "related" links for an issue; deleted issues are hidden. */
 export function loadRelations(db: DbHandle, issueId: string): IssueRelations {
+  // The other end of a related pair is whichever id is not `issueId`.
+  const otherId = sql<string>`CASE WHEN ${issueRelated.issueAId} = ${issueId} THEN ${issueRelated.issueBId} ELSE ${issueRelated.issueAId} END`;
   return {
     blockedBy: db
       .select(relatedColumns)
@@ -51,6 +59,21 @@ export function loadRelations(db: DbHandle, issueId: string): IssueRelations {
       )
       .orderBy(asc(issues.number), asc(issues.id))
       .all(),
+    related: db
+      .select(relatedColumns)
+      .from(issueRelated)
+      .innerJoin(issues, eq(issues.id, otherId))
+      .where(
+        and(
+          or(
+            eq(issueRelated.issueAId, issueId),
+            eq(issueRelated.issueBId, issueId),
+          ),
+          isNull(issues.deletedAt),
+        ),
+      )
+      .orderBy(asc(issues.number), asc(issues.id))
+      .all(),
   };
 }
 
@@ -63,6 +86,22 @@ function relationExists(db: DbHandle, blockerId: string, blockedId: string) {
         eq(issueRelations.blockerId, blockerId),
         eq(issueRelations.blockedId, blockedId),
       ),
+    )
+    .get();
+}
+
+/** Canonical order for a related pair: the smaller issue id first. */
+function relatedPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
+function relatedExists(db: DbHandle, aId: string, bId: string) {
+  const [lo, hi] = relatedPair(aId, bId);
+  return !!db
+    .select()
+    .from(issueRelated)
+    .where(
+      and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)),
     )
     .get();
 }
@@ -127,6 +166,90 @@ export function removeBlockerTx(
 }
 
 /**
+ * Records that two issues are related. Symmetric: one row, shown on both
+ * issues; the same call with the two references swapped is a no-op. Self-links
+ * are a `validation_error`. Returns whether anything changed.
+ */
+export function addRelatedTx(
+  tx: Tx,
+  actor: Actor,
+  aRef: string,
+  bRef: string,
+): boolean {
+  const a = resolveIssue(tx, aRef);
+  const b = resolveIssue(tx, bRef);
+  if (a.id === b.id) {
+    throw new ServiceError(
+      "validation_error",
+      "An issue cannot be related to itself",
+    );
+  }
+  if (relatedExists(tx, a.id, b.id)) return false;
+  const [lo, hi] = relatedPair(a.id, b.id);
+  const now = nowIso();
+  tx.insert(issueRelated)
+    .values({ issueAId: lo, issueBId: hi, createdAt: now })
+    .run();
+  recordActivity(tx, a.id, actor, "related_added", { related: b.identifier }, now);
+  recordActivity(tx, b.id, actor, "related_added", { related: a.identifier }, now);
+  return true;
+}
+
+/** See `addRelated`; joins the caller's transaction. */
+export function removeRelatedTx(
+  tx: Tx,
+  actor: Actor,
+  aRef: string,
+  bRef: string,
+): boolean {
+  const a = resolveIssue(tx, aRef);
+  const b = resolveIssue(tx, bRef);
+  const [lo, hi] = relatedPair(a.id, b.id);
+  const existing = tx
+    .select()
+    .from(issueRelated)
+    .where(and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)))
+    .get();
+  if (!existing) return false;
+  tx.delete(issueRelated)
+    .where(and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)))
+    .run();
+  const now = nowIso();
+  recordActivity(tx, a.id, actor, "related_removed", { related: b.identifier }, now);
+  recordActivity(tx, b.id, actor, "related_removed", { related: a.identifier }, now);
+  return true;
+}
+
+/**
+ * Makes the related issues of `issueRef` exactly `related`. Returns whether
+ * anything changed. Meant as part of the `IssueUpdateHook` body so it commits
+ * with the update.
+ */
+export function setRelatedTx(
+  tx: Tx,
+  actor: Actor,
+  issueRef: string,
+  related: string[],
+): boolean {
+  const self = resolveIssue(tx, issueRef);
+  const current = loadRelations(tx, self.id).related;
+  const wantIds = new Set(related.map((r) => resolveIssue(tx, r).id));
+  if (wantIds.has(self.id)) {
+    throw new ServiceError(
+      "validation_error",
+      "An issue cannot be related to itself",
+    );
+  }
+  let changed = false;
+  for (const r of current)
+    if (!wantIds.has(r.id))
+      changed = removeRelatedTx(tx, actor, self.id, r.id) || changed;
+  for (const id of wantIds)
+    changed = addRelatedTx(tx, actor, self.id, id) || changed;
+  return changed;
+}
+
+/**
  * Makes the blockers of `issueRef` exactly `blockedBy` and/or the issues it
  * blocks exactly `blocks` (omitted side untouched). Returns whether anything
  * changed. Meant as the `IssueUpdateHook` body so it commits with the update.
@@ -168,7 +291,7 @@ export function setBlockersTx(
   return changed;
 }
 
-/** "A blocks B" relations. Blockers may cross projects. */
+/** "A blocks B" and symmetric "related" relations. Both may cross projects. */
 export function createRelationsService(ctx: ServiceContext) {
   return {
     /**
@@ -190,6 +313,20 @@ export function createRelationsService(ctx: ServiceContext) {
       return ctx.write((tx) =>
         removeBlockerTx(tx, actor, blockerRef, blockedRef),
       );
+    },
+
+    /**
+     * Records that two issues are related. Symmetric and idempotent in either
+     * order; self-links are a `validation_error`. Returns whether anything
+     * changed.
+     */
+    addRelated(actor: Actor, aRef: string, bRef: string): boolean {
+      return ctx.write((tx) => addRelatedTx(tx, actor, aRef, bRef));
+    },
+
+    /** Removes the related link if present; idempotent. Returns whether anything changed. */
+    removeRelated(actor: Actor, aRef: string, bRef: string): boolean {
+      return ctx.write((tx) => removeRelatedTx(tx, actor, aRef, bRef));
     },
   };
 }

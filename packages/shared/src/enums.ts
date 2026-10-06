@@ -38,6 +38,8 @@ export const ACTIVITY_TYPES = [
   "label_removed",
   "blocker_added",
   "blocker_removed",
+  "related_added",
+  "related_removed",
   "comment_added",
   "comment_deleted",
   "comment_restored",

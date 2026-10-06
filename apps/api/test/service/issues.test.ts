@@ -414,7 +414,7 @@ describe("get", () => {
       activity: [],
       attachments: [],
       children: [],
-      relations: { blockedBy: [], blocks: [] },
+      relations: { blockedBy: [], blocks: [], related: [] },
     });
     const full = services.issues.get(parent.identifier, [
       "activity",

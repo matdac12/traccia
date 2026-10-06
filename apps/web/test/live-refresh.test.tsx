@@ -160,7 +160,7 @@ describe("external delete (TRC-90)", () => {
 describe("IssueDetail live refresh", () => {
   const detail = (over = {}) => ({
     ...issue(7, "todo", { description: "Original", createdAt: "2026-01-01T00:00:00.000Z" }), key: "TRK", number: 7,
-    comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [] }, parentId: null, ...over,
+    comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [], related: [] }, parentId: null, ...over,
   });
   const mount = (d = detail()) =>
     render(<TooltipProvider><IssueDetail issue={d as never} projects={[{ id: "p1", key: "TRK", name: "Traccia" }]} labels={[]} milestones={[]} parent={null} /></TooltipProvider>);

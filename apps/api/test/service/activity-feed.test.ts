@@ -31,6 +31,28 @@ describe("activity feed", () => {
     expect(times).toEqual([...times].sort().reverse());
   });
 
+  it("surfaces related-link activity on both issues", () => {
+    const { services, make } = setup();
+    const a = make("Alpha");
+    const b = make("Beta");
+    services.relations.addRelated("you", a.identifier, b.identifier);
+    const items = services.activityFeed.list().items;
+    const added = items.filter((i) => i.type === "related_added");
+    expect(added).toHaveLength(2);
+    expect(added).toContainEqual(
+      expect.objectContaining({
+        identifier: a.identifier,
+        data: { related: b.identifier },
+      }),
+    );
+    expect(added).toContainEqual(
+      expect.objectContaining({
+        identifier: b.identifier,
+        data: { related: a.identifier },
+      }),
+    );
+  });
+
   it("paginates with a cursor without repeating or skipping rows", () => {
     const { services, make } = setup();
     for (let i = 0; i < 5; i++) make(`I${i}`);

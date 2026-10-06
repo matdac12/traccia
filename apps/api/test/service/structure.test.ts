@@ -151,11 +151,12 @@ describe("blockers", () => {
         },
       ],
       blocks: [],
+      related: [],
     });
     expect(
       issues.get(a.id, ["relations"]).relations.blocks.map((r) => r.id),
     ).toEqual([b.id]);
-    expect(issues.get(a.id).relations).toEqual({ blockedBy: [], blocks: [] });
+    expect(issues.get(a.id).relations).toEqual({ blockedBy: [], blocks: [], related: [] });
   });
 
   it("is idempotent without extra activity, on add and remove", () => {
@@ -182,6 +183,56 @@ describe("blockers", () => {
     relations.addBlocker("you", a.id, b.id);
     sqlite.prepare("UPDATE issues SET deleted_at = 'x' WHERE id = ?").run(a.id);
     expect(issues.get(b.id, ["relations"]).relations.blockedBy).toEqual([]);
+  });
+});
+
+describe("related", () => {
+  it("is symmetric: one link, shown on both issues", () => {
+    const { create, issues, relations } = setup();
+    const a = create({ title: "A" });
+    const b = create({ title: "B" });
+    expect(relations.addRelated("you", a.id, b.id)).toBe(true);
+    expect(
+      issues.get(a.id, ["relations"]).relations.related.map((r) => r.id),
+    ).toEqual([b.id]);
+    expect(
+      issues.get(b.id, ["relations"]).relations.related.map((r) => r.id),
+    ).toEqual([a.id]);
+  });
+
+  it("is idempotent in either order and writes no extra activity", () => {
+    const { create, relations, types } = setup();
+    const a = create();
+    const b = create();
+    expect(relations.addRelated("you", a.id, b.id)).toBe(true);
+    expect(relations.addRelated("you", b.id, a.id)).toBe(false);
+    expect(types(a.id)).toEqual(["issue_created", "related_added"]);
+    expect(types(b.id)).toEqual(["issue_created", "related_added"]);
+    expect(relations.removeRelated("you", b.id, a.id)).toBe(true);
+    expect(relations.removeRelated("you", a.id, b.id)).toBe(false);
+    expect(types(a.id)).toEqual([
+      "issue_created",
+      "related_added",
+      "related_removed",
+    ]);
+  });
+
+  it("rejects a self-link", () => {
+    const { create, relations } = setup();
+    const a = create();
+    expect(code(() => relations.addRelated("you", a.id, a.id))).toBe(
+      "validation_error",
+    );
+  });
+
+  it("crosses projects and hides deleted issues", () => {
+    const { create, issues, relations, p2, sqlite } = setup();
+    const a = create();
+    const b = issues.create("you", { project: p2.id, title: "B" });
+    relations.addRelated("you", a.identifier, b.identifier);
+    expect(issues.get(a.id, ["relations"]).relations.related).toHaveLength(1);
+    sqlite.prepare("UPDATE issues SET deleted_at = 'x' WHERE id = ?").run(b.id);
+    expect(issues.get(a.id, ["relations"]).relations.related).toEqual([]);
   });
 });
 

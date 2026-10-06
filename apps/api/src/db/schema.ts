@@ -190,6 +190,29 @@ export const issueRelations = sqliteTable(
   ],
 );
 
+/**
+ * Symmetric "related" relations. One row per link, canonicalised so that
+ * `issue_a_id < issue_b_id` (the primary key then makes a reversed duplicate
+ * impossible). The pair shows up on both issues.
+ */
+export const issueRelated = sqliteTable(
+  "issue_related",
+  {
+    issueAId: text("issue_a_id")
+      .notNull()
+      .references(() => issues.id),
+    issueBId: text("issue_b_id")
+      .notNull()
+      .references(() => issues.id),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.issueAId, t.issueBId] }),
+    check("issue_related_no_self", sql`${t.issueAId} <> ${t.issueBId}`),
+    check("issue_related_canonical", sql`${t.issueAId} < ${t.issueBId}`),
+  ],
+);
+
 export const comments = sqliteTable(
   "comments",
   {

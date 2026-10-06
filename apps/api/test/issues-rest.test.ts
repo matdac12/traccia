@@ -228,7 +228,7 @@ describe("issues", () => {
       "GET",
       `/issues/${a.identifier}?include=relations`,
     );
-    expect(rel.json.relations).toEqual({ blockedBy: [], blocks: [] });
+    expect(rel.json.relations).toEqual({ blockedBy: [], blocks: [], related: [] });
 
     // project move through PATCH keeps the identifier
     const lone = await t.mk("Lone");
@@ -247,6 +247,62 @@ describe("issues", () => {
     const a = await t.mk("A");
     const r = await t.call("PATCH", `/issues/${a.identifier}`, {
       body: { title: "changed", blockedBy: [a.identifier] },
+    });
+    expect(r.status).toBe(400);
+    expect((await t.call("GET", `/issues/${a.identifier}`)).json.title).toBe(
+      "A",
+    );
+  });
+
+  it("sets symmetric related links, shown on both issues, and replaces them wholesale", async () => {
+    const t = setup();
+    const a = await t.mk("A");
+    const b = await t.mk("B");
+    const c = await t.mk("C");
+    const r = await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { related: [b.identifier, c.identifier] },
+    });
+    expect(r.status).toBe(200);
+
+    const fromA = await t.call(
+      "GET",
+      `/issues/${a.identifier}?include=relations`,
+    );
+    expect(fromA.json.relations.related.map((x: any) => x.identifier)).toEqual([
+      b.identifier,
+      c.identifier,
+    ]);
+    const fromB = await t.call(
+      "GET",
+      `/issues/${b.identifier}?include=relations`,
+    );
+    expect(fromB.json.relations.related.map((x: any) => x.identifier)).toEqual([
+      a.identifier,
+    ]);
+
+    // replace semantics: dropping B leaves B with no related issues.
+    await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { related: [c.identifier] },
+    });
+    const afterB = await t.call(
+      "GET",
+      `/issues/${b.identifier}?include=relations`,
+    );
+    expect(afterB.json.relations.related).toEqual([]);
+    const afterA = await t.call(
+      "GET",
+      `/issues/${a.identifier}?include=relations`,
+    );
+    expect(afterA.json.relations.related.map((x: any) => x.identifier)).toEqual(
+      [c.identifier],
+    );
+  });
+
+  it("rejects a self related link and rolls the PATCH back", async () => {
+    const t = setup();
+    const a = await t.mk("A");
+    const r = await t.call("PATCH", `/issues/${a.identifier}`, {
+      body: { title: "changed", related: [a.identifier] },
     });
     expect(r.status).toBe(400);
     expect((await t.call("GET", `/issues/${a.identifier}`)).json.title).toBe(

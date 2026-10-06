@@ -17,7 +17,7 @@ const issue = {
   id: "i1", projectId: "p1", key: "PIL", number: 1, identifier: "PIL-1", title: "T", description: "", status: "todo", priority: 0,
   estimate: null, assignee: null, milestoneId: null, parentId: null, createdBy: "you", createdAt: "a", updatedAt: "2026-01-01T00:00:01.000Z", labels: [],
 };
-const detail = { ...issue, updatedAt: "2026-01-01T00:00:09.000Z", comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [] } };
+const detail = { ...issue, updatedAt: "2026-01-01T00:00:09.000Z", comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [], related: [] } };
 const calls = () => fetchMock.mock.calls.map(([url, init]) => ({ url: String(url), init: init as RequestInit }));
 
 beforeEach(() => {
