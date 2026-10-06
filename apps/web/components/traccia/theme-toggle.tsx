@@ -2,12 +2,14 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-/** System by default; the choice is stored by next-themes in localStorage. */
-export function ThemeToggle({ className }: { className?: string }) {
+/**
+ * System by default; the choice is stored by next-themes in localStorage. `ml-auto` pins it to the right of the
+ * expanded sidebar footer; inside the collapsed rail (the desktop sidebar's `group data-collapsed`) it is centred.
+ */
+export function ThemeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -15,7 +17,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className={cn("ml-auto size-6", className)} aria-label="Theme">
+        <Button variant="ghost" size="icon" className="ml-auto size-6 group-data-[collapsed=true]:ml-0" aria-label="Theme">
           <Icon className="size-3.5" />
         </Button>
       </DropdownMenuTrigger>

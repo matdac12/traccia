@@ -10,10 +10,11 @@ const PROJECT_TABS = [
 ] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
 
-/** Which tab a pathname belongs to. Unknown sub-paths fall back to Overview. */
+/** Which tab a pathname belongs to. Reads the segment after the project id (`/projects/<id>/<segment>`), so it does not depend on a fixed position; unknown paths and project ids that collide with a tab name fall back to Overview. */
 export function activeProjectTab(path: string): ProjectTab {
-  const last = path.replace(/\/+$/, "").split("/")[3];
-  return PROJECT_TABS.find((t) => t.segment && t.segment === `/${last}`)?.key ?? "overview";
+  const [root, , ...rest] = path.replace(/\/+$/, "").split("/").slice(1);
+  if (root !== "projects") return "overview";
+  return PROJECT_TABS.find((t) => t.segment.slice(1) === rest.join("/"))?.key ?? "overview";
 }
 
 /**

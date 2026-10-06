@@ -7,8 +7,14 @@ export type Section = { key: string; raw?: string; status?: IssueStatus; title: 
 
 type Lookups = { projects: Project[]; milestones: Milestone[] };
 
-/** Top-to-bottom order of the status groups in the table (Linear's default). The API and the board keep workflow order. */
+/**
+ * Top-to-bottom order of the status groups in the table (Linear's default, active work first). This is a display
+ * order, deliberately different from the workflow order in `ISSUE_STATUSES`, so it stays an explicit list rather
+ * than being derived from the shared enum. An unrecognized status sorts last.
+ */
 export const STATUS_DISPLAY_ORDER: readonly IssueStatus[] = ["in_progress", "in_review", "todo", "backlog", "done", "canceled"];
+
+const STATUS_RANK = new Map<IssueStatus, number>(STATUS_DISPLAY_ORDER.map((s, i) => [s, i]));
 
 const PRIORITY_TITLE: Record<number, string> = { 0: "No priority", 1: "Urgent", 2: "High", 3: "Medium", 4: "Low" };
 const PRIORITY_ORDER = [1, 2, 3, 4, 0];
@@ -31,7 +37,7 @@ export function compareRows({ orderBy, order }: Pick<IssueFilters, "orderBy" | "
  */
 export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }[], groupBy: GroupBy, filters: IssueFilters, lookups: Lookups): Section[] {
   if (groupBy === "status") {
-    const rank = (s: IssueStatus) => STATUS_DISPLAY_ORDER.indexOf(s);
+    const rank = (s: IssueStatus) => STATUS_RANK.get(s) ?? STATUS_DISPLAY_ORDER.length;
     return groups.filter((g) => g.items.length).sort((a, b) => rank(a.status) - rank(b.status)).map((g) => ({ key: g.status, status: g.status, title: g.status, items: g.items }));
   }
   const rows = groups.flatMap((g) => g.items).sort(compareRows(filters));

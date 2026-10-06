@@ -6,22 +6,14 @@ export function progressPercent(progress: Milestone["progress"]): number {
   return Math.round((progress.done / progress.total) * 100);
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** `2026-03-09` to `9 Mar 2026`; calendar dates are formatted without a timezone round trip. */
-export function formatTargetDate(date: string | null): string | null {
-  const m = date ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(date) : null;
-  if (!m) return date;
-  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
-}
-
 export type MilestoneState = "not_started" | "in_progress" | "done";
 
 /** Dot semantics: nothing done (or no issues) is not started, everything done is done, anything between is in progress. */
 export function milestoneState(progress: Milestone["progress"]): MilestoneState {
   const percent = progressPercent(progress);
   if (!progress || progress.total === 0 || progress.done === 0) return "not_started";
-  return percent >= 100 || progress.done >= progress.total ? "done" : "in_progress";
+  // `done === total` already rounds to 100%, so the percent check alone decides "done".
+  return percent >= 100 ? "done" : "in_progress";
 }
 
 /** Roll-up of every milestone's issues, for the overview's progress summary. Issues outside any milestone are not counted. */

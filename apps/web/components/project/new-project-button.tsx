@@ -1,7 +1,7 @@
 "use client";
 import { PROJECT_STATUSES, type ProjectStatus } from "@traccia/shared";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { createProjectAction } from "@/app/(app)/projects/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,12 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-/** Opens the "New project" dialog. `children` is the trigger's content; `className`/`variant` style the trigger. */
-export function NewProjectButton({ children, className, variant, size = "sm", ...rest }: { children: ReactNode; className?: string; variant?: "default" | "ghost"; size?: "sm" | "icon" } & Omit<ComponentProps<"button">, "onClick" | "children" | "className" | "ref">) {
+/** Opens the "New project" dialog. `children` is the trigger's content; `className`/`variant`/`size` style the trigger. */
+export function NewProjectButton({ children, className, variant, size = "sm" }: { children: ReactNode; className?: string; variant?: "default" | "ghost"; size?: "sm" | "icon" }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button {...rest} size={size} variant={variant} className={className} onClick={() => setOpen(true)}>{children}</Button>
+      <Button size={size} variant={variant} className={className} onClick={() => setOpen(true)}>{children}</Button>
       <NewProjectDialog open={open} onOpenChange={setOpen} />
     </>
   );

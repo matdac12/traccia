@@ -65,7 +65,8 @@ describe("collapsible desktop sidebar", () => {
     const rail = within(sidebar());
     // Accessible names survive the collapse (text is visually hidden, not removed).
     for (const name of ["Issues", "Trash", "Alpha", "Beta"]) expect(rail.getByRole("link", { name })).toBeTruthy();
-    expect(rail.getByRole("button", { name: "New issue" })).toBeTruthy();
+    // jsdom does not apply the `hidden` class, so the shortcut hint stays in the computed name here; in a browser it is removed.
+    expect(rail.getByRole("button", { name: /New issue/ })).toBeTruthy();
     expect(rail.getByRole("button", { name: "New project" })).toBeTruthy();
     expect(rail.getByRole("button", { name: "Theme" })).toBeTruthy();
     expect(rail.getByRole("link", { name: "Alpha" }).getAttribute("aria-current")).toBe("page");
@@ -128,7 +129,7 @@ describe("mobile drawer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
     const drawer = await screen.findByRole("dialog");
     expect(within(drawer).getByRole("link", { name: "Alpha" })).toBeTruthy();
-    expect(within(drawer).getByText("New issue").className).not.toContain("sr-only");
+    expect(within(drawer).getByText("New issue").classList.contains("sr-only")).toBe(false);
     expect(within(drawer).getByText("Projects")).toBeTruthy();
     expect(within(drawer).queryByRole("button", { name: /sidebar/i })).toBeNull();
   });
