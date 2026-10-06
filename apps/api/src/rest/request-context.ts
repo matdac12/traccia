@@ -33,6 +33,7 @@ export function requestContext(
       status: c.res.status,
       ms: Math.round(performance.now() - start),
       ip: c.get("clientIp"),
+      ...c.get("logFields"),
     });
   };
 }
