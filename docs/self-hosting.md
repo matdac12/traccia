@@ -142,6 +142,8 @@ cd /opt/tracker && docker compose exec -T api node dist/traccia.js token create 
 
 Then configure the tool. The full walkthrough for Claude Code, Codex and OpenCode is in [`docs/agent-setup.md`](agent-setup.md). Confirm it worked by asking the agent to call `whoami`; it should return your `tokenName`.
 
+That is the default setup and it stays tailnet-only. If you would rather add Traccia once to a whole claude.ai account, [`docs/agent-setup.md`](agent-setup.md#optional-connect-through-a-claudeai-custom-connector) also documents an optional claude.ai custom connector; it publishes only the MCP and OAuth routes, and nothing here requires it.
+
 To make an agent follow the tracker's conventions (search before creating, reference issues by identifier, keep status honest), paste [`docs/agent-snippet.md`](agent-snippet.md) into that repo's `AGENTS.md`.
 
 ## 11. Back it up
