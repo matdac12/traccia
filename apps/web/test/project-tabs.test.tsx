@@ -13,6 +13,10 @@ describe("project tabs", () => {
     expect(activeProjectTab("/projects/p1/activity")).toBe("activity");
     expect(activeProjectTab("/projects/p1/issues")).toBe("issues");
     expect(activeProjectTab("/projects/p1/unknown")).toBe("overview");
+    expect(activeProjectTab("/projects/p1/activity/")).toBe("activity");
+    // A project id that collides with a tab name is not mistaken for that tab.
+    expect(activeProjectTab("/projects/issues")).toBe("overview");
+    expect(activeProjectTab("/projects/p1/issues/extra")).toBe("overview");
   });
 
   it("links the three sections as real navigation, Overview first", () => {

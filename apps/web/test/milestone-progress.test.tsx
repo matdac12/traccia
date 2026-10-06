@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MilestoneRow } from "../components/project/milestone-row";
-import { formatTargetDate, milestoneState, progressPercent, summarizeProgress } from "../components/project/milestone-progress";
+import { milestoneState, progressPercent, summarizeProgress } from "../components/project/milestone-progress";
 import type { Milestone } from "../lib/api/schemas";
 
 const base: Milestone = { id: "m1", projectId: "p", name: "Beta", description: "", targetDate: "2026-03-09", updatedAt: "2026-01-01T00:00:00.000Z", progress: { done: 3, total: 4 } };
@@ -11,10 +11,6 @@ describe("milestone progress", () => {
     expect(progressPercent({ done: 1, total: 3 })).toBe(33);
     expect(progressPercent({ done: 0, total: 0 })).toBe(0);
     expect(progressPercent(undefined)).toBe(0);
-  });
-  it("formats the target date without timezone drift", () => {
-    expect(formatTargetDate("2026-03-09")).toBe("9 Mar 2026");
-    expect(formatTargetDate(null)).toBeNull();
   });
   it("maps progress to the dot state: done 100%, in progress partial, not started 0%", () => {
     expect(milestoneState({ done: 4, total: 4 })).toBe("done");

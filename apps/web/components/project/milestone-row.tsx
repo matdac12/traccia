@@ -2,11 +2,15 @@ import { StatusIcon } from "@/components/traccia/atoms";
 import type { IssueStatus } from "@traccia/shared";
 import Link from "next/link";
 import type { Milestone } from "@/lib/api/schemas";
-import { formatTargetDate, milestoneState, progressPercent, type MilestoneState } from "./milestone-progress";
+import { formatCalendarDate } from "@/lib/format-date";
+import { milestoneState, progressPercent, type MilestoneState } from "./milestone-progress";
 
 /** The dot reuses the issue status icons: empty ring, half pie, check. */
-const DOT_STATUS: Record<MilestoneState, IssueStatus> = { not_started: "todo", in_progress: "in_progress", done: "done" };
-const DOT_LABEL: Record<MilestoneState, string> = { not_started: "Not started", in_progress: "In progress", done: "Done" };
+const DOT: Record<MilestoneState, { status: IssueStatus; label: string }> = {
+  not_started: { status: "todo", label: "Not started" },
+  in_progress: { status: "in_progress", label: "In progress" },
+  done: { status: "done", label: "Done" },
+};
 
 /**
  * One readable line per milestone, like Linear's project overview: status dot, name, percent, issue count, and
@@ -19,13 +23,13 @@ export function MilestoneRow({ milestone, href }: { milestone: Milestone; href: 
   const total = milestone.progress?.total ?? 0;
   const percent = progressPercent(milestone.progress);
   const state = milestoneState(milestone.progress);
-  const target = formatTargetDate(milestone.targetDate);
+  const target = formatCalendarDate(milestone.targetDate);
   const description = milestone.description?.trim();
   const meta = [description, target ? `Target ${target}` : null].filter(Boolean);
   return (
     <>
-      <span title={DOT_LABEL[state]} data-state={state} data-testid="milestone-dot" className="mt-0.5 shrink-0 self-start">
-        <StatusIcon status={DOT_STATUS[state]} className="size-3.5" />
+      <span title={DOT[state].label} data-state={state} data-testid="milestone-dot" className="mt-0.5 shrink-0 self-start">
+        <StatusIcon status={DOT[state].status} className="size-3.5" />
       </span>
       <div className="min-w-0 flex-1">
         <Link href={href} className="block truncate rounded text-[13px] font-medium outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{milestone.name}</Link>
