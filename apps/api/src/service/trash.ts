@@ -7,10 +7,12 @@ import {
   activity,
   attachments,
   comments,
+  documents,
   issueLabels,
   issueRelations,
   issues,
   labels,
+  memories,
   milestones,
   projects,
 } from "../db/schema.js";
@@ -22,7 +24,11 @@ import { parseInput, type ServiceContext, type Tx } from "./context.js";
 import { loadSubtree } from "./hierarchy.js";
 import { recordActivity } from "./issues.js";
 import { resolveProject } from "./projects.js";
-import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
+import {
+  reindexIssues,
+  reindexKnowledge,
+  removeFromSearchIndex,
+} from "./search-index.js";
 
 /**
  * Soft delete, restore, purge and the Trash listing (ADR 0004).
@@ -34,12 +40,16 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  * deleted keep their earlier batch, so restore brings back exactly what that
  * action deleted. Cascade rules:
  *
- *   project    -> its milestones, issues, and their comments + attachments
+ *   project    -> its milestones, issues, and their comments + attachments,
+ *                 memories and documents
  *   milestone  -> itself only; its issues stay live and get `milestone_id`
  *                 cleared (one `milestone_changed` activity row each)
  *   issue      -> its sub-issue subtree, comments + attachments
  *   comment    -> its replies and the attachments tied to them
  *   attachment -> itself
+ *   memory     -> itself (ADR 0014)
+ *   document   -> itself; its file goes after commit on purge, unless another
+ *                 document still shares the content-addressed object
  *
  * Restoring a milestone re-links the issues that lost it (found through their
  * `milestone_deleted` activity rows), unless an issue was given another
@@ -57,7 +67,8 @@ import { reindexIssues, removeFromSearchIndex } from "./search-index.js";
  * `expectedUpdatedAt` therefore conflicts after a delete + restore, by design.
  *
  * Purge is a separate second step: only on already-deleted items, only if
- * `canPurge(actor)`. It removes rows, activity of purged issues, search rows
+ * `canPurge(actor, config, type)`; agents may always purge memories and
+ * documents (ADR 0015). It removes rows, activity of purged issues, search rows
  * and (after commit, via the storage interface) attachment files. The issue
  * key counter is untouched, so issue numbers are never reused.
  */
@@ -68,6 +79,8 @@ export const TRASH_TYPES = [
   "issue",
   "comment",
   "attachment",
+  "memory",
+  "document",
 ] as const;
 export type TrashType = (typeof TRASH_TYPES)[number];
 
@@ -97,6 +110,8 @@ type Counts = {
   issues: number;
   comments: number;
   attachments: number;
+  memories: number;
+  documents: number;
 };
 export type TrashItem = {
   type: TrashType;
@@ -133,6 +148,8 @@ type Sets = {
   issueIds: string[];
   commentIds: string[];
   attachmentIds: string[];
+  memoryIds: string[];
+  documentIds: string[];
 };
 
 const countsOf = (s: Sets): Counts => ({
@@ -141,6 +158,8 @@ const countsOf = (s: Sets): Counts => ({
   issues: s.issueIds.length,
   comments: s.commentIds.length,
   attachments: s.attachmentIds.length,
+  memories: s.memoryIds.length,
+  documents: s.documentIds.length,
 });
 
 const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
@@ -210,6 +229,8 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
     issueIds: [],
     commentIds: [],
     attachmentIds: [],
+    memoryIds: [],
+    documentIds: [],
   };
   const live = (col: AnySQLiteColumn) => (liveOnly ? isNull(col) : undefined);
   switch (type) {
@@ -235,6 +256,20 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
         ),
         issueIds,
         ...loadIssueDependents(tx, issueIds, liveOnly),
+        memoryIds: ids(
+          tx
+            .select({ id: memories.id })
+            .from(memories)
+            .where(and(eq(memories.projectId, id), live(memories.deletedAt)))
+            .all(),
+        ),
+        documentIds: ids(
+          tx
+            .select({ id: documents.id })
+            .from(documents)
+            .where(and(eq(documents.projectId, id), live(documents.deletedAt)))
+            .all(),
+        ),
       };
     }
     case "milestone":
@@ -255,6 +290,10 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
       return { ...empty, ...loadCommentThread(tx, id, liveOnly) };
     case "attachment":
       return { ...empty, attachmentIds: [id] };
+    case "memory":
+      return { ...empty, memoryIds: [id] };
+    case "document":
+      return { ...empty, documentIds: [id] };
   }
 }
 
@@ -291,6 +330,16 @@ function stamp(
       .set(mark)
       .where(inArray(attachments.id, s.attachmentIds))
       .run();
+  if (s.memoryIds.length)
+    tx.update(memories)
+      .set(touched)
+      .where(inArray(memories.id, s.memoryIds))
+      .run();
+  if (s.documentIds.length)
+    tx.update(documents)
+      .set(touched)
+      .where(inArray(documents.id, s.documentIds))
+      .run();
 }
 
 /** Loads a row of `type` by id, deleted or not. Issues also accept an identifier. */
@@ -316,6 +365,10 @@ function load(tx: Tx, type: TrashType, ref: string) {
       return tx.select().from(comments).where(eq(comments.id, ref)).get();
     case "attachment":
       return tx.select().from(attachments).where(eq(attachments.id, ref)).get();
+    case "memory":
+      return tx.select().from(memories).where(eq(memories.id, ref)).get();
+    case "document":
+      return tx.select().from(documents).where(eq(documents.id, ref)).get();
   }
 }
 
@@ -342,7 +395,10 @@ function describeRow(
     case "comment":
       return { title: String(row.body).slice(0, 80) };
     case "attachment":
+    case "document":
       return { title: String(row.filename) };
+    case "memory":
+      return { title: String(row.title) };
     default:
       return { title: String(row.name) };
   }
@@ -434,7 +490,7 @@ function softDelete(
   }
 
   removeFromSearchIndex(tx, {
-    refIds: sets.commentIds,
+    refIds: [...sets.commentIds, ...sets.memoryIds, ...sets.documentIds],
     issueIds: sets.issueIds,
   });
   return {
@@ -500,6 +556,20 @@ function restoreBatch(
         .where(byBatch(attachments, row.id))
         .all(),
     ),
+    memoryIds: ids(
+      tx
+        .select({ id: memories.id })
+        .from(memories)
+        .where(byBatch(memories, row.id))
+        .all(),
+    ),
+    documentIds: ids(
+      tx
+        .select({ id: documents.id })
+        .from(documents)
+        .where(byBatch(documents, row.id))
+        .all(),
+    ),
   };
   const now = nowIso();
   const clear = { deletedAt: null, deletedBatch: null, deletedBy: null };
@@ -528,6 +598,16 @@ function restoreBatch(
     tx.update(attachments)
       .set(clear)
       .where(inArray(attachments.id, sets.attachmentIds))
+      .run();
+  if (sets.memoryIds.length)
+    tx.update(memories)
+      .set(revived)
+      .where(inArray(memories.id, sets.memoryIds))
+      .run();
+  if (sets.documentIds.length)
+    tx.update(documents)
+      .set(revived)
+      .where(inArray(documents.id, sets.documentIds))
       .run();
 
   // A restored issue gets `issue_restored`; a restored comment/attachment
@@ -564,6 +644,10 @@ function restoreBatch(
         .map((c) => c.issueId)
     : [];
   reindexIssues(tx, [...new Set([...sets.issueIds, ...commentOwners])]);
+  reindexKnowledge(tx, {
+    memoryIds: sets.memoryIds,
+    documentIds: sets.documentIds,
+  });
   return {
     type,
     id: row.id,
@@ -680,6 +764,9 @@ function assertRestorable(
     if (isDeleted(issues, a.issueId)) throw blocked("issue", a.issueId);
     if (a.commentId && isDeleted(comments, a.commentId))
       throw blocked("comment", a.commentId);
+  } else if (type === "memory" || type === "document") {
+    const k = row as typeof memories.$inferSelect;
+    if (isDeleted(projects, k.projectId)) throw blocked("project", k.projectId);
   }
 }
 
@@ -690,6 +777,13 @@ function purgeRows(
   id: string,
 ): { sets: Sets; keys: string[] } {
   const sets = collect(tx, type, id, false);
+  const docRows = sets.documentIds.length
+    ? tx
+        .select()
+        .from(documents)
+        .where(inArray(documents.id, sets.documentIds))
+        .all()
+    : [];
   const attRows = sets.attachmentIds.length
     ? tx
         .select()
@@ -725,6 +819,10 @@ function purgeRows(
       .where(eq(issues.milestoneId, id))
       .run();
   }
+  if (sets.memoryIds.length)
+    tx.delete(memories).where(inArray(memories.id, sets.memoryIds)).run();
+  if (sets.documentIds.length)
+    tx.delete(documents).where(inArray(documents.id, sets.documentIds)).run();
   if (sets.milestoneIds.length)
     tx.delete(milestones)
       .where(inArray(milestones.id, sets.milestoneIds))
@@ -744,10 +842,23 @@ function purgeRows(
     tx.delete(projects).where(eq(projects.id, id)).run();
   }
   removeFromSearchIndex(tx, {
-    refIds: sets.commentIds,
+    refIds: [...sets.commentIds, ...sets.memoryIds, ...sets.documentIds],
     issueIds: sets.issueIds,
   });
-  return { sets, keys: attRows.map((a) => a.storageKey) };
+  // Documents of one project may share a content-addressed object (dedupe);
+  // it goes only once no remaining document row points at it.
+  const docKeys = [...new Set(docRows.map((d) => d.storageKey))].filter(
+    (key) =>
+      !tx
+        .select({ id: documents.id })
+        .from(documents)
+        .where(eq(documents.storageKey, key))
+        .get(),
+  );
+  return {
+    sets,
+    keys: [...attRows.map((a) => a.storageKey), ...docKeys],
+  };
 }
 
 export function createTrashService(ctx: ServiceContext) {
@@ -756,7 +867,7 @@ export function createTrashService(ctx: ServiceContext) {
     type: TrashType,
     ref: string,
   ): Promise<PurgeResult> {
-    if (!canPurge(actor, { allowAgentPurge: ctx.allowAgentPurge })) {
+    if (!canPurge(actor, { allowAgentPurge: ctx.allowAgentPurge }, type)) {
       throw new ServiceError("forbidden", "This actor is not allowed to purge");
     }
     const { id, sets, keys } = ctx.write((tx) => {
@@ -769,12 +880,9 @@ export function createTrashService(ctx: ServiceContext) {
         );
       }
       if (!ctx.storage && type !== "milestone") {
-        const pending = collect(tx, type, row.id, false).attachmentIds;
-        if (pending.length) {
-          throw new ServiceError(
-            "conflict",
-            "Attachment storage is not configured",
-          );
+        const pending = collect(tx, type, row.id, false);
+        if (pending.attachmentIds.length || pending.documentIds.length) {
+          throw new ServiceError("conflict", "File storage is not configured");
         }
       }
       return { id: row.id, ...purgeRows(tx, type, row.id) };
@@ -804,6 +912,11 @@ export function createTrashService(ctx: ServiceContext) {
       options: { purge?: boolean } = {},
     ): Promise<DeleteResult | PurgeResult> {
       if (options.purge) return purge(actor, type, ref);
+      return ctx.write((tx) => softDelete(tx, actor, type, ref));
+    },
+
+    /** Synchronous soft delete (what `delete` does without `purge`). */
+    softDelete(actor: Actor, type: TrashType, ref: string): DeleteResult {
       return ctx.write((tx) => softDelete(tx, actor, type, ref));
     },
 
@@ -859,6 +972,12 @@ export function createTrashService(ctx: ServiceContext) {
           SELECT 'attachment', a.id, a.filename, a.deleted_at, a.deleted_batch, a.issue_id, NULL,
                  (SELECT project_id FROM issues WHERE id = a.issue_id), a.deleted_by
             FROM attachments a WHERE a.deleted_at IS NOT NULL
+          UNION ALL
+          SELECT 'memory', id, title, deleted_at, deleted_batch, NULL, NULL, project_id, deleted_by
+            FROM memories WHERE deleted_at IS NOT NULL
+          UNION ALL
+          SELECT 'document', id, filename, deleted_at, deleted_batch, NULL, NULL, project_id, deleted_by
+            FROM documents WHERE deleted_at IS NOT NULL
         ) t LEFT JOIN projects p ON p.id = t.project_id
         WHERE ${q.type ? sql`t.type = ${q.type}` : sql`1`}
           AND ${after ? sql`(t.deleted_at < ${after.d} OR (t.deleted_at = ${after.d} AND t.id < ${after.i}))` : sql`1`}

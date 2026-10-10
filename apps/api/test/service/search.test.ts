@@ -244,9 +244,19 @@ describe("rebuildSearchIndex", () => {
     db.run(
       sql`INSERT INTO search_index (kind, ref_id, issue_id, title, body) VALUES ('issue', 'junk', 'junk', 'garbage', 'garbage')`,
     );
-    expect(rebuildSearchIndex(db)).toEqual({ issues: 1, comments: 1 });
+    expect(rebuildSearchIndex(db)).toEqual({
+      issues: 1,
+      comments: 1,
+      memories: 0,
+      documents: 0,
+    });
     const first = rows();
-    expect(rebuildSearchIndex(db)).toEqual({ issues: 1, comments: 1 });
+    expect(rebuildSearchIndex(db)).toEqual({
+      issues: 1,
+      comments: 1,
+      memories: 0,
+      documents: 0,
+    });
     expect(rows()).toEqual(first);
     expect(ids("garbage")).toEqual([]);
     expect(ids("ghost")).toEqual([]);
@@ -266,5 +276,34 @@ describe("comment edit on a soft-deleted issue", () => {
     removeFromSearchIndex(db, { issueIds: [a.id] });
     services.comments.update("you", c.id, { body: "new" });
     expect(rows()).toEqual([]);
+  });
+});
+
+describe("rebuildSearchIndex: knowledge rows", () => {
+  it("re-adds live memories and documents, skipping deleted ones", () => {
+    const { services, db, project } = setup();
+    const keep = services.memories.save("you", {
+      project: project.id,
+      title: "keepme",
+      body: "b",
+    });
+    const gone = services.memories.save("you", {
+      project: project.id,
+      title: "goneme",
+    });
+    services.memories.delete("you", gone.id);
+    db.run(sql`DELETE FROM search_index WHERE kind = 'memory'`);
+    db.run(
+      sql`INSERT INTO documents (id, project_id, filename, mime_type, size_bytes, storage_key, sha256, description, created_by, created_at, updated_at)
+          VALUES ('d1', ${project.id}, 'plan.md', 'text/markdown', 1, 'k', 'h', 'desc', 'you', 't', 't')`,
+    );
+    expect(rebuildSearchIndex(db)).toMatchObject({ memories: 1, documents: 1 });
+    const kinds = db.all<{ kind: string; ref_id: string }>(
+      sql`SELECT kind, ref_id FROM search_index WHERE kind IN ('memory','document') ORDER BY kind`,
+    );
+    expect(kinds).toEqual([
+      { kind: "document", ref_id: "d1" },
+      { kind: "memory", ref_id: keep.id },
+    ]);
   });
 });

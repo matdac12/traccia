@@ -13,4 +13,19 @@ describe("canPurge", () => {
   it("allows `agent` when ALLOW_AGENT_PURGE=true", () => {
     expect(canPurge("agent", { allowAgentPurge: true })).toBe(true);
   });
+
+  it.each(["memory", "document"])(
+    "always lets `agent` purge a %s (ADR 0015)",
+    (type) => {
+      expect(canPurge("agent", { allowAgentPurge: false }, type)).toBe(true);
+    },
+  );
+
+  it.each(["issue", "comment", "project", "milestone", "attachment"])(
+    "still denies `agent` a %s when ALLOW_AGENT_PURGE=false",
+    (type) => {
+      expect(canPurge("agent", { allowAgentPurge: false }, type)).toBe(false);
+      expect(canPurge("agent", { allowAgentPurge: true }, type)).toBe(true);
+    },
+  );
 });
