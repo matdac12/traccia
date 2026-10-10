@@ -8,10 +8,12 @@ import { createMcpRoute } from "./mcp/route.js";
 import { mountActivityRoutes } from "./rest/activity.js";
 import { mountAttachmentRoutes } from "./rest/attachments.js";
 import { mountCommentRoutes } from "./rest/comments.js";
+import { mountDocumentRoutes } from "./rest/documents.js";
 import type { AppContainer, AppEnv } from "./rest/env.js";
 import { errorHandler, notFoundHandler } from "./rest/errors.js";
 import { mountIssueRoutes } from "./rest/issues.js";
 import { mountLabelRoutes } from "./rest/labels.js";
+import { mountMemoryRoutes } from "./rest/memories.js";
 import { mountMilestoneRoutes } from "./rest/milestones.js";
 import { mountProjectRoutes } from "./rest/projects.js";
 import { requestContext } from "./rest/request-context.js";
@@ -56,6 +58,8 @@ export function createApp(
     c.json({ actor: c.get("actor"), tokenName: c.get("tokenName") }),
   );
   mountAttachmentRoutes(app, v1, container, auth);
+  mountDocumentRoutes(app, v1, container, auth);
+  mountMemoryRoutes(v1, container);
   mountProjectRoutes(v1, container);
   mountMilestoneRoutes(v1, container);
   mountLabelRoutes(v1, container);

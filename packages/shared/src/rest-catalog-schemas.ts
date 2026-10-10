@@ -40,8 +40,15 @@ export const RESTORE_TYPES = [
   "document",
 ] as const;
 
+/** REST (and the dashboard) also restore memories and documents (ADR 0014); the MCP restore tool keeps `RESTORE_TYPES`. */
+export const REST_RESTORE_TYPES = [
+  ...RESTORE_TYPES,
+  "memory",
+  "document",
+] as const;
+
 export const restoreBodySchema = z.object({
-  type: z.enum(RESTORE_TYPES),
+  type: z.enum(REST_RESTORE_TYPES),
   id: z.string().min(1),
 });
 export type RestoreBody = z.infer<typeof restoreBodySchema>;

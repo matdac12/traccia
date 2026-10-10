@@ -101,7 +101,15 @@ export const activityQuerySchema = z.object({
 /** `GET /v1/trash?type=&limit=&cursor=`. */
 export const trashQuerySchema = z.object({
   type: z
-    .enum(["project", "milestone", "issue", "comment", "attachment"])
+    .enum([
+      "project",
+      "milestone",
+      "issue",
+      "comment",
+      "attachment",
+      "memory",
+      "document",
+    ])
     .optional(),
   limit: limitText.optional(),
   cursor: z.string().min(1).optional(),
