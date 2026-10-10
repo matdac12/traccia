@@ -7,6 +7,7 @@ const PROJECT_TABS = [
   { key: "overview", label: "Overview", segment: "" },
   { key: "activity", label: "Activity", segment: "/activity" },
   { key: "issues", label: "Issues", segment: "/issues" },
+  { key: "documentation", label: "Documentation", segment: "/documentation" },
 ] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
 
@@ -14,11 +15,13 @@ type ProjectTab = (typeof PROJECT_TABS)[number]["key"];
 export function activeProjectTab(path: string): ProjectTab {
   const [root, , ...rest] = path.replace(/\/+$/, "").split("/").slice(1);
   if (root !== "projects") return "overview";
+  // Documentation owns its sub-pages (`/documentation/files`); the other tabs are a single segment.
+  if (rest[0] === "documentation" && (rest.length === 1 || (rest.length === 2 && rest[1] === "files"))) return "documentation";
   return PROJECT_TABS.find((t) => t.segment.slice(1) === rest.join("/"))?.key ?? "overview";
 }
 
 /**
- * Overview / Activity / Issues. Real navigation (sub-routes of the project page), so the tab survives a reload and
+ * Overview / Activity / Issues / Documentation. Real navigation (sub-routes of the project page), so the tab survives a reload and
  * Back works. Marked up as a nav of links with `aria-current`, not a `tablist`: nothing here swaps panels in place.
  */
 export function ProjectTabs({ projectId }: { projectId: string }) {

@@ -17,19 +17,22 @@ describe("project tabs", () => {
     // A project id that collides with a tab name is not mistaken for that tab.
     expect(activeProjectTab("/projects/issues")).toBe("overview");
     expect(activeProjectTab("/projects/p1/issues/extra")).toBe("overview");
+    expect(activeProjectTab("/projects/p1/documentation")).toBe("documentation");
+    expect(activeProjectTab("/projects/p1/documentation/files")).toBe("documentation");
+    expect(activeProjectTab("/projects/p1/documentation/other")).toBe("overview");
   });
 
-  it("links the three sections as real navigation, Overview first", () => {
+  it("links the four sections as real navigation, Overview first", () => {
     path = "/projects/p1";
     render(<ProjectTabs projectId="p1" />);
     const links = screen.getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual(["Overview", "Activity", "Issues"]);
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/projects/p1", "/projects/p1/activity", "/projects/p1/issues"]);
+    expect(links.map((l) => l.textContent)).toEqual(["Overview", "Activity", "Issues", "Documentation"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/projects/p1", "/projects/p1/activity", "/projects/p1/issues", "/projects/p1/documentation"]);
     expect(screen.getByRole("navigation", { name: "Project sections" })).toBeInTheDocument();
   });
 
   it("selects Overview by default and the matching tab on the sub-routes", () => {
-    for (const [p, name] of [["/projects/p1", "Overview"], ["/projects/p1/activity", "Activity"], ["/projects/p1/issues", "Issues"]] as const) {
+    for (const [p, name] of [["/projects/p1", "Overview"], ["/projects/p1/activity", "Activity"], ["/projects/p1/issues", "Issues"], ["/projects/p1/documentation/files", "Documentation"]] as const) {
       path = p;
       const { unmount } = render(<ProjectTabs projectId="p1" />);
       expect(screen.getByRole("link", { current: "page" })).toHaveTextContent(name);

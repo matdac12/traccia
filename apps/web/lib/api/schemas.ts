@@ -211,3 +211,32 @@ export const issueDetailSchema = issueSchema.extend({
 export type IssueDetail = z.infer<typeof issueDetailSchema>;
 
 export const searchHitSchema = z.object({ issueId: z.string(), identifier: z.string(), title: z.string() });
+
+// ---- Documentation (TRC-130): memories and documents ----
+
+/** A memory as `GET /projects/:id/memories` and `GET /memories/:id` return it (full markdown body). */
+export const memorySchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  title: z.string(),
+  body: z.string(),
+  tags: z.array(z.string()),
+  createdBy: z.enum(ACTORS),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Memory = z.infer<typeof memorySchema>;
+
+/** A file on a project. `url` (the API's public link) is ignored: the browser uses the proxy route. */
+export const documentSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  filename: z.string(),
+  mimeType: z.string(),
+  sizeBytes: z.number(),
+  description: z.string(),
+  createdBy: z.enum(ACTORS),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type ProjectDocument = z.infer<typeof documentSchema>;
