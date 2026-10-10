@@ -8,8 +8,10 @@ import {
   registerAttachmentTools,
 } from "./tools/attachments.js";
 import { registerCommentTools } from "./tools/comments.js";
+import { registerDocumentTools } from "./tools/documents.js";
 import { registerIssueTools } from "./tools/issues.js";
 import { registerLabelTools } from "./tools/labels.js";
+import { registerMemoryTools } from "./tools/memories.js";
 import { registerMilestoneTools } from "./tools/milestones.js";
 import { registerProjectTools } from "./tools/projects.js";
 import { registerRestoreTool } from "./tools/restore.js";
@@ -54,6 +56,8 @@ export function createMcpServer(
   registerIssueTools(server, ctx);
   registerCommentTools(server, ctx);
   registerAttachmentTools(server, ctx, deps.attachments);
+  registerMemoryTools(server, ctx);
+  registerDocumentTools(server, ctx, deps.attachments);
   registerProjectTools(server, ctx);
   registerMilestoneTools(server, ctx);
   registerLabelTools(server, ctx);
