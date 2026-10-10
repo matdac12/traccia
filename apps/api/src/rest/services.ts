@@ -5,6 +5,10 @@ import type { AppContainer } from "./env.js";
 
 const cache = new WeakMap<AppContainer, Services>();
 
+/** The on-disk store shared by attachments and documents. */
+export const fileStorageFor = ({ config }: AppContainer) =>
+  new LocalDiskStorage(path.join(config.dataDir, "attachments"));
+
 /**
  * One service container per app container, shared by the issue-side route
  * files. Storage matches the attachment routes' default so purge can remove
@@ -18,7 +22,7 @@ export function servicesFor(container: AppContainer): Services {
       db,
       defaultIssueKey: config.defaultIssueKey,
       allowAgentPurge: config.allowAgentPurge,
-      storage: new LocalDiskStorage(path.join(config.dataDir, "attachments")),
+      storage: fileStorageFor(container),
     });
     cache.set(container, services);
   }
