@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createToken } from "../src/service/tokens.js";
 import { createTestApp } from "./helpers/test-app.js";
 
-/** Spec Appendix A.8: the 20 tools. */
+/** Spec Appendix A.8: the 29 tools. */
 const SPEC_TOOLS = [
   "list_projects",
   "get_project",
@@ -27,6 +27,15 @@ const SPEC_TOOLS = [
   "create_attachment",
   "get_attachment",
   "delete_attachment",
+  "list_memories",
+  "get_memory",
+  "save_memory",
+  "delete_memory",
+  "list_documents",
+  "get_document",
+  "create_document",
+  "update_document",
+  "delete_document",
   "restore",
 ];
 
@@ -40,9 +49,9 @@ const WHOAMI = "whoami";
  * Size of the `tools/list` HTTP response in bytes, paid in every agent's
  * context. Measured by POSTing initialize then tools/list to /mcp. The
  * budget is the measured size plus ~3% margin; raise it deliberately in the
- * PR that adds tools or text (TRC-123 cut it from 15454).
+ * PR that adds tools or text (TRC-123 cut it from 15454; TRC-129 added the nine memory/document tools, 11964 -> 16814).
  */
-const SIZE_BASELINE_BYTES = 11964;
+const SIZE_BASELINE_BYTES = 16814;
 const MAX_TOOLS_LIST_BYTES = Math.ceil(SIZE_BASELINE_BYTES * 1.03);
 
 let server: ReturnType<typeof serve> | undefined;
@@ -75,9 +84,8 @@ describe("MCP tool list", () => {
   it("registers exactly the A.8 tools plus whoami", async () => {
     const names = (await listTools()).map((t) => t.name);
     expect(names).toEqual([...SPEC_TOOLS, WHOAMI].sort());
-    // Deliberately absent: Linear's teams/users/cycles/documents tools and
-    // any label delete.
-    expect(names.filter((n) => /team|user|cycle|document/.test(n))).toEqual([]);
+    // Deliberately absent: Linear's teams/users/cycles tools and any label delete.
+    expect(names.filter((n) => /team|user|cycle/.test(n))).toEqual([]);
     expect(names).not.toContain("delete_issue_label");
   });
 

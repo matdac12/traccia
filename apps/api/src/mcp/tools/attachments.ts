@@ -36,8 +36,22 @@ const IMAGE_TYPES = new Set([
 
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 
+/** Decodes a `contentBase64` argument, rejecting oversize or malformed input before allocating. */
+export function decodeBase64Upload(raw: string, maxBytes: number): Buffer {
+  const b64 = raw.replace(/\s+/g, "");
+  if ((b64.length * 3) / 4 - 2 > maxBytes) {
+    throw new ValidationError(
+      `contentBase64 exceeds the ${maxBytes} byte limit; use sourceUrl for larger files`,
+    );
+  }
+  if (!BASE64.test(b64) || b64.length % 4 === 1) {
+    throw new ValidationError("contentBase64 is not valid base64");
+  }
+  return Buffer.from(b64, "base64");
+}
+
 /** Picks the type to validate against: declared, else sniffed from the bytes, else the filename. */
-function inferMimeType(head: Buffer, filename: string): string {
+export function inferMimeType(head: Buffer, filename: string): string {
   const sniffed = sniffType(head);
   if (sniffed !== "text" && sniffed !== "binary") return sniffed;
   if (sniffed === "binary") return "application/octet-stream";
@@ -46,12 +60,16 @@ function inferMimeType(head: Buffer, filename: string): string {
   return "text/plain";
 }
 
-const markdownFor = (mimeType: string, filename: string, url: string) => {
+export const markdownFor = (
+  mimeType: string,
+  filename: string,
+  url: string,
+) => {
   const label = filename.replace(/[[\]\\]/g, "\\$&");
   return `${IMAGE_TYPES.has(mimeType) ? "!" : ""}[${label}](${url})`;
 };
 
-async function readAll(stream: Readable): Promise<Buffer> {
+export async function readAll(stream: Readable): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks);
@@ -111,16 +129,10 @@ export function registerAttachmentTools(
         let declared: string;
         let maxBytes: number;
         if (hasB64) {
-          const b64 = input.contentBase64!.replace(/\s+/g, "");
-          if ((b64.length * 3) / 4 - 2 > config.maxMcpUploadBytes) {
-            throw new ValidationError(
-              `contentBase64 exceeds the ${config.maxMcpUploadBytes} byte limit; use sourceUrl for larger files`,
-            );
-          }
-          if (!BASE64.test(b64) || b64.length % 4 === 1) {
-            throw new ValidationError("contentBase64 is not valid base64");
-          }
-          const bytes = Buffer.from(b64, "base64");
+          const bytes = decodeBase64Upload(
+            input.contentBase64!,
+            config.maxMcpUploadBytes,
+          );
           declared =
             input.mimeType ?? inferMimeType(bytes.subarray(0, 512), filename);
           maxBytes = config.maxMcpUploadBytes;

@@ -36,6 +36,8 @@ export const RESTORE_TYPES = [
   "project",
   "milestone",
   "attachment",
+  "memory",
+  "document",
 ] as const;
 
 export const restoreBodySchema = z.object({

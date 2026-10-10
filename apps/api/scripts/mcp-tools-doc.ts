@@ -44,6 +44,22 @@ export const RETURNS: Record<string, string> = {
   list_issue_labels:
     "`{ items }`. Each label: `id`, `name`, `color`, `project` (name, absent for global labels).",
   save_issue_label: "The saved label (as in `list_issue_labels`).",
+  list_memories:
+    "`{ items, nextCursor? }`. Each memory: `id`, `projectId`, `title`, `bodySnippet`, `tags`, `createdBy`, `createdAt`, `updatedAt`, `deleted`.",
+  get_memory:
+    "A memory with the full markdown `body` (fields as in `list_memories`).",
+  save_memory: "The saved memory (same shape as `get_memory`).",
+  delete_memory:
+    "Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.",
+  list_documents:
+    "`{ items, nextCursor? }`. Each document: `id`, `projectId`, `filename`, `mimeType`, `sizeBytes`, `description`, `url`, `createdBy`, `createdAt`, `updatedAt`, `deleted`.",
+  get_document:
+    "The document metadata (as in `list_documents`), plus `content` (the text) for text/markdown, text/plain and application/json. Other types return metadata and `url` only.",
+  create_document:
+    "The created document (as in `list_documents`) plus `markdown`: a snippet to paste into an issue or comment.",
+  update_document: "The updated document (as in `list_documents`).",
+  delete_document:
+    "Soft delete: `{ type, id, batch, counts }`. Purge: `{ type, id, counts, failedFiles }`.",
   restore:
     "`{ type, id, batch, counts }`: everything deleted in the same action comes back.",
 };

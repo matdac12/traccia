@@ -37,6 +37,47 @@
     }
   },
   {
+    "name": "create_document",
+    "description": "Add a file to a project's Files. Give exactly one of content (text), contentBase64 (max ~5 MB decoded) or sourceUrl (public HTTPS, downloaded by the server). Types: text/markdown, text/plain, application/json, PDF, PNG, JPEG, WebP, GIF. Returns a markdown snippet to paste into an issue.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project key, name or id."
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "description": "Max 2000 chars.",
+          "type": "string"
+        },
+        "mimeType": {
+          "description": "Inferred if omitted.",
+          "type": "string"
+        },
+        "content": {
+          "description": "UTF-8 text of the file.",
+          "type": "string"
+        },
+        "contentBase64": {
+          "type": "string"
+        },
+        "sourceUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "project",
+        "filename"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
     "name": "delete_attachment",
     "description": "Soft-delete an attachment (restorable). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).",
     "inputSchema": {
@@ -79,6 +120,27 @@
     }
   },
   {
+    "name": "delete_document",
+    "description": "Soft-delete a document (restorable via restore). purge=true permanently removes an already-deleted document and its file; agents may purge documents.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Document id."
+        },
+        "purge": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
     "name": "delete_issue",
     "description": "Soft-delete an issue with its sub-issues, comments and attachments (restorable via restore). purge=true permanently removes an already-deleted item; only actor 'you' (agents need ALLOW_AGENT_PURGE).",
     "inputSchema": {
@@ -87,6 +149,27 @@
         "id": {
           "type": "string",
           "description": "Issue identifier."
+        },
+        "purge": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "delete_memory",
+    "description": "Soft-delete a memory (restorable via restore). purge=true permanently removes an already-deleted memory; agents may purge memories.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Memory id."
         },
         "purge": {
           "type": "boolean"
@@ -161,6 +244,24 @@
     }
   },
   {
+    "name": "get_document",
+    "description": "Get a document's metadata. text/markdown, text/plain and application/json are also returned inline as content; other types only get the url (fetched with the API token).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Document id."
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
     "name": "get_issue",
     "description": "Get one issue with its full markdown description. `include` defaults to comments, attachments, children, relations; add 'activity' for the change log.",
     "inputSchema": {
@@ -182,6 +283,24 @@
               "relations"
             ]
           }
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "get_memory",
+    "description": "Get a memory with its full markdown body.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Memory id."
         }
       },
       "required": [
@@ -236,6 +355,40 @@
       },
       "required": [
         "issueId"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "list_documents",
+    "description": "List a project's documents (files), most recently updated first. Metadata only; use get_document for content.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project key, name or id."
+        },
+        "query": {
+          "description": "Match filename or description.",
+          "type": "string"
+        },
+        "includeDeleted": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "Previous nextCursor.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project"
       ],
       "$schema": "http://json-schema.org/draft-07/schema#"
     }
@@ -373,6 +526,47 @@
     }
   },
   {
+    "name": "list_memories",
+    "description": "List a project's memories (titled markdown notes), most recently updated first. Bodies are snippets; use get_memory for the full text.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project key, name or id."
+        },
+        "query": {
+          "description": "Match title or body.",
+          "type": "string"
+        },
+        "tags": {
+          "description": "All must be present.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "includeDeleted": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 250
+        },
+        "cursor": {
+          "description": "Previous nextCursor.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project"
+      ],
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
     "name": "list_milestones",
     "description": "List milestones (all projects, or one) with progress {done,total}; canceled issues excluded.",
     "inputSchema": {
@@ -446,7 +640,9 @@
             "comment",
             "project",
             "milestone",
-            "attachment"
+            "attachment",
+            "memory",
+            "document"
           ]
         },
         "id": {
@@ -630,6 +826,41 @@
     }
   },
   {
+    "name": "save_memory",
+    "description": "Create (no id; needs project + title) or update (with id; only given fields change) a memory: a short markdown note plus tags. Body max 64 KiB, up to 20 tags. expectedUpdatedAt fails on concurrent edits.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Project key, name or id."
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "description": "Markdown; replaces the whole text.",
+          "type": "string"
+        },
+        "tags": {
+          "description": "Replaces the whole set.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "expectedUpdatedAt": {
+          "type": "string"
+        }
+      },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
     "name": "save_milestone",
     "description": "Create a milestone (omit id; project and name required) or update one (with id). targetDate is YYYY-MM-DD, null clears.",
     "inputSchema": {
@@ -697,6 +928,34 @@
           ]
         }
       },
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    }
+  },
+  {
+    "name": "update_document",
+    "description": "Rename and/or re-describe a document (the bytes never change). expectedUpdatedAt fails on concurrent edits.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Document id."
+        },
+        "filename": {
+          "type": "string"
+        },
+        "description": {
+          "description": "Max 2000 chars.",
+          "type": "string"
+        },
+        "expectedUpdatedAt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
       "$schema": "http://json-schema.org/draft-07/schema#"
     }
   },
