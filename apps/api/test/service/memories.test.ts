@@ -1,7 +1,20 @@
 import { sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { memories } from "../../src/db/schema.js";
 import { code, setupServices } from "./helpers.js";
+
+afterEach(() => vi.useRealTimers());
+
+/** Freezes `Date` only (timers stay real) and lets a test move it forward deterministically. */
+function freezeClock() {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  let t = Date.parse("2026-10-10T00:00:00.000Z");
+  vi.setSystemTime(t);
+  return () => {
+    t += 1000;
+    vi.setSystemTime(t);
+  };
+}
 
 function setup() {
   const s = setupServices();
@@ -47,10 +60,11 @@ describe("memories: save and get", () => {
     );
   });
 
-  it("updates only given fields and moves updatedAt", async () => {
+  it("updates only given fields and moves updatedAt", () => {
     const { services, save } = setup();
+    const tick = freezeClock();
     const m = save("a", { body: "b", tags: ["t"] });
-    await new Promise((r) => setTimeout(r, 3));
+    tick();
     const u = services.memories.save("you", { id: m.id, body: "new" });
     expect(u).toMatchObject({ title: "a", body: "new", tags: ["t"] });
     expect(u.updatedAt > m.updatedAt).toBe(true);
@@ -74,7 +88,9 @@ describe("memories: save and get", () => {
 
   it("enforces optimistic concurrency with currentUpdatedAt", () => {
     const { services, save } = setup();
+    const tick = freezeClock();
     const m = save("a");
+    tick();
     services.memories.save("you", {
       id: m.id,
       title: "b",

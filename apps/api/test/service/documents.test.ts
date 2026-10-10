@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { eq, sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { documents } from "../../src/db/schema.js";
 import { createServices } from "../../src/service/index.js";
 import { LocalDiskStorage } from "../../src/storage/index.js";
@@ -15,6 +15,8 @@ const PNG = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   Buffer.alloc(32, 1),
 ]);
+
+afterEach(() => vi.useRealTimers());
 
 async function setup(opts: { allowAgentPurge?: boolean } = {}) {
   const { sqlite, db } = createTestDb();
@@ -162,7 +164,10 @@ describe("documents: create", () => {
 describe("documents: update, get, list", () => {
   it("updates metadata with optimistic concurrency and re-indexes", async () => {
     const { make, services, find } = await setup();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.parse("2026-10-10T00:00:00.000Z"));
     const d = await make("old.md", "x", { description: "first" });
+    vi.setSystemTime(Date.parse("2026-10-10T00:00:01.000Z"));
     const u = services.documents.update(d.id, {
       filename: "new.md",
       expectedUpdatedAt: d.updatedAt,
