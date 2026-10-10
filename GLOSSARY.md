@@ -38,7 +38,7 @@ _Avoid_: API key, PAT
 ### Work items
 
 **Project**:
-A container of issues, milestones and project-scoped labels. Its status is `active`, `paused`, `completed` or `canceled`.
+A container of issues, milestones, project-scoped labels, memories and documents. Its status is `active`, `paused`, `completed` or `canceled`.
 
 **Milestone**:
 A named, optionally dated checkpoint inside one project. An issue's milestone must belong to the issue's project.
@@ -81,6 +81,24 @@ A file (such as a screenshot) on an issue, optionally tied to one comment.
 **Position**:
 An issue's place in the order within its status column. Set by moving the issue between neighbours.
 _Avoid_: rank, order index
+
+### Knowledge
+
+**Documentation**:
+A project's knowledge surface: its memories and its documents, shared by every agent working the project.
+_Avoid_: wiki, knowledge base, docs
+
+**Memory**:
+A titled markdown note on a project recording a durable fact or lesson any agent working that project should know. Edited in place and deleted once stale.
+_Avoid_: note, learning, knowledge, context
+
+**Tag**:
+A free-form string on a memory, used to filter memories. Distinct from a Label, which is a coloured tag on an issue.
+_Avoid_: label
+
+**Document**:
+A file (markdown, PDF, image, …) on a project with a name, a MIME type and an optional description.
+_Avoid_: file, attachment (`Attachment` is a file on an issue), drive item
 
 ### Identity
 

@@ -24,7 +24,7 @@ The agents' main interface is an **MCP server** that mirrors Linear's MCP tool n
 - **Private by default:** nothing is exposed to the public internet; access is over Tailscale only (see section 3).
 
 ### Non-goals (v1)
-Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, custom fields, notifications, integrations (GitHub, Slack), time tracking, roadmaps, real-time collaboration, mobile app.
+Teams, multiple users, permissions, cycles/sprints, custom statuses, custom fields, notifications, integrations (GitHub, Slack), time tracking, roadmaps, real-time collaboration, mobile app. (A per-project knowledge layer — memories and documents — was a v1 non-goal and is now in scope; see [ADR 0014](docs/adr/0014-project-documentation-memories-and-documents.md).)
 
 ---
 
@@ -54,6 +54,7 @@ Teams, multiple users, permissions, cycles/sprints, documents, custom statuses, 
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
 | 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`<your-server>`); images built on the dev Mac and loaded with `docker save \| ssh <your-server> docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
 | 22 | Rollout | Build, pilot on one new project for 1-2 weeks, then import + cut over |
+| 23 | Knowledge | Per-project **Documentation**: **memories** (titled markdown + free-form tags) and **documents** (files). Project-scoped, editable in place, soft-delete with agent purge allowed for these two types. Decoupled from issues (link a document by URL). See [ADR 0014](docs/adr/0014-project-documentation-memories-and-documents.md), [ADR 0015](docs/adr/0015-agents-may-purge-memories-and-documents.md) |
 
 ---
 
@@ -322,22 +323,55 @@ CREATE TABLE tokens (
   last_used_at TEXT,
   revoked_at   TEXT
 );
+
+-- Per-project knowledge layer (ADR 0014)
+CREATE TABLE memories (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects(id),
+  title         TEXT NOT NULL,
+  body          TEXT NOT NULL DEFAULT '',        -- markdown
+  tags          TEXT NOT NULL DEFAULT '[]',      -- JSON array of strings
+  created_by    TEXT NOT NULL CHECK (created_by IN ('agent','you')),
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  deleted_at    TEXT,
+  deleted_batch TEXT
+);
+CREATE INDEX memories_project ON memories(project_id) WHERE deleted_at IS NULL;
+
+CREATE TABLE documents (
+  id            TEXT PRIMARY KEY,
+  project_id    TEXT NOT NULL REFERENCES projects(id),
+  filename      TEXT NOT NULL,
+  mime_type     TEXT NOT NULL,
+  size_bytes    INTEGER NOT NULL,
+  sha256        TEXT NOT NULL,
+  storage_key   TEXT NOT NULL,                   -- opaque key for the storage backend
+  description   TEXT NOT NULL DEFAULT '',
+  created_by    TEXT NOT NULL CHECK (created_by IN ('agent','you')),
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  deleted_at    TEXT,
+  deleted_batch TEXT
+);
+CREATE INDEX documents_project ON documents(project_id) WHERE deleted_at IS NULL;
 ```
 
 ### 6.4 Full-text search (FTS5)
 
 ```sql
 CREATE VIRTUAL TABLE search_index USING fts5(
-  kind UNINDEXED,        -- 'issue' | 'comment'
-  ref_id UNINDEXED,      -- issue id or comment id
-  issue_id UNINDEXED,    -- owning issue (for comments)
-  title,                 -- issue title (empty for comments)
-  body,                  -- issue description or comment body
+  kind UNINDEXED,        -- 'issue' | 'comment' | 'memory' | 'document'
+  ref_id UNINDEXED,      -- issue id, comment id, memory id or document id
+  issue_id UNINDEXED,    -- owning issue (for comments; empty otherwise)
+  title,                 -- issue/memory title, or document filename (empty for comments)
+  body,                  -- issue description, comment body, memory body, or document description
   tokenize = 'porter unicode61 remove_diacritics 2'
 );
 ```
 
 - Keep the index in sync **inside the service layer transaction** (insert/update/delete rows on every issue/comment write), not with triggers, so soft-delete rules stay in one place. Soft-deleting removes the rows; restoring re-adds them.
+- Memories are indexed by `title` + `body`; documents by `filename` + `description`. Document file contents are **not** extracted (no PDF/text parsing), so a document is found by its name and description.
 - Query: `search_index MATCH ?` with `bm25()` ranking; results grouped by issue and returned with a snippet.
 - Italian content is expected (Italian SMEs). `unicode61 remove_diacritics` handles accents. Porter stemming is English-only; acceptable for v1. Revisit if Italian stemming matters.
 - Sanitize user queries before passing to MATCH (quote tokens) so agent input can never cause FTS syntax errors.
@@ -512,7 +546,7 @@ Concurrency: PATCH accepts optional `If-Match: <updated_at>` (or `expectedUpdate
   4. Responses are compact JSON (as text content, plus `structuredContent`). Omit empty fields. Descriptions truncated in list views (full text in `get_*`).
   5. Errors use `isError: true` with an **actionable** message ("Unknown label 'bugg'. Existing labels: bug, feature, chore. Use save_issue_label to create one.").
   6. Tool descriptions are terse but state enums, defaults, and gotchas, since they cost context on every agent session.
-- Tool list (about 20): see Appendix A.
+- Tool list (about 30): see Appendix A.
 - Resources and prompts (e.g. `issue://ABC-123`, a "triage backlog" prompt): **deferred**, add after observing real agent usage.
 - Provide an agent snippet (`docs/agent-snippet.md`) teaching agents the workflow conventions (see section 15).
 
@@ -951,7 +985,7 @@ Returns metadata, plus an MCP `image` content block for small images when `inclu
 Undo a soft delete. Restores the item and everything deleted with it in the same action.
 ```ts
 {
-  type: z.enum(["issue", "comment", "project", "milestone", "attachment"]),
+  type: z.enum(["issue", "comment", "project", "milestone", "attachment", "memory", "document"]),
   id: z.string().describe("Identifier (ABC-123) for issues; id for others."),
 }
 ```
@@ -966,9 +1000,11 @@ Undo a soft delete. Restores the item and everything deleted with it in the same
 | Comments | `list_comments`, `save_comment`, `delete_comment` |
 | Labels | `list_issue_labels`, `save_issue_label` |
 | Attachments | `create_attachment`, `get_attachment`, `delete_attachment` |
+| Memory | `list_memories`, `get_memory`, `save_memory`, `delete_memory` |
+| Documents | `list_documents`, `get_document`, `create_document`, `update_document`, `delete_document` |
 | Restore | `restore` |
 
-Total: 20 tools. Differences from Linear's MCP: no teams/users/cycles/documents tools; explicit delete and restore tools; attachments uploadable by content or URL; actor model is `agent` / `you`.
+Total: 30 tools. Differences from Linear's MCP: no teams/users/cycles tools; explicit delete and restore tools; attachments uploadable by content or URL; a per-project knowledge layer (memories + documents) Linear has no equivalent for; actor model is `agent` / `you`.
 
 ---
 
