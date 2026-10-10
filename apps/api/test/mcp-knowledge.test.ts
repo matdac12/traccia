@@ -155,7 +155,7 @@ describe("document tools", () => {
 
     const got = await call(agent, "get_document", { id: created.data.id });
     expect(got.data.content).toBe("# Hello\n\nworld");
-    expect(got.data.url).toContain(`/files/${created.data.id}`);
+    expect(got.data.url).toContain(`/files/doc/${created.data.id}`);
 
     const list = await call(agent, "list_documents", {
       project: "Alpha",

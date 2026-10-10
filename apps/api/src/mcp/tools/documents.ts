@@ -42,7 +42,7 @@ export function registerDocumentTools(
     storage: deps.storage,
   });
   const urlFor = (id: string) =>
-    `${config.baseUrl.replace(/\/+$/, "")}/files/${id}`;
+    `${config.baseUrl.replace(/\/+$/, "")}/files/doc/${id}`;
   const present = (d: Document) =>
     compactObject({
       id: d.id,
