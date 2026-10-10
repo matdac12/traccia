@@ -15,6 +15,7 @@ The agents' main interface is an **MCP server** that mirrors Linear's MCP tool n
 ### Goals
 - Create, edit, delete, and restore issues, comments, projects, milestones, labels.
 - Attach screenshots to issues.
+- Per-project **Documentation**: memories (durable notes) and documents (files) that every agent working the project can read and write ([ADR 0014](docs/adr/0014-project-documentation-memories-and-documents.md)).
 - Sub-issues, priority, estimates, "blocked by" relations.
 - Two actors only: `agent` and `you`. Every write is attributed. Issues can be assigned to either.
 - Full-text search that agents can use without knowing IDs.
@@ -37,19 +38,19 @@ Teams, multiple users, permissions, cycles/sprints, custom statuses, custom fiel
 | 3 | Dashboard | **Next.js (App Router) + shadcn/ui, self-hosted on the VPS** (built off-box, run with `next start`), talks only to the REST API over localhost. Vercel is no longer used |
 | 4 | Database | **SQLite** (better-sqlite3, WAL mode, FTS5), owned by the backend, on the VPS |
 | 5 | ORM | Drizzle ORM + drizzle-kit migrations |
-| 6 | Data model | Projects, milestones, issues (sub-issues, priority, estimate, blockers), comments, labels, attachments. **Fixed statuses.** |
+| 6 | Data model | Projects, milestones, issues (sub-issues, priority, estimate, blockers), comments, labels, attachments, plus per-project memories and documents (row 23). **Fixed statuses.** |
 | 7 | Identifiers | `MAT-123`. **One shared key (`MAT`) across all projects**, matching Linear (one team, many projects). The key and its counter live in `issue_keys`; projects reference a key (see 6.2) |
 | 8 | Linear migration | One-time import script, **after** a pilot on one new project |
 | 9 | Attachments | Files on VPS disk, served via authenticated routes, behind a storage interface (R2/S3 later) |
 | 10 | MCP | Coarse Linear-style tools + explicit delete tools |
-| 11 | Deletes | **Soft by default**; permanent purge is restricted (see 9) |
+| 11 | Deletes | **Soft by default**; permanent purge is restricted (see 9), except that agents may purge memories and documents (row 23) |
 | 12 | Dashboard v1 | Table grouped by status + Kanban, with a toggle. Dedicated design phase before the real build |
 | 13 | Actors | Exactly two: `agent`, `you`. Plain field so named agents can be added later |
 | 14 | Activity | Per-issue activity timeline |
 | 15 | Auth v1 | Static bearer tokens (revocable, hashed) + dashboard access gated by Tailscale identity (password fallback). OAuth-ready design |
 | 16 | Auth later | OAuth 2.1 on the MCP endpoint (phase 2), so it works as a claude.ai custom connector |
 | 17 | Text format | Markdown for descriptions and comments |
-| 18 | Search | SQLite FTS5 over titles, descriptions, comments |
+| 18 | Search | SQLite FTS5 over issue titles, descriptions and comments, (memory and document rows are also kept in the index; see 6.4) |
 | 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-snippet.md` |
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
 | 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`<your-server>`); images built on the dev Mac and loaded with `docker save \| ssh <your-server> docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
@@ -370,8 +371,8 @@ CREATE VIRTUAL TABLE search_index USING fts5(
 );
 ```
 
-- Keep the index in sync **inside the service layer transaction** (insert/update/delete rows on every issue/comment write), not with triggers, so soft-delete rules stay in one place. Soft-deleting removes the rows; restoring re-adds them.
-- Memories are indexed by `title` + `body`; documents by `filename` + `description`. Document file contents are **not** extracted (no PDF/text parsing), so a document is found by its name and description.
+- Keep the index in sync **inside the service layer transaction** (insert/update/delete rows on every issue, comment, memory and document write), not with triggers, so soft-delete rules stay in one place. Soft-deleting removes the rows; restoring re-adds them.
+- Memories are indexed by `title` + `body`; documents by `filename` + `description`. Document file contents are **not** extracted (no PDF/text parsing), so a document is found by its name and description. As shipped, `GET /v1/search` and `list_issues` still return issues only; `list_memories` and `list_documents` filter their own project with `query`, a case-insensitive substring match on title/body and filename/description (not FTS).
 - Query: `search_index MATCH ?` with `bm25()` ranking; results grouped by issue and returned with a snippet.
 - Italian content is expected (Italian SMEs). `unicode61 remove_diacritics` handles accents. Porter stemming is English-only; acceptable for v1. Revisit if Italian stemming matters.
 - Sanitize user queries before passing to MATCH (quote tokens) so agent input can never cause FTS syntax errors.
@@ -467,6 +468,7 @@ Goal: use the MCP server from claude.ai / mobile as a custom connector.
 - **MCP retrieval**: `get_attachment` returns metadata and, for images up to a size cap, an MCP `image` content block so a multimodal agent can actually look at the screenshot.
 - Filenames are sanitized; the on-disk key never contains user-supplied path segments.
 - Deleting an attachment is soft (DB row flagged, file kept). Purge deletes the file.
+- Project **documents** reuse this storage interface and the type allowlist, with a fixed 10 MiB cap (they are not issue attachments); they download from `/files/doc/:id`. See [ADR 0014](docs/adr/0014-project-documentation-memories-and-documents.md).
 
 ---
 
@@ -479,12 +481,13 @@ Goal: use the MCP server from claude.ai / mobile as a custom connector.
   - Delete issue: hides its sub-issues, comments, and attachments.
   - Delete comment: hides its replies and attachments.
   - Delete attachment: hides that attachment.
+  - Delete memory or document: hides just that record (its file is kept until purge). Deleting a project also hides its memories and documents.
 - **Restore**: `restore` tool/endpoint takes a type and id and restores the whole batch. Restoring re-adds search index rows.
 - **Lists** exclude deleted rows by default. `includeDeleted: true` shows them (flagged `deleted: true`) so agents and the dashboard can find and restore items.
 - **Purge (permanent)**:
   - All delete tools accept `purge: boolean` (default false). Purge is only allowed on items that are **already soft-deleted** (two-step by design).
-  - **Agents cannot purge by default** (`ALLOW_AGENT_PURGE=false`). Purge is available to the `you` actor via the dashboard ("Trash" view) and the CLI. Flip the env var if you later want agents to purge.
-  - Purge removes DB rows, search rows, and attachment files. Issue numbers are not reused.
+  - **Agents cannot purge by default** (`ALLOW_AGENT_PURGE=false`). Purge is available to the `you` actor via the dashboard ("Trash" view) and the CLI. Flip the env var if you later want agents to purge. **Exception ([ADR 0015](docs/adr/0015-agents-may-purge-memories-and-documents.md)):** an `agent` may always purge memories and documents, whatever `ALLOW_AGENT_PURGE` says.
+  - Purge removes DB rows, search rows, and attachment and document files. Issue numbers are not reused.
 - **Trash retention**: no automatic purge in v1 (state is small). Optional later: purge items deleted more than N days ago.
 
 ---
@@ -520,6 +523,11 @@ Issues are addressed by **identifier** (`ABC-123`) in URLs; ULIDs are also accep
 | POST | `/issues/:identifier/attachments` | multipart |
 | GET / DELETE | `/attachments/:id` | metadata / soft delete |
 | GET | `/files/:attachmentId` | binary download (also available at root `/files`) |
+| GET / POST | `/projects/:idOrKey/memories` | list (`query`, `tags`, `includeDeleted`) / create |
+| GET / PATCH / DELETE | `/memories/:id` | DELETE accepts `?purge=true`; PATCH honours `If-Match` |
+| GET / POST | `/projects/:idOrKey/documents` | list (`query`, `includeDeleted`) / multipart upload (`file` plus optional `description`) |
+| GET / PATCH / DELETE | `/documents/:id` | PATCH renames or re-describes (bytes never change); DELETE accepts `?purge=true` |
+| GET | `/files/doc/:id` | document download, Bearer auth; same headers as attachment downloads |
 | GET / POST | `/labels` | |
 | PATCH / DELETE | `/labels/:id` | |
 | POST | `/restore` | `{ type, id }` generic restore |
@@ -546,7 +554,7 @@ Concurrency: PATCH accepts optional `If-Match: <updated_at>` (or `expectedUpdate
   4. Responses are compact JSON (as text content, plus `structuredContent`). Omit empty fields. Descriptions truncated in list views (full text in `get_*`).
   5. Errors use `isError: true` with an **actionable** message ("Unknown label 'bugg'. Existing labels: bug, feature, chore. Use save_issue_label to create one.").
   6. Tool descriptions are terse but state enums, defaults, and gotchas, since they cost context on every agent session.
-- Tool list (about 30): see Appendix A.
+- Tool list (30, including the memory and document tools of the knowledge layer): see Appendix A. `get_document` returns `text/markdown`, `text/plain` and `application/json` inline; other types return metadata and a `url` only. Memories and documents are project-scoped, so list and create tools take `project`.
 - Resources and prompts (e.g. `issue://ABC-123`, a "triage backlog" prompt): **deferred**, add after observing real agent usage.
 - Provide an agent snippet (`docs/agent-snippet.md`) teaching agents the workflow conventions (see section 15).
 
@@ -652,7 +660,8 @@ Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existi
   - Comment with progress and decisions, not noise.
   - Attach screenshots for UI bugs.
   - Use labels that already exist; do not invent new ones.
-  - Never delete without being asked; deletes are soft and restorable; do not try to purge.
+  - Review the project's memories (and documents) before starting work; save durable facts and lessons as memories, and prune stale ones.
+  - Never delete issues, comments or other tracker data without being asked; deletes are soft and restorable; do not try to purge those. Memories and documents are the exception (ADR 0015).
   - Assign to `you` when human input or a decision is needed.
 - `docs/mcp-tools.md` generated from the tool definitions.
 
@@ -741,7 +750,7 @@ Each phase ends with passing tests and a short demo.
 - **O11 (RESOLVED): Non-tailnet clients.** v1 agent hosts are Claude Code/Codex on the Mac and the Windows machine, both on the tailnet. CI, cloud agents and phone are unsupported until the OAuth phase.
 - **O12: Memory headroom.** Dashboard adds about 200-400 MB; confirm after the 4 GB swap is in place. Fallback: static dashboard served by the API.
 - **O9: Italian-language search quality.** FTS5 with `unicode61` is language-agnostic but stems English only; revisit if search quality in Italian content is poor.
-- **O10 (RESOLVED): Agent purge.** Disabled by default (`ALLOW_AGENT_PURGE=false`); confirmed.
+- **O10 (RESOLVED): Agent purge.** Disabled by default (`ALLOW_AGENT_PURGE=false`); confirmed. Exception: memories and documents ([ADR 0015](docs/adr/0015-agents-may-purge-memories-and-documents.md)).
 
 ---
 
@@ -1003,6 +1012,8 @@ Undo a soft delete. Restores the item and everything deleted with it in the same
 | Memory | `list_memories`, `get_memory`, `save_memory`, `delete_memory` |
 | Documents | `list_documents`, `get_document`, `create_document`, `update_document`, `delete_document` |
 | Restore | `restore` |
+
+The memory and document tool schemas are not repeated in this appendix; the generated [`docs/mcp-tools.md`](docs/mcp-tools.md) is their reference.
 
 Total: 30 tools. Differences from Linear's MCP: no teams/users/cycles tools; explicit delete and restore tools; attachments uploadable by content or URL; a per-project knowledge layer (memories + documents) Linear has no equivalent for; actor model is `agent` / `you`.
 
