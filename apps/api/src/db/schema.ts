@@ -20,7 +20,8 @@ import {
 } from "drizzle-orm/sqlite-core";
 
 // Spec 6.3. The FTS5 table `search_index` (6.4) is virtual and lives only in
-// the SQL migration; Drizzle does not model it.
+// the SQL migration; Drizzle does not model it. Its `kind` column is free text,
+// so it also holds `memory` and `document` rows (ADR 0014).
 
 const inList = (column: string, values: readonly string[]) =>
   sql.raw(`${column} IN (${values.map((v) => `'${v}'`).join(",")})`);
@@ -255,6 +256,59 @@ export const attachments = sqliteTable(
     deletedBy: text("deleted_by").$type<Actor>(),
   },
   () => [actorCheck("attachments_actor_check", "actor")],
+);
+
+export const memories = sqliteTable(
+  "memories",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    tags: text("tags").notNull().default("[]"),
+    createdBy: text("created_by").$type<Actor>().notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+    deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
+  },
+  (t) => [
+    actorCheck("memories_created_by_check", "created_by"),
+    index("memories_project")
+      .on(t.projectId)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
+);
+
+export const documents = sqliteTable(
+  "documents",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storageKey: text("storage_key").notNull(),
+    sha256: text("sha256").notNull(),
+    description: text("description").notNull().default(""),
+    createdBy: text("created_by").$type<Actor>().notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+    deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
+  },
+  (t) => [
+    actorCheck("documents_created_by_check", "created_by"),
+    index("documents_project")
+      .on(t.projectId)
+      .where(sql`${t.deletedAt} IS NULL`),
+  ],
 );
 
 export const activity = sqliteTable(
