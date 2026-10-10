@@ -8,7 +8,7 @@ import { ProjectTitle } from "@/components/project/project-title";
 import { PageHeader } from "@/components/traccia/page-header";
 import { getProjectOr404 } from "@/lib/api/projects";
 
-/** Header and Overview / Activity / Issues tabs shared by the project's three sub-pages. */
+/** Header and Overview / Activity / Issues / Documentation tabs shared by the project's sub-pages. */
 export default async function ProjectLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
   const project = await getProjectOr404(id);
