@@ -283,7 +283,7 @@ Settings → Connectors → Add custom connector. Name it anything, URL `https:/
 | `opencode mcp list` prints the top-level help instead of the servers (Windows) | A PowerShell function or alias named `opencode` is shadowing the binary — common when a wrapper injects `--auto`. Call the real one (`& "$env:APPDATA\npm\node_modules\opencode-ai\bin\opencode.exe" mcp list`) or fix the wrapper so subcommands pass through unchanged. |
 | Codex logs `` `mcp` is ignored `` | The `[mcp]` table is not a recognised setting in Codex 0.160.0. Harmless; the `[mcp_servers.*]` entries are what matter. |
 | `429 Too Many Requests` | The token exceeded its per-minute request limit (default 120 per minute). The response carries a `Retry-After` header; wait that long, and avoid tight loops; use `list_issues` filters and `limit` instead of fetching everything. |
-| Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge unless the server has agent purge switched on, and deletes are soft and restorable. Ask the owner to purge from the dashboard. |
+| Tools listed but a call fails with `Agents cannot purge` or `forbidden` | Expected. Agents cannot purge unless the server has agent purge switched on, and deletes are soft and restorable. Ask the owner to purge from the dashboard. (Memories and documents are the exception: agents may purge those.) |
 
 ## Not supported
 

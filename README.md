@@ -36,7 +36,8 @@ Ask before anything destructive. Read hostnames and logins from the machine; nev
 ## What it is
 
 - Issues with projects, milestones, labels, sub-issues, priorities, estimates and blockers.
-- Twenty-one MCP tools, so agents create and update their own work. The list is in [`docs/mcp-tools.md`](docs/mcp-tools.md).
+- A per-project knowledge layer: memories (titled markdown notes with tags) and documents (files) that agents read before they start work. Both are searchable, soft-deleted and restorable.
+- Thirty MCP tools, so agents create and update their own work and read the project's knowledge. The list is in [`docs/mcp-tools.md`](docs/mcp-tools.md).
 - A dashboard with a table grouped by status, and a Kanban board.
 - Attachments, full-text search, and soft delete with restore.
 - Two actors only, `you` and `agent`. Every write is attributed.
@@ -109,10 +110,10 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `PORT` | api | `8787` | HTTP port. Fixed to `8787` in the compose file |
 | `DATA_DIR` | api | `/data` | SQLite file and attachments. Fixed to `/data` (the data volume, `traccia-data`) in the compose file |
 | `BASE_URL` | api | required | Externally visible URL, e.g. `https://<your-tailnet-host>`; used to build attachment links |
-| `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap (10 MiB) |
+| `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap (10 MiB) for attachments |
 | `MAX_MCP_UPLOAD_BYTES` | api | `5242880` | Base64 upload cap over MCP (5 MiB) |
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key used when a project is created without one |
-| `ALLOW_AGENT_PURGE` | api | `false` | Whether `agent` tokens may purge |
+| `ALLOW_AGENT_PURGE` | api | `false` | Whether `agent` tokens may purge. Agents may always purge memories and documents, whatever this says |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Requests per minute, per token |
 | `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Requests per minute, per `you` token (the dashboard fans out several requests per page). Agent tokens keep `RATE_LIMIT_PER_MIN` |
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |
@@ -139,7 +140,7 @@ A daily SQLite snapshot on the server (last 3 kept), a manual pull of the newest
 - **Tailnet only.** Nothing listens on a public interface, and Funnel stays off. Bearer tokens decide which actor is calling.
 - **Tokens.** One per machine or agent, bound to one actor, stored hashed, shown once, revoked immediately. There is no public token endpoint.
 - **Dashboard access** trusts the `Tailscale-User-Login` header that `tailscale serve` adds ([ADR 0008](docs/adr/0008-dashboard-access-identity-header-only.md)). Another process on the server could forge it; revisit if the host ever runs third-party code.
-- **Agents cannot purge.** Deletes are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)).
+- **Agents cannot purge issues and other tracker data.** Deletes are soft and restorable ([ADR 0004](docs/adr/0004-soft-delete-batches-restricted-purge.md)). Memories and documents are the exception: an agent may purge them, because they are a pruned store ([ADR 0015](docs/adr/0015-agents-may-purge-memories-and-documents.md)).
 
 ## Documentation
 

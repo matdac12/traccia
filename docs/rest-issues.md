@@ -29,6 +29,15 @@ All routes live under `/v1` and need a bearer token; every write is stamped with
 
 `GET /v1/activity?project=&limit=&cursor=`: newest first, each row with `identifier`, `title`, `actor`, `type` and parsed `data`. `project` (id, name or key, resolved like the issue list's `project` filter) limits it to that project's issues; an unknown project is a 404. Activity of deleted issues is hidden until restore.
 
+## Memories and documents
+
+The knowledge layer (ADR 0014) is project-scoped; the tool-level reference is [mcp-tools.md](mcp-tools.md).
+
+- `GET|POST /v1/projects/:idOrKey/memories`, `GET|PATCH|DELETE /v1/memories/:id`. List filters: `query` (substring of title or body), `tags` (repeated or comma-separated; all required), `includeDeleted`, `limit`, `cursor`. Body is `{ title, body, tags }`; `PATCH` takes the same optional `If-Match` / `expectedUpdatedAt` as issues.
+- `GET|POST /v1/projects/:idOrKey/documents` (POST is multipart: one `file` part, optional `description` field; max 10 MiB), `GET|PATCH|DELETE /v1/documents/:id`. `PATCH` changes only `filename` and `description`. Responses carry `url` (`<BASE_URL>/files/doc/<id>`) and a ready-to-paste `markdown` snippet.
+- `GET /files/doc/:id` downloads the file with Bearer auth (never public), `Content-Type` from the stored type, `nosniff`, no caching.
+- `DELETE` soft-deletes; `?purge=true` removes an already-deleted memory or document, and unlike other types agents may do this (ADR 0015). Restore through `POST /v1/restore` with type `memory` or `document`.
+
 ## Trash
 
 `GET /v1/trash?type=&limit=&cursor=`: deleted items of every type, newest deletion first. Generic `POST /v1/restore` belongs to TRC-31.
