@@ -39,6 +39,22 @@ type Upload = {
 };
 
 /**
+ * Stops parsing and discards the rest of the request body, up to `limit`
+ * bytes. Cancelling the body outright races the producer's in-flight chunk
+ * (undici then enqueues into a closed stream and rejects unhandled); past the
+ * limit we give up and destroy it.
+ */
+function discardRest(source: Readable, busboy: Busboy.Busboy, limit: number) {
+  source.unpipe(busboy);
+  let discarded = 0;
+  source.on("data", (chunk: Buffer) => {
+    discarded += chunk.length;
+    if (discarded > limit) source.destroy();
+  });
+  source.on("error", () => {});
+}
+
+/**
  * Streams the single file part of a multipart request into storage while
  * validating it. On any failure the stored object (if any) is removed.
  */
@@ -117,8 +133,7 @@ async function receiveUpload(
     }
     return { storageKey, filename, result, commentId };
   } catch (err) {
-    source.unpipe(busboy);
-    source.destroy();
+    discardRest(source, busboy, maxBytes);
     await storage.delete(storageKey).catch(() => {});
     if (err instanceof AttachmentValidationError) {
       throw new ValidationError(err.message, { reason: err.code });
