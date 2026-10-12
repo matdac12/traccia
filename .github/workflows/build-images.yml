@@ -10,7 +10,15 @@ name: Build and publish images
 on:
   push:
     branches: [main]
+    paths: &image-inputs
+      - "apps/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/build-images.yml"
   pull_request:
+    paths: *image-inputs
   workflow_dispatch:
 
 concurrency:
@@ -72,3 +80,25 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  # Every push to main mints a new <sha12> tag; keep only the newest few so the
+  # package does not grow forever. `latest` is on the newest version, so it is
+  # always kept. deploy.sh prunes the VPS the same way (KEEP_TAGS).
+  prune:
+    name: Prune old GHCR tags
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, web]
+    steps:
+      - name: Keep the newest 10 versions of traccia-${{ matrix.app }}
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: traccia-${{ matrix.app }}
+          package-type: container
+          min-versions-to-keep: 10
