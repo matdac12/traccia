@@ -41,11 +41,11 @@ The script tags both images with the git short SHA (plus `-dirty-<timestamp>` if
 The Mac and this Linux box are the same machine, dual-booted, and the Linux side is aarch64 where a `linux/amd64` build dies in V8 under qemu. So when you are on the Linux side, deploy the image CI built instead of building locally:
 
 ```sh
-git push origin main    # or merge the PR: CI builds on every push to main
+git push origin main    # or merge the PR: CI builds when the push touches apps/, packages/ or the manifests
 DEPLOY_HOST=<your-server> deploy/deploy.sh --ci
 ```
 
-`--ci` deploys `origin/main` (it warns if that is not your local HEAD), refuses a dirty working tree, waits for the GHCR image tagged with that commit's first 12 characters, then pulls it on the VPS and retags it to the local `traccia-api`/`traccia-web` names before running the same restart, health and prune steps. The workflow is [`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml); the reasoning is in [ADR 0016](../docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md). CI images are public under `ghcr.io/<owner>/traccia-api` and `-web`, so the VPS needs no registry login.
+`--ci` deploys the newest `origin/main` commit that produced an image (a docs-only tip builds nothing, so it falls back to the last code commit; it warns if that is not your local HEAD), refuses a dirty working tree, waits for the GHCR image tagged with that commit's first 12 characters, then pulls it on the VPS and retags it to the local `traccia-api`/`traccia-web` names before running the same restart, health and prune steps. The workflow is [`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml); the reasoning is in [ADR 0016](../docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md). CI images are public under `ghcr.io/<owner>/traccia-api` and `-web`, so the VPS needs no registry login, and old GHCR versions are pruned to the newest 10.
 
 Set `DEPLOY_HOST` to the ssh alias or hostname of your server (required: the script has no default and exits if it is unset, e.g. `DEPLOY_HOST=my-vps deploy/deploy.sh`). Optional: `DEPLOY_DIR` (default `/opt/tracker`).
 

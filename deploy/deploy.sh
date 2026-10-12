@@ -40,9 +40,23 @@ else
   fi
   git fetch --quiet origin main
   TARGET_SHA="$(git rev-parse origin/main)"
-  TAG="${TARGET_SHA:0:12}"
   if [[ "$(git rev-parse HEAD)" != "$TARGET_SHA" ]]; then
-    echo "warning: --ci deploys origin/main ($TAG), not your local HEAD" >&2
+    echo "warning: --ci deploys origin/main, not your local HEAD" >&2
+  fi
+
+  # The workflow builds only commits that touch image inputs (its `paths` filter), so a
+  # docs-only tip has no image: deploy the newest commit that does. `--first-parent` matches
+  # what CI tagged, because a PR merge builds the merge commit, not the branch commit. Keep
+  # this list in sync with `paths` in .github/workflows/build-images.yml.
+  IMAGE_INPUTS=(apps packages package.json pnpm-lock.yaml pnpm-workspace.yaml .github/workflows/build-images.yml)
+  BUILT_SHA="$(git log --first-parent -1 --format=%H "$TARGET_SHA" -- "${IMAGE_INPUTS[@]}")"
+  if [[ -z "$BUILT_SHA" ]]; then
+    echo "error: no image-producing commit found on origin/main" >&2
+    exit 1
+  fi
+  TAG="${BUILT_SHA:0:12}"
+  if [[ "$BUILT_SHA" != "$TARGET_SHA" ]]; then
+    echo "note: origin/main ($(printf '%.12s' "$TARGET_SHA")) changes no image inputs; deploying the newest image commit ($TAG)" >&2
   fi
 
   # ghcr.io/<owner>/traccia-api and -web, where <owner> is parsed from the origin remote.
