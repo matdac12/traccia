@@ -89,8 +89,14 @@ names and the token value; run it before changing anything around the client.
   the shadcn CLI or copy from the prototype; imports use `@/lib/utils`.
 - `components/traccia/*`: app components (shell, `StatusIcon`, `ActorAvatar`, `AgentMark`, `PageHeader`, `EmptyState`).
   Client components only where state or events need them (`"use client"` at the top); the shell is the only big one.
-- Dense rows (~36 px), hairline borders, no heavy shadows. Color appears only in status icons, priority, labels and
+- Dense rows (~38 px), hairline borders, no heavy shadows. Color appears only in status icons, priority, labels and
   the agent mark.
+- **Issues table rows.** Sub-issues are nested under their parent when both are in the same section (`nestRows` in
+  `components/issues-table/group-rows.ts`), with tree connectors; a sub-issue whose parent is in another section keeps
+  the `↳ TRC-n` marker. A cyan dot at the row's left edge marks every issue the agent created. Below 768 px a row is
+  two lines (status, title up to two lines, updated / identifier, markers, labels, assignee) instead of a 860 px wide
+  table, and the Milestone and Est. columns are hidden; from 768 px it is one flat line, with `md:order-*` classes
+  placing the cells in column order.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
   them. The selectable accent (TRC-57) overrides just those three. Status colors (`--st-*`)

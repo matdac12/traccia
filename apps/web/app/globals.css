@@ -45,12 +45,14 @@
   --sidebar-border: #e8e8ec;
   --sidebar-ring: var(--brand-ring);
   --agent: #06b6d4;
-  --st-backlog: #9a9ea8;
+  /* Status icons are the only status cue in a row, so each is held to 3:1 on the background. */
+  --st-backlog: #858995;
   --st-todo: #7b7f89;
-  --st-progress: #e2a72e;
+  --st-progress: #bd8100;
   --st-review: #2fa66a;
   --st-done: #3b6fe0;
-  --st-canceled: #9a9ea8;
+  --st-canceled: #858995;
+  --st-on: #ffffff;
 }
 
 .dark {
@@ -91,6 +93,7 @@
   --st-review: #4cc38a;
   --st-done: #5b8def;
   --st-canceled: #6b6f79;
+  --st-on: #ffffff;
 }
 
 /* UI font (TRC-57): `data-font` on <html> picks what `font-sans` means. Code stays Geist Mono. */

@@ -56,6 +56,39 @@ export function buildSections(groups: { status: IssueStatus; items: IssueRow[] }
   return keys.filter((k) => out.has(k)).map((k) => ({ key: `${groupBy}:${k}`, raw: k, title: titles.get(k) ?? k, items: out.get(k)! }));
 }
 
+/** A row of one section and its place in the sub-issue tree. `guides[k]` says whether the connector at level k keeps going past this row; `hasChildren` rows start one below their icon. */
+export type TreeRow = { row: IssueRow; depth: number; last: boolean; guides: boolean[]; hasChildren: boolean };
+
+/**
+ * Puts each sub-issue right after its parent when both are in the same section, in the section's own order, and says
+ * where the connectors go. A row whose parent is elsewhere (another status, not loaded) stays a root; the table marks
+ * it with the parent's identifier instead.
+ */
+export function nestRows(rows: IssueRow[]): TreeRow[] {
+  const ids = new Set(rows.map((r) => r.id));
+  const kids = new Map<string, IssueRow[]>();
+  const roots: IssueRow[] = [];
+  for (const r of rows) {
+    if (r.parentId && r.parentId !== r.id && ids.has(r.parentId)) kids.set(r.parentId, [...(kids.get(r.parentId) ?? []), r]);
+    else roots.push(r);
+  }
+  const out: TreeRow[] = [];
+  const seen = new Set<string>();
+  const walk = (row: IssueRow, depth: number, last: boolean, guides: boolean[]) => {
+    if (seen.has(row.id)) return;
+    seen.add(row.id);
+    const children = kids.get(row.id) ?? [];
+    out.push({ row, depth, last, guides, hasChildren: children.length > 0 });
+    children.forEach((c, i) => {
+      walk(c, depth + 1, i === children.length - 1, depth > 0 ? [...guides, !last] : []);
+    });
+  };
+  for (const r of roots) walk(r, 0, true, []);
+  // A parent cycle has no root; its rows still show, as roots.
+  for (const r of rows) walk(r, 0, true, []);
+  return out;
+}
+
 /** Finished / total of each parent's loaded sub-issues (a filtered or paged list only knows part of them). */
 export function subIssueCounts(rows: IssueRow[]): Map<string, { done: number; total: number }> {
   const out = new Map<string, { done: number; total: number }>();
