@@ -53,7 +53,7 @@ Teams, multiple users, permissions, cycles/sprints, custom statuses, custom fiel
 | 18 | Search | SQLite FTS5 over issue titles, descriptions and comments, (memory and document rows are also kept in the index; see 6.4) |
 | 19 | Quality bar | Service-layer unit tests + MCP end-to-end tests; README + `docs/agent-snippet.md` |
 | 20 | Network | **Everything tailnet-only** via Tailscale (`tailscale serve`), one MagicDNS hostname, path-routed. No public exposure, no domain required. A custom domain remains optional (config placeholder `<BASE_URL>`) |
-| 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`<your-server>`); images built on the dev Mac and loaded with `docker save \| ssh <your-server> docker load` (no registry, no CI); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
+| 21 | Deployment | **Docker Compose** in `/opt/tracker` on the VPS (`<your-server>`); images built on the dev Mac by default, or by CI on amd64 runners and pulled from GHCR when the Mac is unavailable ([ADR 0016](docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)); 4 GB swapfile; Biome + pnpm workspaces. Published by `tailscale serve` on port 443 (see 3.1) |
 | 22 | Rollout | Build, pilot on one new project for 1-2 weeks, then import + cut over |
 | 23 | Knowledge | Per-project **Documentation**: **memories** (titled markdown + free-form tags) and **documents** (files). Project-scoped, editable in place, soft-delete with agent purge allowed for these two types. Decoupled from issues (link a document by URL). See [ADR 0014](docs/adr/0014-project-documentation-memories-and-documents.md), [ADR 0015](docs/adr/0015-agents-may-purge-memories-and-documents.md) |
 
@@ -106,7 +106,7 @@ Principles:
 ## 4. Prerequisites (do before any build work)
 
 1. **Add a 4 GB swapfile on the VPS** (decided). The box has no swap and about 1.9 GiB available; any spike invokes the OOM killer. This is the one change to the shared VPS and needs the owner's explicit go-ahead when it is done.
-2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built on the dev Mac (linux/amd64), using Next.js `output: 'standalone'` for the dashboard, and loaded onto the VPS over the tailnet. The VPS only runs `node server.js` inside the containers. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
+2. **Never run `next build` or `next dev` on the VPS.** Both images (`api` and `web`) are built on the dev Mac (linux/amd64) by default, using Next.js `output: 'standalone'` for the dashboard, and loaded onto the VPS over the tailnet. When the Mac is unavailable, CI builds them natively on an amd64 runner and the VPS pulls them from GHCR ([ADR 0016](docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)). Either way the VPS only runs `node server.js` inside the containers. `better-sqlite3` ships prebuilt binaries for common platforms; verify that the image gets one rather than compiling.
 3. **VPS inspection (DONE, 2026-10-04).** `<your-server>`: Ubuntu 24.04 x86_64, 2 vCPU, 3.7 GiB RAM, no swap, 11 GB disk free, Docker 29.5 (only a Postgres container; other apps run under systemd), Tailscale 1.102.4, no backup process, ports 3000 and 8787 free. Port 443 was taken by an old serve entry and has since been freed.
 4. **No Tailscale ACL tag** in v1 (see 3.1).
 
@@ -629,7 +629,7 @@ Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existi
 - `tailscale serve` is the only publisher (3.1), on port 443.
 - Single data directory (`/data` volume), config from env vars.
 - `GET /healthz` on the API for container health checks.
-- Images built on the dev Mac (linux/amd64, buildx) and shipped with `docker save | ssh <your-server> docker load`, then `docker compose up -d`. No registry, no CI in v1. A deploy script in the repo wraps these steps. No builds on the VPS.
+- Images built on the dev Mac (linux/amd64, buildx) and shipped with `docker save | ssh <your-server> docker load`, then `docker compose up -d`. A deploy script in the repo wraps these steps. When the Mac is not available, CI builds the images on an amd64 runner and pushes them to GHCR, and `deploy/deploy.sh --ci` pulls them on the VPS ([ADR 0016](docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)). No builds on the VPS either way.
 - Memory limits: `api` 256 MB, `web` 512 MB, with a 4 GB swapfile on the host.
 - Repo tooling: Biome (lint and format) and pnpm workspaces; pnpm is dev-only.
 - Docker caveat: published ports must be bound to `127.0.0.1` (e.g. `127.0.0.1:8787:8787`); Docker's default publishing bypasses some firewall rules.
@@ -699,7 +699,7 @@ Docker Compose in `/opt/tracker/` on `<your-server>`, same pattern as the existi
 Each phase ends with passing tests and a short demo.
 
 **Phase 0: Prerequisites**
-- Add 4 GB swapfile (needs explicit go-ahead). Create repo and tooling (Biome, pnpm workspaces), Dockerfiles, and the build-on-Mac deploy script (no CI). VPS inspection and domain placement are already decided.
+- Add 4 GB swapfile (needs explicit go-ahead). Create repo and tooling (Biome, pnpm workspaces), Dockerfiles, and the build-on-Mac deploy script, with a CI fallback that publishes to GHCR ([ADR 0016](docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)). VPS inspection and domain placement are already decided.
 
 **Phase 1: Core service + DB**
 - Schema, migrations, config, service layer for projects, milestones, issues, labels, comments, relations, activity, soft delete/restore, FTS.

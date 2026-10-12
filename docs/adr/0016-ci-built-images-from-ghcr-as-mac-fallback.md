@@ -1,0 +1,9 @@
+# Build on the Mac by default, fall back to CI-built images pulled from GHCR
+
+[ADR 0009](0009-docker-compose-images-built-on-mac.md) makes the Mac the only builder and ships images with `docker save | ssh <your-server> docker load`. That assumes the Mac is always there to build. It is not: the Mac and the Linux box are the same physical machine, dual-booted, so while we are on the Linux side the Mac cannot be reached. The Linux side is aarch64, where a linux/amd64 build dies in Node's V8 under qemu, so it cannot build the image either. The work is blocked until we switch operating systems.
+
+So the Mac stays the default and a GitHub Actions workflow becomes the fallback. `deploy/deploy.sh` is unchanged: it still builds both images with buildx on this machine and ships them over ssh. A new `deploy/deploy.sh --ci` instead resolves `origin/main`, waits for the image the workflow published, pulls it on the VPS and retags it to the local names the compose file already uses, then runs the same restart, health and prune steps. One compose file and one deploy path serve both modes.
+
+The workflow builds `linux/amd64` natively on an `ubuntu-latest` runner and pushes to `ghcr.io/<owner>/traccia-api` and `-web`, tagged with the first 12 characters of the commit SHA and, on main, `latest`. It runs on every push to main and on pull requests (which build but do not push, so the workflow is exercised before it lands). The packages are public because the repo is public, so the VPS pulls them anonymously.
+
+Consequences: GHCR becomes a dependency and `--ci` deploys only committed, pushed code — a dirty tree still needs the Mac path, which is the preferred one anyway. The VPS continues to never build anything (the reason for ADR 0009 stands): CI builds on a big amd64 runner and the VPS only pulls. This supersedes the "no registry, no CI" part of ADR 0009; the rest of it (Compose on the VPS, localhost binding, memory limits, swapfile) is unchanged.
