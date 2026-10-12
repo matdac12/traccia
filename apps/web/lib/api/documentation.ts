@@ -7,11 +7,16 @@ const PAGE_SIZE = 100;
 /** A project's documentation is small by design; this bounds the walk over its pages. */
 const MAX_PAGES = 10;
 
+/** Drop empty filters: the API's `query` is `.min(1)`, so an absent search must be omitted, not sent as `?query=`. */
+const definedFilters = (query: Record<string, string | readonly string[] | undefined>) =>
+  Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)));
+
 async function listAll<S extends z.ZodType>(path: string, schema: S, query: Record<string, string | readonly string[] | undefined>): Promise<z.output<S>[]> {
   const items: z.output<S>[] = [];
+  const filters = definedFilters(query);
   let cursor: string | undefined;
   for (let i = 0; i < MAX_PAGES; i++) {
-    const page = await api().request(path, { schema: pageOf(schema), query: { ...query, limit: PAGE_SIZE, cursor } });
+    const page = await api().request(path, { schema: pageOf(schema), query: { ...filters, limit: PAGE_SIZE, cursor } });
     items.push(...page.items);
     if (!page.nextCursor) break;
     cursor = page.nextCursor;
