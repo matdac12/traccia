@@ -25,6 +25,8 @@ beforeEach(() => {
     if (path === "/v1/labels") return json({ items: [], nextCursor: null });
     if (path === "/v1/issues/groups") return json({ groups: [], syncToken: "t" });
     if (path === "/v1/activity") return json({ items: [], nextCursor: null });
+    if (path === "/v1/projects/p1/memories") return json({ items: [], nextCursor: null });
+    if (path === "/v1/projects/p1/documents") return json({ items: [], nextCursor: null });
     return new Response("unexpected " + path, { status: 500 });
   });
 });
@@ -76,5 +78,28 @@ describe("project pages", () => {
     for (const { default: Page } of await Promise.all(pages)) {
       await expect(Page({ params: Promise.resolve({ id: "nope" }), searchParams: Promise.resolve({}) })).rejects.toThrow("NEXT_NOT_FOUND");
     }
+  });
+
+  it("Documentation omits an empty search: the API's query schema is .min(1), so ?query= is a 400 (TRC-136)", async () => {
+    const { default: MemoryPage } = await import("../app/(app)/projects/[id]/documentation/page");
+    await MemoryPage({ params: Promise.resolve({ id: "p1" }), searchParams: Promise.resolve({}) });
+    const memories = urls().find((u) => u.pathname === "/v1/projects/p1/memories");
+    expect(memories).toBeDefined();
+    expect(memories?.searchParams.has("query")).toBe(false);
+    expect(memories?.searchParams.has("tags")).toBe(false);
+
+    fetchMock.mockClear();
+    const { default: FilesPage } = await import("../app/(app)/projects/[id]/documentation/files/page");
+    await FilesPage({ params: Promise.resolve({ id: "p1" }), searchParams: Promise.resolve({}) });
+    const documents = urls().find((u) => u.pathname === "/v1/projects/p1/documents");
+    expect(documents).toBeDefined();
+    expect(documents?.searchParams.has("query")).toBe(false);
+  });
+
+  it("Documentation passes ?q= and ?tag= through to the memories request", async () => {
+    const { default: MemoryPage } = await import("../app/(app)/projects/[id]/documentation/page");
+    await MemoryPage({ params: Promise.resolve({ id: "p1" }), searchParams: Promise.resolve({ q: "foo", tag: "bar" }) });
+    const memories = urls().filter((u) => u.pathname === "/v1/projects/p1/memories");
+    expect(memories.some((u) => u.searchParams.get("query") === "foo" && u.searchParams.get("tags") === "bar")).toBe(true);
   });
 });
