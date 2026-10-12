@@ -34,7 +34,7 @@ const INDENT = 20;
  * the height of the status icon's centre, so the connectors meet the icon on both layouts.
  */
 const ROW = [
-  "group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1 border-b border-border/60 px-4 py-2.5 text-[13px] [--gutter:1rem] [--mid:20px]",
+  "group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 gap-y-1 border-b border-border/60 px-4 py-2.5 text-[13px] [--gutter:1rem] [--mid:20px]",
   "transition-colors duration-150 hover:bg-accent/45 focus-within:bg-accent/50 data-[state=open]:bg-accent/50",
   "has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring/50",
   "md:flex md:h-[38px] md:items-center md:gap-3 md:py-0 md:[--gutter:7.75rem] md:[--mid:19px]",
@@ -146,19 +146,19 @@ export function IssuesTable({
                 const sub = children.get(i.id);
                 return (
                 <IssueContextMenu key={i.id} issue={i} menu={menu}>
-                {/* Phone: a grid of two lines (status, title, time / identifier, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
+                {/* Phone: a grid of two lines (status and title / identifier, updated, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
                 <div data-depth={t.depth} style={{ "--indent": `${t.depth * INDENT}px` } as CSSProperties} className={ROW}>
                   {i.createdBy === "agent" && <span role="img" aria-label="Created by the agent" className="absolute top-[var(--mid)] left-1.5 size-1.5 -translate-y-1/2 rounded-full bg-agent" />}
                   <Connectors tree={t} />
                   <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
                   {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
-                  <Link href={`/issues/${i.identifier}`} className="col-start-2 row-start-1 line-clamp-2 min-w-0 rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:line-clamp-none md:truncate">{i.title}</Link>
-                  <time suppressHydrationWarning dateTime={i.updatedAt} className="col-start-3 row-start-1 pt-px text-right text-xs leading-5 text-muted-foreground tabular-nums md:order-[11] md:w-12 md:shrink-0 md:pt-0 md:leading-normal">{timeAgo(i.updatedAt)}</time>
-                  <div className="col-span-2 col-start-2 row-start-2 flex min-w-0 items-center gap-2.5 text-[11px] md:contents">
+                  <Link href={`/issues/${i.identifier}`} className="col-start-2 row-start-1 line-clamp-3 min-w-0 rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:line-clamp-none md:truncate">{i.title}</Link>
+                  <div className="col-start-2 row-start-2 flex min-w-0 items-center gap-2.5 text-[11px] md:contents">
                     <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground md:order-1 md:w-[96px]">
                       <PriorityPicker issue={i} editor={editor} />
                       {i.identifier}
                     </span>
+                    <time suppressHydrationWarning dateTime={i.updatedAt} className="shrink-0 text-xs text-muted-foreground tabular-nums md:order-[11] md:w-12 md:text-right">{timeAgo(i.updatedAt)}</time>
                     {t.depth === 0 && i.parentId && (
                       <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground md:order-4">
                         <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent ?? "parent"}
