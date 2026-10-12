@@ -94,7 +94,7 @@ names and the token value; run it before changing anything around the client.
 - **Issues table rows.** Sub-issues are nested under their parent when both are in the same section (`nestRows` in
   `components/issues-table/group-rows.ts`), with tree connectors; a sub-issue whose parent is in another section keeps
   the `↳ TRC-n` marker. A cyan dot at the row's left edge marks every issue the agent created. Below 768 px a row is
-  two lines (status, title up to two lines, updated / identifier, markers, labels, assignee) instead of a 860 px wide
+  two lines (status and title, up to three lines / identifier, updated, markers, labels, assignee) instead of a 860 px wide
   table, and the Milestone and Est. columns are hidden; from 768 px it is one flat line, with `md:order-*` classes
   placing the cells in column order.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
