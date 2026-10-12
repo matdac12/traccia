@@ -1,13 +1,14 @@
 # Deploying to a VPS
 
-Docker Compose in `/opt/tracker` on the VPS (`<your-server>`). Images are built on the Mac for `linux/amd64`, shipped with `docker save | ssh <your-server> docker load`, and started with `docker compose up -d`. No registry, no CI, and nothing is ever built on the VPS (spec 14.1, 4).
+Docker Compose in `/opt/tracker` on the VPS (`<your-server>`). Images are built on the Mac for `linux/amd64` and shipped with `docker save | ssh <your-server> docker load`, or — when the Mac is not available — built by CI on an amd64 runner and pulled from GHCR ([ADR 0016](../docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)). Either way they are started with `docker compose up -d`, and nothing is ever built on the VPS (spec 14.1, 4).
 
 | File | Purpose |
 |------|---------|
-| `deploy.sh` | Run on the Mac: build, ship, restart, wait for health |
+| `deploy.sh` | Build and deploy: on the Mac build + ship; with `--ci` pull the CI-built images and restart |
 | `docker-compose.yml` | Copied to `/opt/tracker` by `deploy.sh` |
 | `.env.example` | Template for `/opt/tracker/.env` |
 | `backup/` | Daily snapshot timer for the VPS and the Windows pull script; see [`docs/backup-restore.md`](../docs/backup-restore.md) |
+| [`../.github/workflows/build-images.yml`](../.github/workflows/build-images.yml) | CI fallback: build `linux/amd64` on an amd64 runner, push to GHCR |
 
 Both services publish to `127.0.0.1` only (`8787` api, `3000` web). `tailscale serve` is the only thing that exposes them to the tailnet (spec 3.1).
 
@@ -24,6 +25,8 @@ The `ssh <your-server>` alias sets `RemoteCommand` and `RequestTTY`, so scripts 
 
 ## Deploy
 
+### From the Mac (default)
+
 From the repo root on the Mac (Docker Desktop running):
 
 ```sh
@@ -32,6 +35,17 @@ deploy/deploy.sh
 ```
 
 The script tags both images with the git short SHA (plus `-dirty-<timestamp>` if the tree has uncommitted changes) and `latest`, loads them on `<your-server>`, runs `TAG=<sha> docker compose up -d`, polls `http://127.0.0.1:8787/healthz` on the VPS, and removes images older than the last 3 deployed tags. Deployed tags are appended to `/opt/tracker/deployed-tags` (the last line is the current one).
+
+### From anywhere, via CI (`--ci`)
+
+The Mac and this Linux box are the same machine, dual-booted, and the Linux side is aarch64 where a `linux/amd64` build dies in V8 under qemu. So when you are on the Linux side, deploy the image CI built instead of building locally:
+
+```sh
+git push origin main    # or merge the PR: CI builds on every push to main
+DEPLOY_HOST=<your-server> deploy/deploy.sh --ci
+```
+
+`--ci` deploys `origin/main` (it warns if that is not your local HEAD), refuses a dirty working tree, waits for the GHCR image tagged with that commit's first 12 characters, then pulls it on the VPS and retags it to the local `traccia-api`/`traccia-web` names before running the same restart, health and prune steps. The workflow is [`.github/workflows/build-images.yml`](../.github/workflows/build-images.yml); the reasoning is in [ADR 0016](../docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md). CI images are public under `ghcr.io/<owner>/traccia-api` and `-web`, so the VPS needs no registry login.
 
 Set `DEPLOY_HOST` to the ssh alias or hostname of your server (required: the script has no default and exits if it is unset, e.g. `DEPLOY_HOST=my-vps deploy/deploy.sh`). Optional: `DEPLOY_DIR` (default `/opt/tracker`).
 
@@ -107,7 +121,7 @@ The images, Compose project and data volume were called `tracker` before the ren
 3. **Keep the old compose file.** `deploy.sh` overwrites `/opt/tracker/docker-compose.yml`, so rollback needs a copy: `cp -p /opt/tracker/docker-compose.yml /opt/tracker/docker-compose.tracker.yml.bak`.
 4. **Pin the volume.** First check that `.env` ends with a newline (`tail -c1 /opt/tracker/.env | xxd` shows `0a`), or the new line is glued to the last variable. Then `echo TRACCIA_DATA_VOLUME=tracker_tracker-data >> /opt/tracker/.env`. Without it Compose creates a new, empty `traccia-data` volume.
 5. **Install the renamed snapshot units without enabling them.** `scp deploy/backup/traccia-snapshot.{service,timer} <your-server>:/tmp/`, then `install -m 644` them into `/etc/systemd/system/` and `systemctl daemon-reload`. The author's server logs in as root; otherwise use `sudo`.
-6. **Stop the old project, then deploy.** `cd /opt/tracker && docker compose -p tracker down` (keeps volumes), then `deploy/deploy.sh` from the Mac. `deploy.sh` refuses to continue while the old project is running. Compose prints a warning that `tracker_tracker-data` "was created for project tracker"; it is expected and harmless.
+6. **Stop the old project, then deploy.** `cd /opt/tracker && docker compose -p tracker down` (keeps volumes), then deploy: `deploy/deploy.sh` from the Mac, or `deploy/deploy.sh --ci` when the Mac is not available. `deploy.sh` refuses to continue while the old project is running. Compose prints a warning that `tracker_tracker-data` "was created for project tracker"; it is expected and harmless.
 7. **Verify.** `/healthz` through the tailnet URL, the dashboard (`/issues` returns 200), unauthenticated `/mcp` returns 401, the same issue and project counts, and `ss -ltn` shows only `127.0.0.1:8787` and `127.0.0.1:3000`. On the server, `docker compose exec -T api node dist/traccia.js token list` shows the dashboard token's `last used` updating after you load a dashboard page, so the web reached the api.
 8. **Switch the snapshot timer.** `systemctl enable --now traccia-snapshot.timer`, `systemctl disable --now tracker-snapshot.timer`, `systemctl start traccia-snapshot.service` once, check the journal and `systemctl list-timers`. Do not leave both enabled. The old unit fails while no api is running (between the `down` and the deploy), so switch the same day.
 

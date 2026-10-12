@@ -4,12 +4,12 @@ You are one small server and one tailnet away from your own tracker. This page i
 
 ## How this guide installs Traccia
 
-There is no published Traccia image and no CI to publish one. The repo ships a [compose file](../deploy/docker-compose.yml) and two Dockerfiles, and the images are built from source. So this guide builds `traccia-api` and `traccia-web` from the repo and starts them with the checked-in compose file:
+There is no hosted Traccia and nothing to sign up for. The repo ships a [compose file](../deploy/docker-compose.yml) and two Dockerfiles, and this guide builds `traccia-api` and `traccia-web` from source and starts them with the checked-in compose file:
 
 - Build both images on the server (step 4). If the server is too small to build, build on a bigger machine and ship the images with `docker save` / `docker load` instead.
 - Start both services with the checked-in `docker-compose.yml`, which binds them to `127.0.0.1` only and expects images tagged `traccia-api` and `traccia-web`.
 
-There is no registry, no `docker pull`, and no hosted Traccia. [`deploy/deploy.sh`](../deploy/deploy.sh) and [`deploy/README.md`](../deploy/README.md) wrap the same build-ship-restart flow for a Mac that deploys to a VPS over SSH; if that is not your setup, the manual commands below replace it.
+[`deploy/deploy.sh`](../deploy/deploy.sh) and [`deploy/README.md`](../deploy/README.md) wrap a build-and-ship flow for a developer machine that deploys to a VPS over SSH, with a CI fallback that publishes to GHCR ([ADR 0016](../docs/adr/0016-ci-built-images-from-ghcr-as-mac-fallback.md)); if that is not your setup, the manual commands below replace it.
 
 ## What you end up with
 
@@ -71,6 +71,15 @@ docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t trac
 On an amd64 server the `--platform` flag is optional. On Apple Silicon or another non-amd64 host it is required, because the images must be `linux/amd64`.
 
 If your server is very small (under 2 GB RAM), build on a bigger machine and ship the images with `docker save | ssh <server> docker load` instead. That is the flow in [`deploy/README.md`](../deploy/README.md).
+
+The upstream repo's CI also publishes public `linux/amd64` images to GHCR. To skip building entirely, pull and retag them to the local names the compose file expects:
+
+```bash
+docker pull ghcr.io/matdac12/traccia-api:latest && docker tag ghcr.io/matdac12/traccia-api:latest traccia-api:latest
+docker pull ghcr.io/matdac12/traccia-web:latest && docker tag ghcr.io/matdac12/traccia-web:latest traccia-web:latest
+```
+
+Those images track upstream `main`; building from source is the general path and works for any fork or commit.
 
 ## 5. Configure `/opt/tracker`
 

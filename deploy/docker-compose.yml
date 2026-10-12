@@ -1,5 +1,5 @@
 # Lives in /opt/tracker on <your-server> (the directory keeps its pre-rename name), next to the .env file (never committed).
-# Images are built on the Mac and loaded with `docker load`; nothing is pulled or built here.
+# Images are built on the Mac and loaded with `docker load`, or pulled from GHCR and retagged by `deploy.sh --ci`; nothing is built here.
 # TAG selects the image tag. deploy.sh sets it; rollback = set the previous TAG and `up -d`.
 name: traccia
 

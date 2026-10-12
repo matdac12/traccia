@@ -93,7 +93,7 @@ pnpm --filter web dev
 
 ## Self-hosting
 
-The full walkthrough is [`docs/self-hosting.md`](docs/self-hosting.md): a Linux server, Docker and Tailscale. Deploying updates and the build-on-your-Mac flow are in [`deploy/README.md`](deploy/README.md).
+The full walkthrough is [`docs/self-hosting.md`](docs/self-hosting.md): a Linux server, Docker and Tailscale. Deploying updates — build on your Mac, or pull the CI-built image — is in [`deploy/README.md`](deploy/README.md).
 
 ## Connect your agents
 
