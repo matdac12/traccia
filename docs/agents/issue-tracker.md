@@ -16,6 +16,13 @@ Issues and specs for this repo live in Traccia (this project's own tracker, self
 - **Status**: `In Progress` when you start, `In Review` when a PR is ready, `Done` only once verified, `Canceled` for `wontfix`.
 - Reference issues by identifier (`TRC-123`) in commits, PR titles and comments.
 
+## Knowledge (memories and documents)
+
+The project also has a knowledge layer — **memories** (titled markdown notes with tags) and **documents** (files). Consult it, and contribute to it.
+
+- **Review before starting.** `list_memories` for the project (filter `tags`, search `query`) and `get_memory` for the ones that matter; `list_documents` and `get_document` for files that bear on the task. Do not re-learn what another agent already recorded.
+- **Record what the next agent should know.** `save_memory` (short title, markdown body, a few tags) — update an existing memory rather than adding a near-duplicate, and delete stale ones. `create_document` for a file, and paste the `markdown` it returns into an issue. Agents may purge memories and documents ([ADR 0015](../adr/0015-agents-may-purge-memories-and-documents.md)).
+
 ## Linear archive
 
 Until the cutover this project's issues lived in Linear (identifiers `MAT-nnn`). All 91 were imported once into `TRC`; each imported description starts with `Migrated from Linear MAT-nnn`, and `MAT-nnn` mentions in text read `TRC-m (was MAT-nnn)`. Linear is now a **read-only archive**: do not create or edit issues there. To look up an old identifier, search Traccia for `MAT-nnn`.
