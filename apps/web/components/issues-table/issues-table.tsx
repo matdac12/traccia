@@ -2,7 +2,7 @@
 import type { IssueStatus } from "@traccia/shared";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CornerDownRight, ListTree, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { type CSSProperties, useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreIssues } from "@/app/(app)/issues/actions";
 import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
@@ -14,7 +14,7 @@ import { useIssueDelete } from "@/components/issue-menu/use-issue-delete";
 import { Button } from "@/components/ui/button";
 import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import type { IssueFilters } from "@/lib/issue-filters";
-import { buildSections, subIssueCounts } from "./group-rows";
+import { buildSections, nestRows, subIssueCounts, type TreeRow } from "./group-rows";
 import { timeAgo } from "./format";
 import { PriorityIcon } from "./priority";
 import { countsOf, sameGroups, type GroupsApplier } from "./use-list-sync";
@@ -25,6 +25,37 @@ export type IssueGroup = { status: IssueStatus; items: IssueRow[]; nextCursor: s
 export const COLLAPSED_BY_DEFAULT: string[] = ["done", "canceled"];
 
 type GroupState = IssueGroup & { error?: string };
+
+/** Indent of a sub-issue, in px: one connector column. */
+const INDENT = 20;
+
+/**
+ * `--gutter` is where the title cell starts (phone: the row padding; md: after the 96 px identifier column) and `--mid`
+ * the height of the status icon's centre, so the connectors meet the icon on both layouts.
+ */
+const ROW = [
+  "group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1 border-b border-border/60 px-4 py-2.5 text-[13px] [--gutter:1rem] [--mid:20px]",
+  "transition-colors duration-150 hover:bg-accent/45 focus-within:bg-accent/50 data-[state=open]:bg-accent/50",
+  "has-[:focus-visible]:ring-1 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring/50",
+  "md:flex md:h-[38px] md:items-center md:gap-3 md:py-0 md:[--gutter:7.75rem] md:[--mid:19px]",
+].join(" ");
+
+const GUIDE = "absolute w-px bg-foreground/20";
+
+/** Tree lines of a sub-issue row: the elbow into its status icon, the lines of ancestors that continue below, and a stub down from its own icon when it has sub-issues below. */
+function Connectors({ tree }: { tree: TreeRow }) {
+  if (tree.depth === 0 && !tree.hasChildren) return null;
+  // 9 px = the status icon's centre (2 px picker padding + half of the 14 px icon).
+  const x = (level: number) => `calc(var(--gutter) + ${level * INDENT + 9}px)`;
+  return (
+    <span aria-hidden className="pointer-events-none absolute inset-0">
+      {tree.guides.flatMap((on, level) => (on ? [level] : [])).map((level) => <span key={level} className={`${GUIDE} top-0 -bottom-px`} style={{ left: x(level) }} />)}
+      {tree.depth > 0 && <span className="absolute top-0 w-3 rounded-bl-[7px] border-b border-l border-foreground/20" style={{ left: x(tree.depth - 1), height: "calc(var(--mid) + 0.5px)" }} />}
+      {tree.depth > 0 && !tree.last && <span className={`${GUIDE} top-[var(--mid)] -bottom-px`} style={{ left: x(tree.depth - 1) }} />}
+      {tree.hasChildren && <span className={`${GUIDE} top-[calc(var(--mid)+10px)] -bottom-px`} style={{ left: x(tree.depth) }} />}
+    </span>
+  );
+}
 
 export function IssuesTable({
   groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register,
@@ -83,10 +114,10 @@ export function IssuesTable({
   );
 
   return (
-    <div className="min-w-[860px]" aria-busy={pending}>
+    <div className="md:min-w-[860px]" aria-busy={pending}>
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       {del.notice}
-      <div className="sticky top-0 z-10 flex h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur">
+      <div className="sticky top-0 z-10 hidden h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur md:flex">
         {sortButton("priority", "Priority", "w-[96px]")}
         {sortButton("title", "Title", "flex-1")}
         <span className="w-32">Milestone</span>
@@ -100,8 +131,8 @@ export function IssuesTable({
         const group = g.status ? groups.find((x) => x.status === g.status) : undefined;
         return (
           <section key={g.key} aria-label={g.status ? STATUS_LABEL[g.status] : g.title}>
-            <h2 className="m-0 flex h-8 items-center border-b bg-surface px-4 text-[13px] font-medium">
-              <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.key)} className="flex items-center gap-2 rounded outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <h2 className="m-0 mx-2 mt-2 mb-1 flex h-9 items-center rounded-lg bg-muted/50 px-2 text-[13px] font-medium md:h-8">
+              <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.key)} className="flex h-full w-full items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
                 {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.raw) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.raw === "none" ? null : (g.raw as "you" | "agent")} size={16} /> : null}
                 <span>{g.status ? STATUS_LABEL[g.status] : g.title}</span>
@@ -109,38 +140,43 @@ export function IssuesTable({
               </button>
             </h2>
             <div>
-              {!isCollapsed && g.items.map((i) => {
+              {!isCollapsed && nestRows(g.items).map((t) => {
+                const i = t.row;
                 const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
                 const sub = children.get(i.id);
                 return (
                 <IssueContextMenu key={i.id} issue={i} menu={menu}>
-                <div className="group relative flex h-9 items-center gap-3 border-b px-4 text-[13px] hover:bg-accent/50 focus-within:bg-accent/50 data-[state=open]:bg-accent/50">
-                  <span className="flex w-[96px] shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
-                    <PriorityPicker issue={i} editor={editor} />
-                    {i.identifier}
-                  </span>
-                  <span className="flex min-w-0 flex-1 items-center gap-2">
-                    <StatusPicker issue={i} editor={editor} />
-                    {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
-                    <Link href={`/issues/${i.identifier}`} className="truncate rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{i.title}</Link>
-                    {i.parentId && (
-                      <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
+                {/* Phone: a grid of two lines (status, title, time / identifier, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
+                <div data-depth={t.depth} style={{ "--indent": `${t.depth * INDENT}px` } as CSSProperties} className={ROW}>
+                  {i.createdBy === "agent" && <span role="img" aria-label="Created by the agent" className="absolute top-[var(--mid)] left-1.5 size-1.5 -translate-y-1/2 rounded-full bg-agent" />}
+                  <Connectors tree={t} />
+                  <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
+                  {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
+                  <Link href={`/issues/${i.identifier}`} className="col-start-2 row-start-1 line-clamp-2 min-w-0 rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:line-clamp-none md:truncate">{i.title}</Link>
+                  <time suppressHydrationWarning dateTime={i.updatedAt} className="col-start-3 row-start-1 pt-px text-right text-xs leading-5 text-muted-foreground tabular-nums md:order-[11] md:w-12 md:shrink-0 md:pt-0 md:leading-normal">{timeAgo(i.updatedAt)}</time>
+                  <div className="col-span-2 col-start-2 row-start-2 flex min-w-0 items-center gap-2.5 text-[11px] md:contents">
+                    <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground md:order-1 md:w-[96px]">
+                      <PriorityPicker issue={i} editor={editor} />
+                      {i.identifier}
+                    </span>
+                    {t.depth === 0 && i.parentId && (
+                      <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground md:order-4">
                         <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent ?? "parent"}
                       </span>
                     )}
                     {sub && (
-                      <span data-testid="sub-progress" className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                      <span data-testid="sub-progress" className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground tabular-nums md:order-4">
                         <ListTree aria-hidden className="size-3" />{sub.done}/{sub.total}<span className="sr-only"> sub-issues done</span>
                       </span>
                     )}
-                    {i.createdBy === "agent" && i.status === "backlog" && <AgentMark />}
-                    <LabelsPicker issue={i} editor={editor} className="ml-1 shrink-0" />
-                  </span>
-                  <span className="w-32 truncate text-xs text-muted-foreground">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
-                  <span className="w-8 text-center font-mono text-xs text-muted-foreground">{i.estimate ?? ""}</span>
-                  <AssigneePicker issue={i} editor={editor} />
-                  <time suppressHydrationWarning dateTime={i.updatedAt} className="w-12 text-right text-xs text-muted-foreground">{timeAgo(i.updatedAt)}</time>
-                  <IssueMenuButton issue={i} />
+                    {i.createdBy === "agent" && i.status === "backlog" && <AgentMark className="shrink-0 md:order-5" />}
+                    <LabelsPicker issue={i} editor={editor} className="ml-auto min-w-0 md:order-6 md:ml-0 md:shrink-0" />
+                    <span aria-hidden className="hidden md:order-7 md:block md:flex-1" />
+                    <span className="hidden w-32 shrink-0 truncate text-xs text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
+                    <span className="hidden w-8 shrink-0 text-center font-mono text-xs text-muted-foreground tabular-nums md:order-9 md:block">{i.estimate ?? ""}</span>
+                    <AssigneePicker issue={i} editor={editor} className="shrink-0 md:order-10" />
+                  </div>
+                  <IssueMenuButton issue={i} className="max-md:hidden md:order-[12]" />
                 </div>
                 </IssueContextMenu>
                 );
@@ -157,7 +193,7 @@ export function IssuesTable({
 
 function LoadMore({ group, loading, onMore }: { group: GroupState; loading: boolean; onMore: (g: GroupState) => void }) {
   return (
-    <div className="flex items-center gap-3 border-b px-4 py-1.5">
+    <div className="flex items-center gap-3 border-b border-border/60 px-4 py-1.5">
       <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={loading} onClick={() => onMore(group)}>
         {loading && <Loader2 className="size-3.5 animate-spin" />}
         Load more {STATUS_LABEL[group.status].toLowerCase()}

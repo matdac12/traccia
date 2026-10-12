@@ -73,7 +73,7 @@ export function LabelsPicker({ issue, editor, visible = 2, className }: { issue:
   return (
     <Picker
       label={`Change labels of ${issue.identifier}`}
-      triggerClass="min-h-5 gap-1 px-0.5"
+      triggerClass="min-h-5 min-w-0 max-w-full gap-1 overflow-hidden px-0.5"
       className={className}
       trigger={issue.labels.length ? (
         <>

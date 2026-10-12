@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IssuesView, type IssuesData } from "../components/issues-table/issues-view";
-import { buildSections, STATUS_DISPLAY_ORDER, subIssueCounts } from "../components/issues-table/group-rows";
+import { buildSections, nestRows, STATUS_DISPLAY_ORDER, subIssueCounts } from "../components/issues-table/group-rows";
 import { DEFAULT_FILTERS, type IssueFilters } from "../lib/issue-filters";
 
 const replace = vi.fn();
@@ -16,7 +16,7 @@ const issue = (n: number, status: string, over = {}) => ({
   milestoneId: null, parentId: null, createdBy: "you" as const, createdAt: `2026-01-0${n}T00:00:00.000Z`, updatedAt: `2026-02-0${n}T00:00:00.000Z`, labels: [], ...over,
 });
 const groups = [
-  { status: "todo", items: [issue(1, "todo", { priority: 1, assignee: "agent" }), issue(2, "todo", { parentId: "i1" })], nextCursor: null },
+  { status: "todo", items: [issue(1, "todo", { priority: 1, assignee: "agent", createdBy: "agent" }), issue(2, "todo", { parentId: "i1" })], nextCursor: null },
   { status: "done", items: [issue(3, "done", { parentId: "i1", priority: 4 })], nextCursor: "c" },
 ] as unknown as IssuesData["groups"];
 const data: IssuesData = { groups, projects: [{ id: "p1", name: "Traccia" }] as IssuesData["projects"], labels: [], milestones: [] };
@@ -45,6 +45,17 @@ describe("group rows", () => {
     expect(buildSections(partial, "status", DEFAULT_FILTERS, lookups).map((x) => x.key)).toEqual(["in_review", "backlog", "done"]);
     expect(all.map((g) => g.status)).toEqual(workflow);
   });
+  it("nests sub-issues right after their parent and says where the connectors go", () => {
+    const rows = [issue(1, "todo"), issue(2, "todo", { parentId: "i4" }), issue(3, "todo", { parentId: "i1" }), issue(4, "todo", { parentId: "i1" }), issue(5, "todo", { parentId: "i4" }), issue(6, "todo", { parentId: "elsewhere" })] as unknown as Parameters<typeof nestRows>[0];
+    const tree = nestRows(rows);
+    expect(tree.map((t) => [t.row.id, t.depth, t.last])).toEqual([["i1", 0, true], ["i3", 1, false], ["i4", 1, true], ["i2", 2, false], ["i5", 2, true], ["i6", 0, true]]);
+    // i2 and i5 sit under i4, which is the last child of i1: no line keeps going at its level.
+    expect(tree.find((t) => t.row.id === "i2")!.guides).toEqual([false]);
+  });
+  it("keeps rows that form a parent cycle, as roots", () => {
+    const rows = [issue(1, "todo", { parentId: "i2" }), issue(2, "todo", { parentId: "i1" }), issue(3, "todo", { parentId: "i3" })] as unknown as Parameters<typeof nestRows>[0];
+    expect(nestRows(rows).map((t) => [t.row.id, t.depth])).toEqual([["i3", 0], ["i1", 0], ["i2", 1]]);
+  });
   it("counts finished sub-issues per parent", () => {
     expect(subIssueCounts(groups.flatMap((g) => g.items)).get("i1")).toEqual({ done: 1, total: 2 });
   });
@@ -58,12 +69,25 @@ describe("table display", () => {
     expect(screen.getByTestId("count-backlog").textContent).toBe("1+");
     expect(screen.getByTestId("count-done").textContent).toBe("1+");
   });
-  it("marks sub-issues with their parent and parents with progress", () => {
+  it("nests a sub-issue under its parent in the same section, without the parent marker, and shows the parent's progress", () => {
     setup();
-    const marker = within(screen.getByRole("link", { name: "Issue 2" }).parentElement!).getByTestId("parent-marker");
-    expect(marker).toHaveTextContent("TRK-1");
-    expect(within(screen.getByRole("link", { name: "Issue 1" }).parentElement!).getByTestId("sub-progress")).toHaveTextContent("1/2");
-    expect(within(screen.getByRole("link", { name: "Issue 1" }).parentElement!).queryByTestId("parent-marker")).toBeNull();
+    const child = screen.getByRole("link", { name: "Issue 2" }).closest("[data-depth]")!;
+    expect(child).toHaveAttribute("data-depth", "1");
+    expect(within(child as HTMLElement).queryByTestId("parent-marker")).toBeNull();
+    const parent = screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]")!;
+    expect(parent).toHaveAttribute("data-depth", "0");
+    expect(within(parent as HTMLElement).getByTestId("sub-progress")).toHaveTextContent("1/2");
+  });
+  it("marks a sub-issue with its parent when the parent is in another section", () => {
+    setup({ groupBy: "priority" });
+    const row = screen.getByRole("link", { name: "Issue 2" }).closest("[data-depth]")!;
+    expect(row).toHaveAttribute("data-depth", "0");
+    expect(within(row as HTMLElement).getByTestId("parent-marker")).toHaveTextContent("TRK-1");
+  });
+  it("marks the issues the agent created", () => {
+    setup();
+    expect(within(screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]") as HTMLElement).getByRole("img", { name: "Created by the agent" })).toBeInTheDocument();
+    expect(within(screen.getByRole("link", { name: "Issue 2" }).closest("[data-depth]") as HTMLElement).queryByRole("img", { name: "Created by the agent" })).toBeNull();
   });
 
   it("groups by the chosen field and offers loading the rest of every status", () => {

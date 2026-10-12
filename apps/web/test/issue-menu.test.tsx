@@ -36,7 +36,7 @@ const data = (): IssuesData => ({
   milestones: [{ id: "m1", projectId: "p1", name: "Launch", targetDate: null, updatedAt: T0 }, { id: "m2", projectId: "p2", name: "Elsewhere", targetDate: null, updatedAt: T0 }],
 });
 const setup = (filters: Partial<IssueFilters> = {}) => render(<IssuesView filters={{ ...DEFAULT_FILTERS, ...filters }} data={data()} />);
-const rowOf = () => screen.getByRole("link", { name: "Issue 1" }).parentElement!.parentElement!;
+const rowOf = () => screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]")!;
 const cardOf = () => screen.getByRole("link", { name: "Issue 1" }).closest("[data-state], .group") as HTMLElement;
 const openWithRightClick = (el: Element) => fireEvent.contextMenu(el, { clientX: 10, clientY: 10 });
 // jsdom has no layout, so moving the pointer from the submenu trigger to an item would close the submenu (grace area): select with a plain click.
