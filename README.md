@@ -147,9 +147,15 @@ A daily SQLite snapshot on the server (last 3 kept), a manual pull of the newest
 - [Self-hosting](docs/self-hosting.md)
 - [Connect agents](docs/agent-setup.md)
 - [MCP tools](docs/mcp-tools.md)
+- [REST API](docs/rest-issues.md)
 - [Backups and restore](docs/backup-restore.md)
 - [Deployment and rollback](deploy/README.md)
+- [Brand guidelines](assets/brand/brand-guidelines.md)
 - [Spec](traccia-spec.md), [glossary](GLOSSARY.md), [ADR](docs/adr/)
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development setup and guidelines. Report security problems privately per [`SECURITY.md`](SECURITY.md).
 
 ## License
 
