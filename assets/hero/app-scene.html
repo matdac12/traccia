@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Traccia app scene</title>
+    <style>
+      :root {
+        --ink: #0b0f14;
+        --amber: #ff9e0b;
+        --cyan: #06b6d4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--ink);
+      }
+      #scene {
+        position: relative;
+        overflow: hidden;
+        background: var(--ink);
+        font-size: 0;
+      }
+      .backdrop {
+        position: absolute;
+        inset: -8%;
+        background-position: center;
+        background-size: cover;
+        filter: blur(46px) brightness(0.42) saturate(1.15);
+        will-change: transform;
+      }
+      .vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(120% 92% at 50% 44%, transparent 40%, rgba(0, 0, 0, 0.62) 100%);
+      }
+      .glow {
+        position: absolute;
+        inset: 0;
+        mix-blend-mode: screen;
+        background:
+          radial-gradient(900px 560px at 13% -10%, rgba(255, 158, 11, 0.14), transparent 60%),
+          radial-gradient(1000px 660px at 88% 112%, rgba(6, 182, 212, 0.14), transparent 62%);
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      .frame {
+        position: relative;
+        overflow: hidden;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        will-change: transform;
+        box-shadow:
+          0 70px 140px -50px rgba(0, 0, 0, 0.85),
+          0 24px 60px -26px rgba(0, 0, 0, 0.6),
+          0 0 0 1px rgba(0, 0, 0, 0.5);
+      }
+      .shot {
+        position: absolute;
+        inset: 0;
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      .sweep {
+        position: absolute;
+        inset: 0;
+        mix-blend-mode: screen;
+        background: linear-gradient(105deg, transparent 36%, rgba(255, 255, 255, 0.12) 50%, transparent 64%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene">
+      <div class="backdrop" id="backdrop"></div>
+      <div class="vignette"></div>
+      <div class="glow" id="glow"></div>
+      <div class="stage">
+        <div class="frame" id="frame"><div class="shot" id="shot"></div><div class="sweep" id="sweep"></div></div>
+      </div>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const W = Number(params.get("w") ?? 1920);
+      const H = Number(params.get("h") ?? 1080);
+      const bg = params.get("bg") ?? "background.png";
+      const ui = params.get("ui") ?? "shots/issues-table.png";
+      const pad = Number(params.get("pad") ?? 0.032);
+
+      const scene = document.getElementById("scene");
+      scene.style.width = `${W}px`;
+      scene.style.height = `${H}px`;
+
+      const backdrop = document.getElementById("backdrop");
+      backdrop.style.backgroundImage = `url("${bg}")`;
+
+      const frame = document.getElementById("frame");
+      const shot = document.getElementById("shot");
+      const sweep = document.getElementById("sweep");
+      const glow = document.getElementById("glow");
+
+      const image = new Image();
+      image.src = ui;
+      const bgImage = new Image();
+      bgImage.src = bg;
+
+      const TAU = Math.PI * 2;
+      window.__seek = (u) => {
+        const a = TAU * u;
+        const s = Math.sin(a);
+        const c = Math.sin(a + Math.PI / 2);
+        // A gentle, loop-safe breathing: the panel and the backdrop drift a little, always returning.
+        frame.style.transform = `translate3d(${(6 * s).toFixed(2)}px, ${(-4 * c).toFixed(2)}px, 0) scale(${(1.012 + 0.012 * c).toFixed(4)})`;
+        backdrop.style.transform = `translate3d(${(-16 * s).toFixed(2)}px, ${(-10 * c).toFixed(2)}px, 0) scale(1.08)`;
+        sweep.style.transform = `translateX(${(-45 + 190 * u).toFixed(2)}%)`;
+        glow.style.opacity = (0.9 + 0.1 * c).toFixed(3);
+      };
+
+      window.__ready = Promise.all(
+        [image, bgImage].map(
+          (im) =>
+            new Promise((resolve, reject) => {
+              if (im.complete) return resolve();
+              im.onload = () => resolve();
+              im.onerror = () => reject(new Error(`could not load ${im.src}`));
+            }),
+        ),
+      ).then(() => {
+        const width = Math.round(W * (1 - 2 * pad));
+        const height = Math.round(width * (image.naturalHeight / image.naturalWidth));
+        frame.style.width = `${width}px`;
+        frame.style.height = `${height}px`;
+        shot.style.backgroundImage = `url("${ui}")`;
+        window.__meta = { width: W, height: H, panelWidth: width, panelHeight: height };
+        window.__seek(0);
+      });
+    </script>
+  </body>
+</html>

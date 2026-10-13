@@ -3,7 +3,8 @@
 // playwright-core, then ffmpeg. No timeline, no editing, the scene is code.
 //
 // Usage: node assets/hero/capture.mjs [--duration 8] [--fps 30] [--width 1920] [--height 1080]
-//   [--panel 0.6] [--bg background.png] [--ui dashboard-full.png] [--name hero-loop] [--gif]
+//   [--pad 0.032] [--scene app-scene.html] [--bg background.png] [--ui shots/issues-table.png]
+//   [--name issues-loop] [--gif]
 //
 // Produces <name>.mp4, <name>.webm and <name>-still.png in assets/hero. Pass --gif for a GIF
 // preview as well (a photographic backdrop makes it large, so it is off by default).
@@ -36,10 +37,11 @@ const duration = Number(get("duration", 8));
 const fps = Number(get("fps", 30));
 const width = Number(get("width", 1920));
 const height = Number(get("height", 1080));
-const panel = Number(get("panel", 0.6));
+const pad = Number(get("pad", 0.032));
+const scene = get("scene", "app-scene.html");
 const bg = get("bg", "background.png");
-const ui = get("ui", "dashboard-full.png");
-const name = get("name", "hero-loop");
+const ui = get("ui", "shots/issues-table.png");
+const name = get("name", "issues-loop");
 const outDir = resolve(root, get("out", "assets/hero"));
 const wantGif = get("gif", "false") === "true";
 
@@ -57,8 +59,8 @@ mkdirSync(outDir, { recursive: true });
 const work = mkdtempSync(join(tmpdir(), "traccia-hero-"));
 
 const url =
-  `file://${join(heroDir, "scene.html")}` +
-  `?w=${width}&h=${height}&panel=${panel}&bg=${encodeURIComponent(bg)}&ui=${encodeURIComponent(ui)}`;
+  `file://${join(heroDir, scene)}` +
+  `?w=${width}&h=${height}&pad=${pad}&bg=${encodeURIComponent(bg)}&ui=${encodeURIComponent(ui)}`;
 
 const ffmpeg = (...ffArgs) =>
   execFileSync(

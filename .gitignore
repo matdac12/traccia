@@ -19,6 +19,13 @@ next-env.d.ts
 # Playwright
 apps/web/e2e/.results
 
+# Generated hero media (regenerate with assets/hero/README.md)
+assets/hero/shots/
+assets/hero/*.mp4
+assets/hero/*.webm
+assets/hero/*.gif
+assets/hero/*-still.png
+
 # Local agent configuration (never committed)
 .claude/
 .codex/

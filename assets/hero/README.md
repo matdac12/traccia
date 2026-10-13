@@ -1,38 +1,43 @@
 # Hero assets
 
-The cinematic product views for the README, the GitHub page and the social cards: the dashboard
-floating at a side angle over a chosen background, with a slow camera move and a light sweep. Every
-frame comes from code, so any capture is repeatable and nothing is edited by hand.
+Cinematic product views for the README, the GitHub page and social cards. The dashboard fills the
+frame with a slim margin, the chosen background shows **inside** the app (through its own background
+feature), and a slow, loop-safe drift and light sweep keep it alive. Every frame comes from code.
 
-- `scene.html` is the stage. It reads `bg`, `ui`, `w`, `h` and `panel` from its query string, and
-  exposes `window.__seek(u)` for a normalized time `u` in `[0, 1)`. The camera, the background
-  parallax, the trail and the light sweep are all a function of `u`, one sine period per loop, so
-  the first and last frames join seamlessly.
-- `capture.mjs` renders `scene.html` frame by frame with `playwright-core` and encodes with `ffmpeg`.
+## Pipeline
 
-## Usage
+Two steps, both free and repeatable.
+
+**1. Capture the real dashboard.** `apps/web/e2e/marketing-assets.spec.ts` boots the app, seeds the
+Cadence demo project (fake data), applies `assets/hero/background.png` through the app's own client
+storage, and screenshots the Issues views at retina resolution into `assets/hero/shots/`.
 
 ```sh
-node assets/hero/capture.mjs                  # 8s 1920x1080 loop from background.png + dashboard-full.png
-node assets/hero/capture.mjs --duration 6 --fps 24 --panel 0.62 --name hero-wide
-node assets/hero/capture.mjs --ui list-dashboard.png --name hero-list
-node assets/hero/capture.mjs --gif            # also write a GIF preview (large, off by default)
+TRACCIA_HERO_CAPTURE=1 pnpm --filter web test:e2e marketing-assets
 ```
 
-Outputs land in `assets/hero/`: `<name>.mp4` (H.264), `<name>.webm` (VP9) and `<name>-still.png`
-(the mid-loop frame).
+**2. Compose the video.** `capture.mjs` renders `app-scene.html` frame by frame with
+`playwright-core` and encodes with `ffmpeg`.
 
-Requirements: Node 22 or newer, a Chromium install for `playwright-core` (the repo's
-`@playwright/test` provides it), and `ffmpeg` on `PATH` with `libx264` and `libvpx-vp9`.
+```sh
+node assets/hero/capture.mjs --ui shots/issues-table.png --name issues-loop
+node assets/hero/capture.mjs --ui shots/issues-board.png --name board-loop
+```
+
+Outputs: `<name>.mp4` (H.264), `<name>.webm` (VP9) and `<name>-still.png` (the mid-loop frame).
+Generated media is git-ignored; regenerate it with the two commands above.
+
+`app-scene.html` is the stage. It reads `bg`, `ui`, `w`, `h` and `pad` from its query string and
+exposes `window.__seek(u)` for a normalized time `u` in `[0, 1)`. The panel drift, the backdrop
+parallax and the light sweep are all a function of `u`, one sine period per loop, so the first and
+last frames join seamlessly.
 
 ## Swapping the background
 
-The backdrop is `assets/hero/background.png`, the image Mattia chose. Replace that file and re-run;
-every video follows. Use `--bg <name>` to point at another image in this folder instead.
+Replace `assets/hero/background.png` with the chosen image and re-run both steps; every video
+follows. The UI source is always the Cadence demo project (fake data), never a real one.
 
-## The UI source
+## Requirements
 
-`dashboard-full.png`, `list-dashboard.png` and friends are captures of the dashboard showing the
-**Cadence** project, which exists purely for demos (fake data). The UI source must always be Cadence
-or another seeded demo project, never a real one. Seeding the demo dataset and capturing it straight
-from the running app is tracked in TRC-77 and TRC-74.
+Node 22 or newer, a Chromium install for `playwright-core` (the repo's `@playwright/test` provides
+it), and `ffmpeg` on `PATH` with `libx264` and `libvpx-vp9`.
