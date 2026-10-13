@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ConfigError, loadConfig } from "../src/config.js";
 
-const valid = { BASE_URL: "https://omni.example.ts.net" };
+const valid = { BASE_URL: "https://traccia.example.ts.net" };
 
 describe("loadConfig", () => {
   it("applies spec defaults when only BASE_URL is set", () => {
     expect(loadConfig(valid)).toEqual({
       port: 8787,
       dataDir: "/data",
-      baseUrl: "https://omni.example.ts.net",
+      baseUrl: "https://traccia.example.ts.net",
       maxAttachmentBytes: 10485760,
       maxMcpUploadBytes: 5242880,
       defaultIssueKey: "MAT",
@@ -45,12 +45,12 @@ describe("loadConfig", () => {
     expect(
       loadConfig({
         ...valid,
-        OAUTH_PUBLIC_URL: "https://omni.example.ts.net:8443/",
+        OAUTH_PUBLIC_URL: "https://traccia.example.ts.net:8443/",
       }).oauthPublicUrl,
-    ).toBe("https://omni.example.ts.net:8443/");
+    ).toBe("https://traccia.example.ts.net:8443/");
   });
 
-  it.each(["http://omni.example.ts.net:8443", "nope"])(
+  it.each(["http://traccia.example.ts.net:8443", "nope"])(
     "rejects OAUTH_PUBLIC_URL=%s",
     (value) => {
       expect(() => loadConfig({ ...valid, OAUTH_PUBLIC_URL: value })).toThrow(
