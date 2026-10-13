@@ -14,6 +14,7 @@ import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./theme-toggle";
 import { TracciaMark } from "./traccia-mark";
+import { AppBackground } from "./background-image";
 
 /** What the client shell needs from a project: plain data, resolved on the server. */
 export type ShellProject = { id: string; name: string };
@@ -251,7 +252,10 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
           </div>
         </DialogContent>
       </Dialog>
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">{children}</main>
+      <main className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+        <AppBackground />
+        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+      </main>
     </div>
     </TooltipProvider>
   );

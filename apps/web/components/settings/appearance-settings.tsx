@@ -4,12 +4,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppearance } from "@/components/traccia/appearance-provider";
+import { useBackground } from "@/components/traccia/background-provider";
 import { accentFor, ACCENTS, DEFAULT_ACCENT, FONTS, normalizeHex } from "@/lib/appearance";
 import { cn } from "@/lib/utils";
+import { BackgroundSettings } from "./background-settings";
 
 /** Accent and font, stored per browser in cookies (TRC-57). Changes apply immediately. */
 export function AppearanceSettings() {
   const { accent, font, setAccent, setFont, reset } = useAppearance();
+  const background = useBackground();
   const [draft, setDraft] = useState(accent);
   const invalid = normalizeHex(draft) === null;
   const adjustedIn = (["light", "dark"] as const).filter((t) => accentFor(accent, t).adjusted);
@@ -104,8 +107,9 @@ export function AppearanceSettings() {
         </fieldset>
       </div>
 
+      <BackgroundSettings />
       <p className="text-xs text-muted-foreground">Saved in this browser only.</p>
-      <Button type="button" variant="outline" size="sm" onClick={() => { reset(); setDraft(DEFAULT_ACCENT); }}>Reset appearance</Button>
+      <Button type="button" variant="outline" size="sm" disabled={background ? background.uploading || !background.ready : false} onClick={() => { reset(); background?.reset(); setDraft(DEFAULT_ACCENT); }}>Reset appearance</Button>
     </section>
   );
 }

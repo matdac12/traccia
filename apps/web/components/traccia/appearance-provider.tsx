@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { accentCookie, accentCss, DEFAULT_ACCENT, DEFAULT_FONT, type FontChoice, fontCookie } from "@/lib/appearance";
+import { BackgroundProvider } from "./background-provider";
 
 type Appearance = {
   accent: string;
@@ -47,7 +48,7 @@ export function AppearanceProvider({ initialAccent, initialFont, children }: { i
   return (
     <AppearanceContext.Provider value={value}>
       <style id="traccia-accent">{accentCss(accent)}</style>
-      {children}
+      <BackgroundProvider>{children}</BackgroundProvider>
     </AppearanceContext.Provider>
   );
 }

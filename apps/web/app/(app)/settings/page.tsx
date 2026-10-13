@@ -7,8 +7,10 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" />
-      <div className="mx-auto w-full max-w-2xl space-y-8 p-4 sm:p-6">
-        <AppearanceSettings />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-2xl space-y-8 p-4 sm:p-6">
+          <AppearanceSettings />
+        </div>
       </div>
     </>
   );
