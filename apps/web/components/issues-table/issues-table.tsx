@@ -18,6 +18,10 @@ import { buildSections, nestRows, subIssueCounts, type TreeRow } from "./group-r
 import { timeAgo } from "./format";
 import { PriorityIcon } from "./priority";
 import { countsOf, sameGroups, type GroupsApplier } from "./use-list-sync";
+import { BlockerBadge } from "./blocker-badge";
+import { DEFAULT_ISSUE_COLUMNS, type IssueColumns } from "./columns";
+
+export { DEFAULT_ISSUE_COLUMNS, type IssueColumns } from "./columns";
 
 export type IssueGroup = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
@@ -58,9 +62,10 @@ function Connectors({ tree }: { tree: TreeRow }) {
 }
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register,
+  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register, columns = DEFAULT_ISSUE_COLUMNS, onOpenIssue,
 }: {
   groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; projects?: Project[]; labels?: Label[]; collapsed: Set<string>; onToggle: (key: string) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
+  columns?: IssueColumns; onOpenIssue?: (identifier: string, trigger: HTMLElement) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -68,7 +73,11 @@ export function IssuesTable({
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   // Live refresh (TRC-52): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
-  const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => upsertRow(gs, row)) });
+  const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => {
+    // Bare edit responses omit list summaries; keep them until the batched live refresh replaces the groups.
+    const previous = gs.flatMap((g) => g.items).find((i) => i.id === row.id);
+    return upsertRow(gs, { ...row, unresolvedBlockers: row.unresolvedBlockers ?? previous?.unresolvedBlockers });
+  }) });
   const editor = { edit: inline.edit, labels };
   const del = useIssueDelete({ onRemove: (row) => setGroups((gs) => removeRow(gs, row.id)), onRestore: (row) => setGroups((gs) => insertRow(gs, row)) });
   const menu: IssueMenuContext = { editor, projects, milestones, onDelete: (row) => void del.deleteIssue(row) };
@@ -114,16 +123,16 @@ export function IssuesTable({
   );
 
   return (
-    <div className="md:min-w-[860px]" aria-busy={pending}>
+    <div className="md:min-w-[var(--list-min-width)]" style={{ "--list-min-width": `${586 + (columns.milestone ? 140 : 0) + (columns.estimate ? 44 : 0) + (columns.assignee ? 30 : 0) + (columns.updatedAt ? 60 : 0)}px` } as CSSProperties} aria-busy={pending}>
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       {del.notice}
       <div className="sticky top-0 z-10 hidden h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur md:flex">
         {sortButton("priority", "Priority", "w-[96px]")}
         {sortButton("title", "Title", "flex-1")}
-        <span className="w-32">Milestone</span>
-        <span className="w-8 text-center">Est.</span>
-        <span className="w-[18px]" />
-        {sortButton("updatedAt", "Updated", "w-12 justify-end")}
+        {columns.milestone && <span className="w-32 shrink-0">Milestone</span>}
+        {columns.estimate && <span className="w-8 shrink-0 text-center">Est.</span>}
+        {columns.assignee && <span className="w-[22px] shrink-0"><span className="sr-only">Assignee</span></span>}
+        {columns.updatedAt && sortButton("updatedAt", "Updated", "w-12 shrink-0 justify-end")}
         <span className="w-5" />
       </div>
       {sections.map((g) => {
@@ -151,13 +160,18 @@ export function IssuesTable({
                   <Connectors tree={t} />
                   <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
                   {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
-                  <Link href={`/issues/${i.identifier}`} className="col-start-2 row-start-1 line-clamp-3 min-w-0 rounded outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:line-clamp-none md:truncate">{i.title}</Link>
-                  <div className="col-start-2 row-start-2 flex min-w-0 items-center gap-2.5 text-[11px] md:contents">
-                    <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground md:order-1 md:w-[96px]">
+                  <Link data-issue-identifier={i.identifier} href={`/issues/${i.identifier}`} onClick={(e) => {
+                    if (!onOpenIssue || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    e.preventDefault();
+                    onOpenIssue(i.identifier, e.currentTarget);
+                  }} className="col-start-2 row-start-1 line-clamp-3 min-w-0 rounded font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:flex-1 md:line-clamp-none md:truncate">{i.title}</Link>
+                  <div className="col-start-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] md:contents">
+                    <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground md:order-1 md:w-[96px]">
                       <PriorityPicker issue={i} editor={editor} />
                       {i.identifier}
                     </span>
-                    <time suppressHydrationWarning dateTime={i.updatedAt} className="shrink-0 text-xs text-muted-foreground tabular-nums md:order-[11] md:w-12 md:text-right">{timeAgo(i.updatedAt)}</time>
+                    {columns.updatedAt && <time suppressHydrationWarning dateTime={i.updatedAt} className="shrink-0 text-[11px] text-muted-foreground tabular-nums md:order-[11] md:w-12 md:text-right">{timeAgo(i.updatedAt)}</time>}
+                    <BlockerBadge blockers={i.unresolvedBlockers} className="md:order-5" />
                     {t.depth === 0 && i.parentId && (
                       <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground md:order-4">
                         <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent ?? "parent"}
@@ -168,11 +182,10 @@ export function IssuesTable({
                         <ListTree aria-hidden className="size-3" />{sub.done}/{sub.total}<span className="sr-only"> sub-issues done</span>
                       </span>
                     )}
-                    <LabelsPicker issue={i} editor={editor} className="ml-auto min-w-0 md:order-6 md:ml-0 md:shrink-0" />
-                    <span aria-hidden className="hidden md:order-7 md:block md:flex-1" />
-                    <span className="hidden w-32 shrink-0 truncate text-xs text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
-                    <span className="hidden w-8 shrink-0 text-center font-mono text-xs text-muted-foreground tabular-nums md:order-9 md:block">{i.estimate ?? ""}</span>
-                    <AssigneePicker issue={i} editor={editor} className="shrink-0 md:order-10" />
+                    <LabelsPicker issue={i} editor={editor} compact className="ml-auto min-w-0 max-w-[220px] md:order-6 md:ml-0 md:shrink-0" />
+                    {columns.milestone && <span className="hidden w-32 shrink-0 truncate text-[11px] text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>}
+                    {columns.estimate && <span className="hidden w-8 shrink-0 text-center font-mono text-[11px] text-muted-foreground tabular-nums md:order-9 md:block">{i.estimate ?? ""}</span>}
+                    {columns.assignee && <AssigneePicker issue={i} editor={editor} quietUnassigned className="shrink-0 md:order-10" />}
                   </div>
                   <IssueMenuButton issue={i} className="max-md:hidden md:order-[12]" />
                 </div>

@@ -1,5 +1,6 @@
 import {
   ISSUE_STATUSES,
+  RESOLVED_ISSUE_STATUSES,
   type IssueOrderBy,
   type IssueStatus,
   type ListIssuesInput,
@@ -16,11 +17,18 @@ import {
   inArray,
   isNull,
   lt,
+  notInArray,
   or,
   type SQL,
   sql,
 } from "drizzle-orm";
-import { issueLabels, issues, labels, milestones } from "../db/schema.js";
+import {
+  issueLabels,
+  issueRelations,
+  issues,
+  labels,
+  milestones,
+} from "../db/schema.js";
 import {
   DEFAULT_LIMIT,
   decodeCursor,
@@ -37,6 +45,7 @@ import {
 import type { Issue } from "./issues.js";
 import { resolveIssue } from "./issues.js";
 import { resolveProject } from "./projects.js";
+import type { RelatedIssue } from "./relations.js";
 import { issueMatchesCondition } from "./search.js";
 
 /** The sync token of an empty database, so the very first issue created is noticed. */
@@ -178,12 +187,59 @@ export function buildIssueListQuery(db: DbHandle, input: ListIssuesInput) {
   return { query, limit, orderBy: f.orderBy, order: f.order };
 }
 
-export type IssueGroup = Page<Issue & { deleted?: boolean }> & {
+export type IssueListItem = Issue & {
+  deleted?: boolean;
+  /** Live incoming blockers only; full relations remain available on issue details. */
+  unresolvedBlockers: RelatedIssue[];
+};
+
+export type IssueGroup = Page<IssueListItem> & {
   status: IssueStatus;
 };
 
+/** One compact relation query for the returned rows, never one detail query per row. */
+function withUnresolvedBlockers(
+  db: DbHandle,
+  rows: (Issue & { deleted?: boolean })[],
+): IssueListItem[] {
+  const byIssue = new Map<string, RelatedIssue[]>();
+  if (rows.length) {
+    const blockers = db
+      .select({
+        blockedId: issueRelations.blockedId,
+        id: issues.id,
+        identifier: issues.identifier,
+        title: issues.title,
+        status: issues.status,
+      })
+      .from(issueRelations)
+      .innerJoin(issues, eq(issues.id, issueRelations.blockerId))
+      .where(
+        and(
+          inArray(
+            issueRelations.blockedId,
+            rows.map((row) => row.id),
+          ),
+          isNull(issues.deletedAt),
+          notInArray(issues.status, [...RESOLVED_ISSUE_STATUSES]),
+        ),
+      )
+      .orderBy(asc(issues.number), asc(issues.id))
+      .all();
+    for (const { blockedId, ...blocker } of blockers) {
+      const group = byIssue.get(blockedId) ?? [];
+      group.push(blocker);
+      byIssue.set(blockedId, group);
+    }
+  }
+  return rows.map((row) => ({
+    ...row,
+    unresolvedBlockers: byIssue.get(row.id) ?? [],
+  }));
+}
+
 export function createIssueListService(ctx: ServiceContext) {
-  const list = (
+  const readPage = (
     input: ListIssuesInput = {},
   ): Page<Issue & { deleted?: boolean }> => {
     const { query, limit, orderBy, order } = buildIssueListQuery(ctx.db, input);
@@ -202,6 +258,10 @@ export function createIssueListService(ctx: ServiceContext) {
             } satisfies Cursor)
           : null,
     };
+  };
+  const list = (input: ListIssuesInput = {}): Page<IssueListItem> => {
+    const page = readPage(input);
+    return { ...page, items: withUnresolvedBlockers(ctx.db, page.items) };
   };
   const latestChange = (since?: string): string | null => {
     const row = ctx.db
@@ -231,12 +291,21 @@ export function createIssueListService(ctx: ServiceContext) {
       const picked = ([] as unknown[]).concat(status ?? []) as IssueStatus[];
       const wanted = picked.length ? new Set(picked) : null;
       const syncToken = latestChange() ?? EPOCH;
-      const groups = ISSUE_STATUSES.filter((s) => !wanted || wanted.has(s)).map(
+      const pages = ISSUE_STATUSES.filter((s) => !wanted || wanted.has(s)).map(
         (s) => ({
           status: s,
-          ...list({ ...filters, status: [s], cursor: cursors[s] }),
+          ...readPage({ ...filters, status: [s], cursor: cursors[s] }),
         }),
       );
+      const summaries = withUnresolvedBlockers(
+        ctx.db,
+        pages.flatMap((g) => g.items),
+      );
+      const byId = new Map(summaries.map((row) => [row.id, row]));
+      const groups = pages.map((page) => ({
+        ...page,
+        items: page.items.map((row) => byId.get(row.id)!),
+      }));
       return { groups, syncToken };
     },
 

@@ -13,7 +13,8 @@ import { LiveStatus } from "@/components/traccia/live-status";
 import { useListSync } from "./use-list-sync";
 import { DisplayMenu } from "./display-menu";
 import { ActiveChips, FilterMenu, SearchBox } from "./filter-bar";
-import { COLLAPSED_BY_DEFAULT, IssuesTable, type IssueGroup } from "./issues-table";
+import { COLLAPSED_BY_DEFAULT, DEFAULT_ISSUE_COLUMNS, IssuesTable, type IssueColumns, type IssueGroup } from "./issues-table";
+import { IssuePeek } from "@/components/issue-detail/issue-peek";
 
 export type IssuesData = {
   groups: IssueGroup[]; projects: Project[]; labels: Label[]; milestones: Milestone[];
@@ -29,12 +30,16 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
   const [pending, startTransition] = useTransition();
   // Kept here so re-sorting (which reloads the groups) does not re-collapse what the user opened.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(COLLAPSED_BY_DEFAULT));
+  const [columns, setColumns] = useState<IssueColumns>(DEFAULT_ISSUE_COLUMNS);
+  const [peek, setPeek] = useState<{ identifier: string; trigger: HTMLElement } | null>(null);
+  const [peekRefresh, setPeekRefresh] = useState(0);
   const query = filtersToSearchParams(filters).toString();
   const go = (next: IssueFilters) => {
     const qs = filtersToSearchParams(next).toString();
     startTransition(() => router.replace(qs ? `${path}?${qs}` : path, { scroll: false }));
   };
   const sync = useListSync({ query, syncToken: data?.syncToken, enabled: !!data && !error });
+  const refreshAll = () => { sync.refresh(); setPeekRefresh((n) => n + 1); };
   const lookups = data ?? { projects: [], labels: [], milestones: [] };
   const shown = data?.groups.reduce((n, g) => n + g.items.length, 0) ?? 0;
   const more = data?.groups.some((g) => g.nextCursor);
@@ -54,9 +59,9 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {data && <span className="text-xs text-muted-foreground" data-testid="total">{shown}{more ? "+" : ""}</span>}
         <div className="mx-2 hidden h-4 w-px bg-border sm:block" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
-        {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} />}
+        {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} columns={columns} onColumnsChange={setColumns} />}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
-        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} className="sm:ml-auto" />
+        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={refreshAll} className="sm:ml-auto" />
         <fieldset className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" aria-label="View">
           {viewButton("table", "Table", <Rows3 className="size-3.5" />)}
           {viewButton("kanban", "Board", <Columns3 className="size-3.5" />)}
@@ -81,9 +86,10 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             </EmptyState>
           )
         ) : (
-          <IssuesTable key={query} register={sync.register} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} columns={columns} onOpenIssue={(identifier, trigger) => setPeek({ identifier, trigger })} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
+      {peek && data && <IssuePeek identifier={peek.identifier} onRefresh={refreshAll} refreshVersion={peekRefresh} onSaved={sync.refresh} trigger={peek.trigger} onClose={() => setPeek(null)} projects={data.projects.map(({ id, key, name }) => ({ id, key, name }))} labels={data.labels} milestones={data.milestones} />}
     </div>
   );
 }

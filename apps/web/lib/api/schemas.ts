@@ -102,6 +102,13 @@ export type Milestone = z.infer<typeof milestoneSchema>;
 export const projectWithMilestonesSchema = projectSchema.extend({ milestones: z.array(milestoneSchema) });
 export type ProjectWithMilestones = z.infer<typeof projectWithMilestonesSchema>;
 
+export const unresolvedBlockerSchema = z.object({
+  id: z.string(),
+  identifier: z.string(),
+  title: z.string(),
+  status: z.enum(ISSUE_STATUSES),
+});
+
 export const issueSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -120,6 +127,8 @@ export const issueSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   labels: z.array(labelSchema),
+  /** List responses only; optional for older APIs and bare/detail issue responses. */
+  unresolvedBlockers: z.array(unresolvedBlockerSchema).optional(),
 });
 export type IssueRow = z.infer<typeof issueSchema>;
 export type Issue = IssueRow;

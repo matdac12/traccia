@@ -97,6 +97,16 @@ names and the token value; run it before changing anything around the client.
   two lines (status and title, up to three lines / identifier, updated, markers, labels, assignee) instead of a 860 px wide
   table, and the Milestone and Est. columns are hidden; from 768 px it is one flat line, with `md:order-*` classes
   placing the cells in column order.
+- **List hierarchy and issue peek.** Titles lead, identifiers are quiet, and coloured-dot label chips show up to two
+  labels plus `+N` (all remain editable). Orange blocker badges identify unresolved blockers; hover or keyboard focus
+  shows their titles. Done, canceled and deleted blockers do not count. Summaries are batched in the list service,
+  including grouped/paginated responses, without per-row detail requests. Display controls toggle Milestone, Assignee,
+  Estimate and Updated columns; all start visible and choices stay in memory for the current view.
+  An ordinary row click opens an editable right-side peek without changing the URL or list state. Other rows remain
+  selectable; Escape or Close restores focus to the invoking link. Modified clicks and Full issue retain full-page
+  navigation. Mobile uses a viewport-width panel. Details load only on selection, share the full page's editor and
+  stale-write handling, and keep activity/comments collapsed. The selected prototype was A; the throwaway variants
+  are captured on local branch `prototype/list-layouts-2026-10-13`, not imported by production code.
 - **Design tokens** are CSS variables in `app/globals.css`, with light (`:root`) and dark (`.dark`) values. The accent
   is `--brand`, `--brand-foreground` and `--brand-ring`; `--primary`, `--ring` and `--sidebar-primary` derive from
   them. The selectable accent (TRC-57) overrides just those three. Status colors (`--st-*`)

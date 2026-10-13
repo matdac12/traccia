@@ -60,15 +60,15 @@ export function PriorityPicker({ issue, editor, className }: { issue: IssueRow; 
   );
 }
 
-export function AssigneePicker({ issue, editor, size = 18, className }: { issue: IssueRow; editor: InlineEditor; size?: number; className?: string }) {
+export function AssigneePicker({ issue, editor, size = 18, quietUnassigned = false, className }: { issue: IssueRow; editor: InlineEditor; size?: number; quietUnassigned?: boolean; className?: string }) {
   return (
-    <Picker label={`Change assignee of ${issue.identifier}`} triggerClass="rounded-full p-0.5" className={className} trigger={<ActorAvatar who={issue.assignee} size={size} />}>
+    <Picker label={`Change assignee of ${issue.identifier}`} triggerClass="group/assignee rounded-full p-0.5" className={className} trigger={<span className={quietUnassigned && !issue.assignee ? "opacity-0 group-hover/assignee:opacity-100 group-focus-visible/assignee:opacity-100" : undefined}><ActorAvatar who={issue.assignee} size={size} /></span>}>
       <Options options={assigneeOptions(issue, editor)} />
     </Picker>
   );
 }
 
-export function LabelsPicker({ issue, editor, visible = 2, className }: { issue: IssueRow; editor: InlineEditor; visible?: number; className?: string }) {
+export function LabelsPicker({ issue, editor, visible = 2, compact = false, className }: { issue: IssueRow; editor: InlineEditor; visible?: number; compact?: boolean; className?: string }) {
   const options = labelOptions(issue, editor);
   return (
     <Picker
@@ -77,8 +77,8 @@ export function LabelsPicker({ issue, editor, visible = 2, className }: { issue:
       className={className}
       trigger={issue.labels.length ? (
         <>
-          {issue.labels.slice(0, visible).map((l) => <LabelChip key={l.id} name={l.name} color={l.color} />)}
-          {issue.labels.length > visible && <span className="text-[11px] text-muted-foreground">+{issue.labels.length - visible}</span>}
+          {issue.labels.slice(0, visible).map((l) => <LabelChip key={l.id} name={l.name} color={l.color} compact={compact} />)}
+          {issue.labels.length > visible && <span className="shrink-0 text-[11px] text-muted-foreground">+{issue.labels.length - visible}</span>}
         </>
       ) : <Tag className="size-3.5 text-muted-foreground/50" />}
     >

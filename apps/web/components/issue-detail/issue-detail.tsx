@@ -1,5 +1,6 @@
 "use client";
 
+import { isUnresolvedIssueStatus } from "@traccia/shared";
 import { AlertTriangle, ChevronRight, GitBranch, Link2, Trash2, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,17 +31,22 @@ export type IssueDetailProps = {
   labels: Label[];
   milestones: Milestone[];
   parent: IssueRef | null;
+  presentation?: "page" | "peek";
+  refreshVersion?: number;
+  onSaved?: () => void;
 };
 
 export function IssueDetail(props: IssueDetailProps) {
   // The server's copy is the source of truth; a fresh render replaces whatever the client holds.
-  const [seen, setSeen] = useState(props);
+  const [seen, setSeen] = useState(props.issue);
   const [issue, setIssue] = useState(props.issue);
-  if (seen !== props) {
-    setSeen(props);
+  if (seen !== props.issue) {
+    setSeen(props.issue);
     setIssue(props.issue);
   }
   const { projects, labels, milestones, parent } = props;
+  const peek = props.presentation === "peek";
+  const [resolvedParent, setResolvedParent] = useState(parent);
 
   const [busy, setBusy] = useState(false);
   const [optimistic, setOptimistic] = useState<Partial<IssueDetailData>>({});
@@ -71,6 +77,25 @@ export function IssueDetail(props: IssueDetailProps) {
     if (JSON.stringify(timeline) !== JSON.stringify({ comments: cur.comments, activity: cur.activity, attachments: cur.attachments })) setIssue((c) => ({ ...c, ...timeline }));
     setStale(remote.updatedAt !== cur.updatedAt ? remote : null);
   }, { enabled: !deleted });
+  // Refreshing retries a failed parent read and picks up renamed parents, even when parentId is unchanged.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refresh signals intentionally trigger a new read.
+  useEffect(() => {
+    if (!issue.parentId) { setResolvedParent(null); return; }
+    if (parent?.id === issue.parentId) { setResolvedParent(parent); return; }
+    const abort = new AbortController();
+    setResolvedParent((current) => current?.id === issue.parentId ? current : null);
+    void getJson<IssueRef>(`/api/issues/${encodeURIComponent(issue.parentId)}`, abort.signal).then((next) => {
+      if (!abort.signal.aborted) setResolvedParent(next);
+    }).catch(() => {});
+    return () => abort.abort();
+  }, [issue.parentId, parent, props.refreshVersion, sync.lastUpdated]);
+  const lastRefresh = useRef(props.refreshVersion);
+  useEffect(() => {
+    if (lastRefresh.current !== props.refreshVersion) {
+      lastRefresh.current = props.refreshVersion;
+      sync.refresh();
+    }
+  }, [props.refreshVersion, sync.refresh]);
   const reload = () => {
     if (!stale) return;
     dirty.current.clear();
@@ -110,6 +135,8 @@ export function IssueDetail(props: IssueDetailProps) {
     if (res.ok) {
       setConflict(null);
       setIssue((cur) => ({ ...cur, ...res.issue, relations: cur.relations, children: cur.children }));
+      props.onSaved?.();
+      sync.refresh();
       return true;
     }
     if (res.code === "conflict") {
@@ -138,7 +165,8 @@ export function IssueDetail(props: IssueDetailProps) {
 
   // A hook must run on every render, so this sits above the `deleted` early return (below it, deleting crashed the page).
   // Properties sit in a side panel from lg up and inline under the title below it; mount only one copy.
-  const wide = useMediaQuery("(min-width: 1024px)", true);
+  const desktop = useMediaQuery("(min-width: 1024px)", true);
+  const wide = desktop && !peek;
 
   if (deleted) {
     return (
@@ -160,11 +188,21 @@ export function IssueDetail(props: IssueDetailProps) {
     );
   }
 
-  const propertiesPanel = <Properties issue={view} projects={projects} labels={labels} milestones={milestones} parent={parent} onChange={change} disabled={busy} />;
+  const propertiesPanel = <Properties issue={view} projects={projects} labels={labels.filter((l) => !l.projectId || l.projectId === view.projectId)} milestones={milestones.filter((m) => m.projectId === view.projectId)} parent={resolvedParent} onChange={change} disabled={busy} />;
+  const blockedBy = <BlockerList
+    title="Blocked by"
+    issues={issue.relations.blockedBy}
+    disabled={busy}
+    highlighted={peek && issue.relations.blockedBy.some((b) => isUnresolvedIssueStatus(b.status))}
+    exclude={[issue.identifier, ...refs(issue.relations.blockedBy)]}
+    onAdd={(r) => change(`blocked by ${r.identifier}`, (cur) => ({ blockedBy: [...new Set([...refs(cur.relations.blockedBy), r.identifier])] }))}
+    onRemove={(r) => change(`remove blocker ${r.identifier}`, (cur) => ({ blockedBy: refs(cur.relations.blockedBy).filter((x) => x !== r.identifier) }))}
+  />;
+  const timeline = <><ActivityTimeline rows={issue.activity} lookups={lookups} /><div className="mt-6"><Comments identifier={issue.identifier} comments={issue.comments} /></div></>;
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
+      {!peek && <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
         <BackButton fallbackHref={`/projects/${issue.projectId}`} />
         <Link href="/issues" className="text-muted-foreground hover:text-foreground">Issues</Link>
         <ChevronRight className="size-3.5 text-muted-foreground" />
@@ -191,7 +229,7 @@ export function IssueDetail(props: IssueDetailProps) {
             <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="size-3.5" />Delete</Button>
           )}
         </div>
-      </header>
+      </header>}
 
       {stale && (
         <div role="alert" data-testid="stale-banner" className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[13px]">
@@ -226,9 +264,9 @@ export function IssueDetail(props: IssueDetailProps) {
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[720px] px-4 py-5 sm:px-8 sm:py-8">
-            {parent && (
-              <Link href={`/issues/${parent.identifier}`} className="mb-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                <GitBranch className="size-3" />{parent.identifier} {parent.title}
+            {resolvedParent && (
+              <Link href={`/issues/${resolvedParent.identifier}`} className="mb-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <GitBranch className="size-3" />{resolvedParent.identifier} {resolvedParent.title}
               </Link>
             )}
             <Title key={`${resetKey}:${issue.updatedAt}:${issue.title}`} onDirty={setDirty} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
@@ -240,6 +278,8 @@ export function IssueDetail(props: IssueDetailProps) {
               </section>
             )}
 
+            {peek && blockedBy}
+
             <div className="mt-5">
               <Description key={resetKey} onDirty={setDirty} value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
             </div>
@@ -248,14 +288,7 @@ export function IssueDetail(props: IssueDetailProps) {
 
             <SubIssues parentIdentifier={issue.identifier} items={issue.children} />
 
-            <BlockerList
-              title="Blocked by"
-              issues={issue.relations.blockedBy}
-              disabled={busy}
-              exclude={[issue.identifier, ...refs(issue.relations.blockedBy)]}
-              onAdd={(r) => change(`blocked by ${r.identifier}`, (cur) => ({ blockedBy: [...new Set([...refs(cur.relations.blockedBy), r.identifier])] }))}
-              onRemove={(r) => change(`remove blocker ${r.identifier}`, (cur) => ({ blockedBy: refs(cur.relations.blockedBy).filter((x) => x !== r.identifier) }))}
-            />
+            {!peek && blockedBy}
             <BlockerList
               title="Blocks"
               issues={issue.relations.blocks}
@@ -274,13 +307,7 @@ export function IssueDetail(props: IssueDetailProps) {
               onRemove={(r) => change(`remove related ${r.identifier}`, (cur) => ({ related: refs(cur.relations.related).filter((x) => x !== r.identifier) }))}
             />
 
-            <section className="mt-10" aria-label="Activity">
-              <h3 className="mb-3 text-[13px] font-medium">Activity</h3>
-              <ActivityTimeline rows={issue.activity} lookups={lookups} />
-              <div className="mt-6">
-                <Comments identifier={issue.identifier} comments={issue.comments} />
-              </div>
-            </section>
+            {peek ? <details className="mt-8 border-t pt-4"><summary className="cursor-pointer text-xs text-muted-foreground">Activity and comments</summary><div className="mt-4">{timeline}</div></details> : <section className="mt-10" aria-label="Activity"><h3 className="mb-3 text-[13px] font-medium">Activity</h3>{timeline}</section>}
           </div>
         </div>
 

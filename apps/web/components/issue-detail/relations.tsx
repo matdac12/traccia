@@ -83,18 +83,19 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
 }
 
 /** "Blocked by" or "Blocks": a list with remove buttons and an identifier search to add. */
-export function BlockerList({ title, issues, exclude, onAdd, onRemove, disabled }: {
+export function BlockerList({ title, issues, exclude, onAdd, onRemove, disabled, highlighted = false }: {
   title: string;
   issues: IssueRef[];
   exclude: readonly string[];
   onAdd: (issue: IssueRef) => void;
   onRemove: (issue: IssueRef) => void;
   disabled?: boolean;
+  highlighted?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   return (
-    <section className="mt-6" aria-label={title}>
-      <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium">
+    <section className={`mt-6 ${highlighted ? "rounded-lg border border-orange-500/25 bg-orange-500/5 p-3" : ""}`} aria-label={title}>
+      <h3 className={`mb-2 flex items-center gap-2 text-[13px] font-medium ${highlighted ? "text-orange-700 dark:text-orange-400" : ""}`}>
         {title} <span className="text-xs font-normal text-muted-foreground">{issues.length}</span>
         <Button variant="ghost" size="sm" disabled={disabled} className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => !a)}><Plus className="size-3" />Add</Button>
       </h3>

@@ -1,28 +1,13 @@
 import { expect, type Page, test } from "@playwright/test";
 import { type E2eApi, PNG, apiClient, createIssue } from "./support/api";
 import { E2E_LOGIN, LOGIN_HEADER, PROJECT_NAME } from "./support/ports";
+import { visit } from "./support/visit";
 
 let api: E2eApi;
 let projectId: string;
 let n = 0;
 /** A title no other scenario uses, so each test only ever sees its own data. */
 const unique = (what: string) => `${what} ${Date.now()}-${n++}`;
-
-/**
- * The server sends HTML before React hydrates, and an early click or file selection is silently lost.
- * `visit` therefore waits until React has attached its handlers to the shell's "New issue" button.
- */
-async function visit(page: Page, path: string) {
-  await page.goto(path);
-  await page.waitForFunction(
-    () => {
-      const button = [...document.querySelectorAll("nav button")].find((b) => b.textContent?.includes("New issue"));
-      return !!button && Object.keys(button).some((k) => k.startsWith("__reactProps"));
-    },
-    undefined,
-    { timeout: 10_000 },
-  );
-}
 
 /** Retries a click until its effect shows, without re-clicking once it did (a menu trigger would toggle shut). */
 async function clickUntil(click: () => Promise<void>, done: () => Promise<boolean>) {
@@ -202,7 +187,9 @@ test("dragging a card across Kanban columns persists after reload", async ({ pag
   await expect(card).toBeVisible();
   const target = page.getByRole("region", { name: "In Progress" });
   // Grab the identifier label: it is plain text, while the title is a link and the rest are inline-edit buttons.
-  const from = await page.getByRole("region", { name: "Todo" }).getByText(issue.identifier, { exact: true }).boundingBox();
+  const identifier = page.getByRole("region", { name: "Todo" }).getByText(issue.identifier, { exact: true });
+  await identifier.scrollIntoViewIfNeeded();
+  const from = await identifier.boundingBox();
   const to = await target.boundingBox();
   if (!from || !to) throw new Error("card or column not laid out");
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -248,6 +235,8 @@ test("deleting an issue moves it to Trash and Restore brings it back", async ({ 
   // The row leaves the list before the restore lands; wait until the API serves the issue again.
   await expect.poll(() => api.get(`/issues/${issue.identifier}`).then(() => 200, () => 404)).toBe(200);
   await visit(page, `/issues/${issue.identifier}`);
+  // Next may briefly retain the outgoing editor during navigation; wait for the destination to settle.
+  await expect(page.getByLabel("Title")).toHaveCount(1);
   await expect(page.getByLabel("Title")).toHaveValue(issue.title);
 });
 
