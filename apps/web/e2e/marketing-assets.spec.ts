@@ -394,9 +394,47 @@ test.describe("marketing assets", () => {
     mkdirSync(shotsDir, { recursive: true });
     await page.screenshot({ path: resolve(shotsDir, "issues-table.png") });
 
+    // Search: filter the list in place.
+    await page.getByLabel("Search issues").fill("streak");
+    await expect(page).toHaveURL(/q=streak/);
+    await expect(
+      page.getByText("Show the current streak in the menu bar"),
+    ).toBeVisible();
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: resolve(shotsDir, "issues-search.png") });
+
+    // Agent arrival: the board is open, new issues land through the API, the live poll swaps them in.
     await page.goto(`/issues?project=${project.key}&view=kanban`);
     await expect(page.getByText("In Progress").first()).toBeVisible();
     await page.waitForTimeout(900);
     await page.screenshot({ path: resolve(shotsDir, "issues-board.png") });
+    await page.screenshot({ path: resolve(shotsDir, "board-before.png") });
+
+    const arrivals = [
+      {
+        title: "Measure streak consistency over 30 days",
+        status: "backlog",
+        assignee: "agent",
+      },
+      {
+        title: "Weekly email digest of missed habits",
+        status: "todo",
+        assignee: "agent",
+      },
+      {
+        title: "Export the heatmap as an SVG",
+        status: "todo",
+        assignee: "agent",
+      },
+    ];
+    for (const arrival of arrivals)
+      await api.post("/issues", { project: project.id, ...arrival });
+    await page.waitForTimeout(2200); // clear the poll's minimum gap before forcing a refresh
+    await page.getByTestId("live-status").click();
+    await expect(page.getByText(arrivals[0].title)).toBeVisible({
+      timeout: 20_000,
+    });
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: resolve(shotsDir, "board-after.png") });
   });
 });

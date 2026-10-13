@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Traccia title card</title>
+    <style>
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("../brand/social-preview-src/GeistMono-Regular.woff2") format("woff2");
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("../brand/social-preview-src/GeistMono-Medium.woff2") format("woff2");
+        font-weight: 500;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0b0f14;
+      }
+      #scene {
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(1200px 760px at 12% -12%, rgba(255, 158, 11, 0.13), transparent 60%),
+          radial-gradient(1300px 820px at 90% 116%, rgba(6, 182, 212, 0.13), transparent 62%),
+          linear-gradient(180deg, #0c1119, #080b10 60%, #06080c);
+        font-family: "Geist Mono", ui-monospace, monospace;
+        color: #f4f6f9;
+      }
+      .trail {
+        position: absolute;
+        left: 50%;
+        top: 52%;
+        width: 900px;
+        height: 200px;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(90deg, rgba(255, 158, 11, 0.5), rgba(255, 158, 11, 0.03) 44%, rgba(6, 182, 212, 0.03) 56%, rgba(6, 182, 212, 0.5));
+        filter: blur(70px);
+      }
+      .card {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 26px;
+        will-change: transform, opacity;
+      }
+      .mark {
+        width: 116px;
+        height: 116px;
+      }
+      .word {
+        font-size: 62px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+      .tagline {
+        font-size: 22px;
+        color: #aab4c0;
+        letter-spacing: 0.01em;
+      }
+      .rule {
+        width: 64px;
+        height: 2px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, var(--amber, #ff9e0b), var(--cyan, #06b6d4));
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene">
+      <div class="trail" id="trail"></div>
+      <div class="card" id="card">
+        <img class="mark" src="../brand/mark/traccia-mark.svg" alt="" />
+        <div class="word">traccia</div>
+        <div class="rule"></div>
+        <div class="tagline">You and your agents, on the same page.</div>
+      </div>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const W = Number(params.get("w") ?? 1920);
+      const H = Number(params.get("h") ?? 1080);
+      const scene = document.getElementById("scene");
+      scene.style.width = `${W}px`;
+      scene.style.height = `${H}px`;
+
+      const card = document.getElementById("card");
+      const trail = document.getElementById("trail");
+      const TAU = Math.PI * 2;
+      const clamp01 = (n) => Math.min(1, Math.max(0, n));
+
+      window.__seek = (u) => {
+        const a = TAU * u;
+        const s = Math.sin(a);
+        const c = Math.sin(a + Math.PI / 2);
+        const reveal = clamp01(u / 0.16);
+        card.style.opacity = (0.15 + 0.85 * reveal).toFixed(3);
+        card.style.transform = `translate3d(0, ${((1 - reveal) * 14).toFixed(2)}px, 0) scale(${(0.98 + 0.02 * reveal).toFixed(4)})`;
+        trail.style.transform = `translate(-50%, -50%) scale(${(1 + 0.04 * c).toFixed(4)})`;
+        trail.style.opacity = (0.5 + 0.12 * s).toFixed(3);
+      };
+
+      window.__ready = new Promise((resolve) => {
+        const mark = document.querySelector(".mark");
+        if (mark.complete) return resolve();
+        mark.onload = () => resolve();
+        mark.onerror = () => resolve();
+      }).then(() => {
+        window.__meta = { width: W, height: H };
+        window.__seek(0);
+      });
+    </script>
+  </body>
+</html>
