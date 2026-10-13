@@ -19,7 +19,7 @@ export type BackgroundPreferences = {
 export const DEFAULT_BACKGROUND: BackgroundPreferences = { version: 1, enabled: false, image: null, effect: "haze", opacity: 24 };
 export const BACKGROUND_ACCEPT = "image/jpeg,image/png,image/webp,image/avif";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const MAX_IMAGE_LENGTH = 2_000_000;
+const MAX_IMAGE_LENGTH = Math.ceil(MAX_FILE_BYTES / 3) * 4 + 100;
 
 /** Stored preferences are untrusted. Keep image URLs local and opacity within a readable range. */
 export function parseBackground(value: string | null): BackgroundPreferences {
@@ -56,21 +56,18 @@ export function loadBackgroundImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-/** Normalize uploads to a bounded static bitmap so browser storage and effect rendering stay small. */
+/** Validate decoding, then keep the uploaded bytes intact: no resizing or lossy re-encoding. */
 export async function prepareBackgroundImage(file: File): Promise<BackgroundImage> {
   validateBackgroundFile(file);
   const url = URL.createObjectURL(file);
   try {
-    const image = await loadBackgroundImage(url);
-    const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Your browser could not process this image.");
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const src = canvas.toDataURL("image/webp", 0.85);
-    if (src.length > MAX_IMAGE_LENGTH) throw new Error("This image is too large to save. Choose a smaller image.");
+    await loadBackgroundImage(url);
+    const src = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("Could not read this image. Choose another image."));
+      reader.readAsDataURL(file);
+    });
     return { name: file.name, src };
   } finally {
     URL.revokeObjectURL(url);
