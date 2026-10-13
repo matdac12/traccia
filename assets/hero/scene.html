@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Traccia hero scene</title>
+    <style>
+      :root {
+        --ink: #0b0f14;
+        --amber: #ff9e0b;
+        --cyan: #06b6d4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--ink);
+      }
+      #scene {
+        position: relative;
+        overflow: hidden;
+        background: var(--ink);
+        font-size: 0;
+      }
+      .bg {
+        position: absolute;
+        inset: -7%;
+        background-position: center;
+        background-size: cover;
+        will-change: transform;
+        filter: saturate(1.05) brightness(0.72) contrast(1.02);
+      }
+      .vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(125% 95% at 50% 42%, transparent 38%, rgba(0, 0, 0, 0.66) 100%);
+      }
+      .glow {
+        position: absolute;
+        inset: 0;
+        mix-blend-mode: screen;
+        background:
+          radial-gradient(1000px 620px at 17% -12%, rgba(255, 158, 11, 0.17), transparent 60%),
+          radial-gradient(1100px 720px at 87% 114%, rgba(6, 182, 212, 0.17), transparent 62%);
+      }
+      .trail {
+        position: absolute;
+        left: 50%;
+        width: 80%;
+        height: 180px;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(
+          90deg,
+          rgba(255, 158, 11, 0.55),
+          rgba(255, 158, 11, 0.04) 44%,
+          rgba(6, 182, 212, 0.04) 56%,
+          rgba(6, 182, 212, 0.55)
+        );
+        filter: blur(74px);
+      }
+      .dot {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .dot.you {
+        background: var(--amber);
+        box-shadow: 0 0 26px 9px rgba(255, 158, 11, 0.55);
+      }
+      .dot.agent {
+        background: var(--cyan);
+        box-shadow: 0 0 26px 9px rgba(6, 182, 212, 0.55);
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        perspective: 2500px;
+      }
+      .wrap {
+        position: relative;
+        will-change: transform;
+      }
+      .panel {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        box-shadow:
+          0 90px 160px -42px rgba(0, 0, 0, 0.88),
+          0 26px 64px -20px rgba(0, 0, 0, 0.62),
+          0 0 0 1px rgba(0, 0, 0, 0.45);
+      }
+      .panel::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.07),
+          transparent 16%,
+          transparent 84%,
+          rgba(0, 0, 0, 0.24)
+        );
+      }
+      .sweep {
+        position: absolute;
+        inset: 0;
+        mix-blend-mode: screen;
+        background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.16) 49%, transparent 66%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scene">
+      <div class="bg" id="bg"></div>
+      <div class="vignette"></div>
+      <div class="glow"></div>
+      <div class="trail" id="trail"></div>
+      <div class="dot you" id="dotYou"></div>
+      <div class="dot agent" id="dotAgent"></div>
+      <div class="stage">
+        <div class="wrap" id="wrap">
+          <div class="panel" id="panel"><div class="sweep" id="sweep"></div></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const W = Number(params.get("w") ?? 1920);
+      const H = Number(params.get("h") ?? 1080);
+      const bg = params.get("bg") ?? "background.png";
+      const ui = params.get("ui") ?? "dashboard-full.png";
+      const panelWidth = Math.round(W * Number(params.get("panel") ?? 0.6));
+
+      const scene = document.getElementById("scene");
+      scene.style.width = `${W}px`;
+      scene.style.height = `${H}px`;
+
+      const bgEl = document.getElementById("bg");
+      bgEl.style.backgroundImage = `url("${bg}")`;
+
+      const trail = document.getElementById("trail");
+      trail.style.top = `${H * 0.56}px`;
+
+      const panel = document.getElementById("panel");
+      const sweep = document.getElementById("sweep");
+      const wrap = document.getElementById("wrap");
+
+      const uiImage = new Image();
+      uiImage.src = ui;
+      const bgImage = new Image();
+      bgImage.src = bg;
+
+      // One full sine period per loop, so frame 0 and the last frame join seamlessly.
+      const TAU = Math.PI * 2;
+      window.__seek = (u) => {
+        const a = TAU * u;
+        const orbit = Math.sin(a);
+        const lift = Math.sin(a + Math.PI / 2);
+        wrap.style.transform = `rotateY(${(-15 + 4.5 * orbit).toFixed(3)}deg) rotateX(${(6.5 - 2 * lift).toFixed(3)}deg) translate3d(${(14 * orbit).toFixed(2)}px, ${(-10 * lift).toFixed(2)}px, 0)`;
+        bgEl.style.transform = `translate3d(${(22 * Math.sin(a + 0.4)).toFixed(2)}px, ${(12 * Math.sin(2 * a)).toFixed(2)}px, 0) scale(1.06)`;
+        sweep.style.transform = `translateX(${(-45 + 190 * u).toFixed(2)}%)`;
+        trail.style.opacity = (0.42 + 0.16 * lift).toFixed(3);
+        document.getElementById("dotYou").style.left = `${14 + 72 * (0.5 + 0.5 * Math.sin(a - 0.6))}%`;
+        document.getElementById("dotAgent").style.left = `${14 + 72 * (0.5 + 0.5 * Math.sin(a + Math.PI - 0.6))}%`;
+        document.getElementById("dotYou").style.top = `${H * 0.56}px`;
+        document.getElementById("dotAgent").style.top = `${H * 0.56}px`;
+      };
+
+      window.__ready = Promise.all(
+        [uiImage, bgImage].map(
+          (image) =>
+            new Promise((resolve, reject) => {
+              if (image.complete) return resolve();
+              image.onload = () => resolve();
+              image.onerror = () => reject(new Error(`could not load ${image.src}`));
+            }),
+        ),
+      ).then(() => {
+        const height = Math.round(panelWidth * (uiImage.naturalHeight / uiImage.naturalWidth));
+        panel.style.width = `${panelWidth}px`;
+        panel.style.height = `${height}px`;
+        panel.style.backgroundImage = `url("${ui}")`;
+        window.__meta = { width: W, height: H, panelWidth, panelHeight: height };
+        window.__seek(0);
+      });
+    </script>
+  </body>
+</html>
