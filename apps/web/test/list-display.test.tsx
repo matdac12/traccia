@@ -84,9 +84,9 @@ describe("table display", () => {
     expect(row).toHaveAttribute("data-depth", "0");
     expect(within(row as HTMLElement).getByTestId("parent-marker")).toHaveTextContent("TRK-1");
   });
-  it("marks the issues the agent created", () => {
+  it("does not add creator indicators to issue rows", () => {
     setup();
-    expect(within(screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]") as HTMLElement).getByRole("img", { name: "Created by the agent" })).toBeInTheDocument();
+    expect(within(screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]") as HTMLElement).queryByRole("img", { name: "Created by the agent" })).toBeNull();
     expect(within(screen.getByRole("link", { name: "Issue 2" }).closest("[data-depth]") as HTMLElement).queryByRole("img", { name: "Created by the agent" })).toBeNull();
   });
 

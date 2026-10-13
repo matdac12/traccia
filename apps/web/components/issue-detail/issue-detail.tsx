@@ -4,14 +4,12 @@ import { AlertTriangle, ChevronRight, GitBranch, Link2, Trash2, Undo2 } from "lu
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deleteIssueAction, restoreIssueAction, updateIssueAction } from "@/app/(app)/issues/[identifier]/actions";
-import { AgentMark } from "@/components/traccia/atoms";
 import { LiveStatus } from "@/components/traccia/live-status";
 import { Button } from "@/components/ui/button";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
 import { useMediaQuery } from "@/lib/use-media-query";
 import type { IssueDetail as IssueDetailData, IssueRef, Label, Milestone } from "@/lib/api/schemas";
-import { TimeAgo } from "./atoms";
 import { Attachments } from "./attachments";
 import { BackButton } from "./back-button";
 import { ActivityTimeline } from "./activity";
@@ -234,9 +232,6 @@ export function IssueDetail(props: IssueDetailProps) {
               </Link>
             )}
             <Title key={`${resetKey}:${issue.updatedAt}:${issue.title}`} onDirty={setDirty} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
-            {issue.createdBy === "agent" && (
-              <div className="mt-2"><AgentMark /> <span className="text-xs text-muted-foreground">created by an agent <TimeAgo iso={issue.createdAt} suffix=" ago" /></span></div>
-            )}
 
             {!wide && (
               <section aria-label="Properties" className="mt-4 rounded-lg border bg-surface p-3">

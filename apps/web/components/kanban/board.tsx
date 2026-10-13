@@ -19,7 +19,7 @@ import { insertRow, removeRow, upsertRow } from "@/components/inline-edit/rows";
 import { useInlineEdit } from "@/components/inline-edit/use-inline-edit";
 import { IssueContextMenu, IssueMenuButton, type IssueMenuContext } from "@/components/issue-menu/issue-context-menu";
 import { useIssueDelete } from "@/components/issue-menu/use-issue-delete";
-import { AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
 import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
@@ -288,7 +288,6 @@ function Card({ issue, editor, dragging, overlay, showMenuButton }: { issue: Iss
         <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
           <StatusPicker issue={issue} editor={editor} />
           {issue.identifier}
-          {issue.createdBy === "agent" && issue.status === "backlog" && <AgentMark />}
         </span>
         <span className="flex items-center gap-1">
           {showMenuButton && <IssueMenuButton issue={issue} />}

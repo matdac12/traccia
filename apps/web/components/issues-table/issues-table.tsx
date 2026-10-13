@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, CornerDownRight, ListTre
 import Link from "next/link";
 import { type CSSProperties, useEffect, useRef, useState, useTransition } from "react";
 import { loadMoreIssues } from "@/app/(app)/issues/actions";
-import { ActorAvatar, AgentMark, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
+import { ActorAvatar, STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { InlineEditNotice } from "@/components/inline-edit/notice";
 import { AssigneePicker, LabelsPicker, PriorityPicker, StatusPicker } from "@/components/inline-edit/pickers";
 import { insertRow, removeRow, upsertRow } from "@/components/inline-edit/rows";
@@ -148,7 +148,6 @@ export function IssuesTable({
                 <IssueContextMenu key={i.id} issue={i} menu={menu}>
                 {/* Phone: a grid of two lines (status and title / identifier, updated, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
                 <div data-depth={t.depth} style={{ "--indent": `${t.depth * INDENT}px` } as CSSProperties} className={ROW}>
-                  {i.createdBy === "agent" && <span role="img" aria-label="Created by the agent" className="absolute top-[var(--mid)] left-1.5 size-1.5 -translate-y-1/2 rounded-full bg-agent" />}
                   <Connectors tree={t} />
                   <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
                   {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
@@ -169,7 +168,6 @@ export function IssuesTable({
                         <ListTree aria-hidden className="size-3" />{sub.done}/{sub.total}<span className="sr-only"> sub-issues done</span>
                       </span>
                     )}
-                    {i.createdBy === "agent" && i.status === "backlog" && <AgentMark className="shrink-0 md:order-5" />}
                     <LabelsPicker issue={i} editor={editor} className="ml-auto min-w-0 md:order-6 md:ml-0 md:shrink-0" />
                     <span aria-hidden className="hidden md:order-7 md:block md:flex-1" />
                     <span className="hidden w-32 shrink-0 truncate text-xs text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
