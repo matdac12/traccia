@@ -1,11 +1,12 @@
 "use client";
-import { Columns3, Rows3 } from "lucide-react";
+import { Columns3, ListTree, Rows3 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ListTodo, Plus, SearchX, TriangleAlert } from "lucide-react";
 import { useOptionalCreateIssue } from "@/components/create-issue/provider";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Label, Milestone, Project } from "@/lib/api/schemas";
 import { activeFilterCount, clearFilters, filtersToSearchParams, type IssueFilters } from "@/lib/issue-filters";
 import { Board } from "@/components/kanban/board";
@@ -61,6 +62,18 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         <div className="mx-2 hidden h-4 w-px bg-border sm:block" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
         {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} columns={columns} onColumnsChange={setColumns} showSubIssues={showSubIssues} onShowSubIssuesChange={setShowSubIssues} />}
+        {filters.view === "table" && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" size="icon" variant={showSubIssues ? "ghost" : "secondary"} aria-label="Parents only" aria-pressed={!showSubIssues} onClick={() => setShowSubIssues((v) => !v)} className={`size-7 ${showSubIssues ? "text-muted-foreground" : ""}`}>
+                  <ListTree className="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{showSubIssues ? "Show parents only" : "Show sub-issues"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
         <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={refreshAll} className="sm:ml-auto" />
         <fieldset className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" aria-label="View">

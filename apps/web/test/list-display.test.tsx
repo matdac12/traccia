@@ -92,6 +92,20 @@ describe("table display", () => {
     const parent = screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]") as HTMLElement;
     expect(within(parent).getByTestId("sub-progress")).toHaveTextContent("1/2");
   });
+  it("toggles sub-issues from the toolbar button, in step with the Display menu", async () => {
+    const user = userEvent.setup();
+    setup();
+    const button = screen.getByRole("button", { name: "Parents only" });
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("link", { name: "Issue 2" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    expect(await screen.findByRole("menuitemcheckbox", { name: "Show sub-issues" })).not.toBeChecked();
+    await user.keyboard("{Escape}");
+    await user.click(button);
+    expect(screen.getByRole("link", { name: "Issue 2" })).toBeInTheDocument();
+  });
   it("marks a sub-issue with its parent when the parent is in another section", () => {
     setup({ groupBy: "priority" });
     const row = screen.getByRole("link", { name: "Issue 2" }).closest("[data-depth]")!;
