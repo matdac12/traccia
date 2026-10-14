@@ -62,9 +62,9 @@ export type TreeRow = { row: IssueRow; depth: number; last: boolean; guides: boo
 /**
  * Puts each sub-issue right after its parent when both are in the same section, in the section's own order, and says
  * where the connectors go. A row whose parent is elsewhere (another status, not loaded) stays a root; the table marks
- * it with the parent's identifier instead.
+ * it with the parent's identifier instead. With `showSubIssues` off only the roots are returned.
  */
-export function nestRows(rows: IssueRow[]): TreeRow[] {
+export function nestRows(rows: IssueRow[], showSubIssues = true): TreeRow[] {
   const ids = new Set(rows.map((r) => r.id));
   const kids = new Map<string, IssueRow[]>();
   const roots: IssueRow[] = [];
@@ -86,7 +86,8 @@ export function nestRows(rows: IssueRow[]): TreeRow[] {
   for (const r of roots) walk(r, 0, true, []);
   // A parent cycle has no root; its rows still show, as roots.
   for (const r of rows) walk(r, 0, true, []);
-  return out;
+  // Parents only: drop the nested rows, and the connector that would run down to them.
+  return showSubIssues ? out : out.filter((t) => t.depth === 0).map((t) => ({ ...t, hasChildren: false }));
 }
 
 /** Finished / total of each parent's loaded sub-issues (a filtered or paged list only knows part of them). */

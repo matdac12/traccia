@@ -52,6 +52,10 @@ describe("group rows", () => {
     // i2 and i5 sit under i4, which is the last child of i1: no line keeps going at its level.
     expect(tree.find((t) => t.row.id === "i2")!.guides).toEqual([false]);
   });
+  it("returns only the roots, with no connector below them, when sub-issues are hidden", () => {
+    const rows = [issue(1, "todo"), issue(3, "todo", { parentId: "i1" }), issue(6, "todo", { parentId: "elsewhere" })] as unknown as Parameters<typeof nestRows>[0];
+    expect(nestRows(rows, false).map((t) => [t.row.id, t.depth, t.hasChildren])).toEqual([["i1", 0, false], ["i6", 0, false]]);
+  });
   it("keeps rows that form a parent cycle, as roots", () => {
     const rows = [issue(1, "todo", { parentId: "i2" }), issue(2, "todo", { parentId: "i1" }), issue(3, "todo", { parentId: "i3" })] as unknown as Parameters<typeof nestRows>[0];
     expect(nestRows(rows).map((t) => [t.row.id, t.depth])).toEqual([["i3", 0], ["i1", 0], ["i2", 1]]);
@@ -77,6 +81,16 @@ describe("table display", () => {
     const parent = screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]")!;
     expect(parent).toHaveAttribute("data-depth", "0");
     expect(within(parent as HTMLElement).getByTestId("sub-progress")).toHaveTextContent("1/2");
+  });
+  it("hides sub-issues from the Display menu, keeping the parent's progress", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Show sub-issues" }));
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("link", { name: "Issue 2" })).toBeNull();
+    const parent = screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]") as HTMLElement;
+    expect(within(parent).getByTestId("sub-progress")).toHaveTextContent("1/2");
   });
   it("marks a sub-issue with its parent when the parent is in another section", () => {
     setup({ groupBy: "priority" });

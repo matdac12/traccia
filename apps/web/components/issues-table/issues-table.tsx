@@ -62,10 +62,10 @@ function Connectors({ tree }: { tree: TreeRow }) {
 }
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register, columns = DEFAULT_ISSUE_COLUMNS, onOpenIssue,
+  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register, columns = DEFAULT_ISSUE_COLUMNS, showSubIssues = true, onOpenIssue,
 }: {
   groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; projects?: Project[]; labels?: Label[]; collapsed: Set<string>; onToggle: (key: string) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
-  columns?: IssueColumns; onOpenIssue?: (identifier: string, trigger: HTMLElement) => void;
+  columns?: IssueColumns; showSubIssues?: boolean; onOpenIssue?: (identifier: string, trigger: HTMLElement) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -137,6 +137,7 @@ export function IssuesTable({
       </div>
       {sections.map((g) => {
         const isCollapsed = collapsed.has(g.key);
+        const rows = nestRows(g.items, showSubIssues);
         const group = g.status ? groups.find((x) => x.status === g.status) : undefined;
         return (
           <section key={g.key} aria-label={g.status ? STATUS_LABEL[g.status] : g.title}>
@@ -145,11 +146,11 @@ export function IssuesTable({
                 {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
                 {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.raw) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.raw === "none" ? null : (g.raw as "you" | "agent")} size={16} /> : null}
                 <span>{g.status ? STATUS_LABEL[g.status] : g.title}</span>
-                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{g.items.length}{(group ? group.nextCursor : pagedGroups.length > 0) ? "+" : ""}</span>
+                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{rows.length}{(group ? group.nextCursor : pagedGroups.length > 0) ? "+" : ""}</span>
               </button>
             </h2>
             <div>
-              {!isCollapsed && nestRows(g.items).map((t) => {
+              {!isCollapsed && rows.map((t) => {
                 const i = t.row;
                 const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
                 const sub = children.get(i.id);

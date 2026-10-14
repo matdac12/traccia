@@ -9,7 +9,7 @@ export const GROUP_LABEL: Record<GroupBy, string> = { status: "Status", none: "N
 export const SORT_LABEL: Partial<Record<IssueFilters["orderBy"], string>> = { priority: "Priority", updatedAt: "Updated", createdAt: "Created", title: "Title" };
 
 /** Grouping and sorting always work; column controls are opt-in for list parents. */
-export function DisplayMenu({ filters, onChange, hideProject = false, columns = DEFAULT_ISSUE_COLUMNS, onColumnsChange }: { filters: IssueFilters; onChange: (next: IssueFilters) => void; hideProject?: boolean; columns?: IssueColumns; onColumnsChange?: (next: IssueColumns) => void }) {
+export function DisplayMenu({ filters, onChange, hideProject = false, columns = DEFAULT_ISSUE_COLUMNS, onColumnsChange, showSubIssues = true, onShowSubIssuesChange }: { filters: IssueFilters; onChange: (next: IssueFilters) => void; hideProject?: boolean; columns?: IssueColumns; onColumnsChange?: (next: IssueColumns) => void; showSubIssues?: boolean; onShowSubIssuesChange?: (next: boolean) => void }) {
   const groups = (Object.keys(GROUP_LABEL) as GroupBy[]).filter((g) => !(hideProject && g === "project"));
   const sorts = Object.keys(SORT_LABEL) as IssueFilters["orderBy"][];
   return (
@@ -27,6 +27,11 @@ export function DisplayMenu({ filters, onChange, hideProject = false, columns = 
         <DropdownMenuRadioGroup value={filters.orderBy} onValueChange={(v) => onChange({ ...filters, orderBy: v as IssueFilters["orderBy"] })}>
           {sorts.map((s) => <DropdownMenuRadioItem key={s} value={s} className="text-[13px]">{SORT_LABEL[s]}</DropdownMenuRadioItem>)}
         </DropdownMenuRadioGroup>
+        {onShowSubIssuesChange && <>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Sub-issues</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem checked={showSubIssues} onCheckedChange={(checked) => onShowSubIssuesChange(checked === true)} onSelect={(e) => e.preventDefault()} className="text-[13px]">Show sub-issues</DropdownMenuCheckboxItem>
+        </>}
         {onColumnsChange && <>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-xs text-muted-foreground">Columns</DropdownMenuLabel>

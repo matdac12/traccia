@@ -31,6 +31,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
   // Kept here so re-sorting (which reloads the groups) does not re-collapse what the user opened.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(COLLAPSED_BY_DEFAULT));
   const [columns, setColumns] = useState<IssueColumns>(DEFAULT_ISSUE_COLUMNS);
+  const [showSubIssues, setShowSubIssues] = useState(true);
   const [peek, setPeek] = useState<{ identifier: string; trigger: HTMLElement } | null>(null);
   const [peekRefresh, setPeekRefresh] = useState(0);
   const query = filtersToSearchParams(filters).toString();
@@ -59,7 +60,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
         {data && <span className="text-xs text-muted-foreground" data-testid="total">{shown}{more ? "+" : ""}</span>}
         <div className="mx-2 hidden h-4 w-px bg-border sm:block" />
         <FilterMenu filters={filters} lookups={lookups} onChange={go} hideProject={lockProject} />
-        {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} columns={columns} onColumnsChange={setColumns} />}
+        {filters.view === "table" && <DisplayMenu filters={filters} onChange={go} hideProject={lockProject} columns={columns} onColumnsChange={setColumns} showSubIssues={showSubIssues} onShowSubIssuesChange={setShowSubIssues} />}
         <SearchBox value={filters.q} onSearch={(q) => go({ ...filters, q })} />
         <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={refreshAll} className="sm:ml-auto" />
         <fieldset className="ml-auto flex items-center gap-1 rounded-md border p-0.5 sm:ml-0" aria-label="View">
@@ -86,7 +87,7 @@ export function IssuesView({ filters, data, error, lockProject = false, title = 
             </EmptyState>
           )
         ) : (
-          <IssuesTable key={query} register={sync.register} columns={columns} onOpenIssue={(identifier, trigger) => setPeek({ identifier, trigger })} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
+          <IssuesTable key={query} register={sync.register} columns={columns} showSubIssues={showSubIssues} onOpenIssue={(identifier, trigger) => setPeek({ identifier, trigger })} groups={data.groups} collapsed={collapsed} onToggle={(s) => setCollapsed((c) => { const n = new Set(c); if (!n.delete(s)) n.add(s); return n; })} query={query} filters={lockProject && filters.groupBy === "project" ? { ...filters, groupBy: "status" } : filters} milestones={lookups.milestones} projects={lookups.projects} labels={lookups.labels} onSort={(by) => go({ ...filters, orderBy: by, order: filters.orderBy === by && filters.order === "desc" ? "asc" : "desc" })} />
         )}
       </div>
       {peek && data && <IssuePeek identifier={peek.identifier} onRefresh={refreshAll} refreshVersion={peekRefresh} onSaved={sync.refresh} trigger={peek.trigger} onClose={() => setPeek(null)} projects={data.projects.map(({ id, key, name }) => ({ id, key, name }))} labels={data.labels} milestones={data.milestones} />}
