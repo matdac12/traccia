@@ -11,7 +11,7 @@ Every route returns To-dos in this shape:
 - `reminder`: `{ time, status, failure, sentAt }` or `null` when there is none. `time` is `HH:MM` on the Planned day in the Owner timezone; `status` is `pending`, `sent`, `failed` or `skipped`. See [Reminders](#reminders).
 - `references`: the Project references derived from the title, `{ key, projectId, projectDeleted }`, in the order the keys appear in the title and without duplicates. See [Project references](#project-references).
 - `state`: `open`, `done` or `dropped`. `closedAt` is set while it is done or dropped.
-- `parentId`: the parent of a Sub-to-do, else `null`. `position`: the manual order within its bucket (one Planned day, or Anytime, under one parent).
+- `parentId`: the parent of a Sub-to-do, else `null`. `subTodos`: `{ done, total }` on a top-level To-do, `null` on a Sub-to-do. See [Sub-to-dos](#sub-to-dos). `position`: the manual order within its bucket (one Planned day, or Anytime, under one parent).
 - `source`: the name of the Token that created it (e.g. `parla`), copied at creation so revoking the Token keeps it.
 - `url`: `<BASE_URL>/personal?todo=<id>`, which opens it in the dashboard.
 - `createdAt`, `updatedAt`, and `deleted: true` only on a deleted To-do.
@@ -23,6 +23,7 @@ Every route returns To-dos in this shape:
 - `GET /v1/todos?state=closed`: the Logbook, done and dropped To-dos, most recently closed first.
 - Both lists take `limit` (default 50, at most 250), `cursor` (the previous page's `nextCursor`) and `includeDeleted=true`, and return `{ items, nextCursor }`. `state` is required. A cursor only continues the list it came from.
 - `GET /v1/todos/:id` returns one To-do, a deleted one included.
+- `GET /v1/todos/:id/sub-todos` returns `{ items }`: the live Sub-to-dos of a To-do. See [Sub-to-dos](#sub-to-dos).
 - `PATCH /v1/todos/:id` edits one To-do and returns it. See [Editing](#editing).
 - `PATCH /v1/todos/:id/position` reorders one To-do within its bucket and returns it. See [Manual order](#manual-order).
 - `DELETE /v1/todos/:id` deletes a To-do (`?purge=true` purges it). `POST /v1/restore` with `{ type: "todo", id }` restores it. See [Delete, restore and purge](#delete-restore-and-purge).
@@ -35,6 +36,8 @@ A Sub-to-do is a full To-do (own day, `details` and references) that hangs under
 - `parentId` on `POST` must name a To-do that exists, is top-level, is open and is not deleted. Otherwise it is `400 validation_error` with `details.fields.parentId`. The parent is only checked when the Sub-to-do is created; closing or deleting it later doesn't change the Sub-to-do on its own.
 - A Sub-to-do's bucket is its Planned day (or Anytime) under its parent, so its `position` is independent of the top-level To-dos.
 - `GET /v1/todos?state=open` lists Sub-to-dos in the same flat list; `state=closed` (the Logbook) includes closed Sub-to-dos.
+- `subTodos` is the count the row shows as `n/m`, on every To-do in every response (list, get, create, update, move): `{ done, total }` for a top-level To-do, `null` for a Sub-to-do. It counts the parent's **live** Sub-to-dos (deleted ones don't count). `total` leaves out **dropped** ones, since dropped means "won't do", and `done` counts the done ones: 2 open, 1 done and 1 dropped is `{ done: 1, total: 3 }`. A parent with no Sub-to-dos is `{ done: 0, total: 0 }`. The list computes it for the whole page in one query.
+- `GET /v1/todos/:id/sub-todos` returns `{ items }`: every live Sub-to-do of that parent, open, done and dropped, ordered by `position` then `id`, as To-dos with their `url`. It isn't paged (one level, few). An unknown or deleted parent is `404 not_found`; a Sub-to-do has no Sub-to-dos, so its list is empty. A `todos`-scoped Token may call it.
 
 ## Editing
 

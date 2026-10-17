@@ -43,6 +43,10 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
 
   v1.get("/todos/:id", (c) => c.json(withUrl(todos.get(c.req.param("id")))));
 
+  v1.get("/todos/:id/sub-todos", (c) =>
+    c.json({ items: todos.listSubTodos(c.req.param("id")).map(withUrl) }),
+  );
+
   v1.patch("/todos/:id", async (c) => {
     const body = await validateBody(c, updateTodoInputSchema);
     // The body field wins over the header when both are present.

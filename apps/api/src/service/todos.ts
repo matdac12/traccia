@@ -7,6 +7,7 @@ import {
   type MoveTodoPositionInput,
   moveTodoPositionInputSchema,
   ServiceError,
+  type SubTodoCount,
   type Todo,
   type UpdateTodoInput,
   updateTodoInputSchema,
@@ -33,6 +34,7 @@ import {
   loadReferences,
   type TodoReference,
 } from "./todo-references.js";
+import { loadSubTodoCounts } from "./todo-sub-counts.js";
 import { descKeysetAfter, pageLimit } from "./updated-at-page.js";
 
 export type TodoRecord = typeof todos.$inferSelect;
@@ -44,7 +46,11 @@ export type TodoView = Omit<Todo, "url">;
 export const todoUrl = (baseUrl: string, id: string) =>
   `${baseUrl.replace(/\/+$/, "")}/personal?todo=${id}`;
 
-export function toTodo(row: TodoRecord, references: TodoReference[]): TodoView {
+export function toTodo(
+  row: TodoRecord,
+  references: TodoReference[],
+  subTodos: SubTodoCount | null,
+): TodoView {
   return {
     id: row.id,
     title: row.title,
@@ -62,6 +68,7 @@ export function toTodo(row: TodoRecord, references: TodoReference[]): TodoView {
     state: row.state,
     closedAt: row.closedAt,
     parentId: row.parentId,
+    subTodos,
     position: row.position,
     details: row.details,
     source: row.createdByToken,
@@ -290,15 +297,18 @@ function afterClosedCursor(cursor: string): SQL | undefined {
   return descKeysetAfter(todos.closedAt, todos.id, c.c, c.i);
 }
 
-/** One To-do with its references. */
+/** One To-do with its references and Sub-to-do count. */
 function view(db: DbHandle, row: TodoRecord): TodoView {
-  return toTodo(row, loadReferences(db, [row]).get(row.id) ?? []);
+  return toTodos(db, [row])[0] as TodoView;
 }
 
-/** The page's To-dos with their references, resolved in one query. */
+/** The page's To-dos with references and counts, each resolved in one query. */
 function toTodos(db: DbHandle, rows: TodoRecord[]): TodoView[] {
   const references = loadReferences(db, rows);
-  return rows.map((row) => toTodo(row, references.get(row.id) ?? []));
+  const counts = loadSubTodoCounts(db, rows);
+  return rows.map((row) =>
+    toTodo(row, references.get(row.id) ?? [], counts.get(row.id) ?? null),
+  );
 }
 
 export function createTodosService(ctx: ServiceContext) {
@@ -468,6 +478,22 @@ export function createTodosService(ctx: ServiceContext) {
     get(id: string): TodoView {
       const row = findTodo(ctx.db, id);
       return view(ctx.db, row);
+    },
+
+    /**
+     * The live Sub-to-dos of a live top-level To-do, open and closed, by
+     * Position then id; not paged (one level, few). An unknown or deleted
+     * parent is `not_found`; a Sub-to-do has none, so its list is empty.
+     */
+    listSubTodos(parentId: string): TodoView[] {
+      requireLiveTodo(ctx.db, parentId);
+      const rows = ctx.db
+        .select()
+        .from(todos)
+        .where(and(eq(todos.parentId, parentId), isNull(todos.deletedAt)))
+        .orderBy(asc(todos.position), asc(todos.id))
+        .all();
+      return toTodos(ctx.db, rows);
     },
 
     /**

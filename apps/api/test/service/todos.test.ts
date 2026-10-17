@@ -350,7 +350,10 @@ describe("todos.update: closing and reopening", () => {
     expect(
       code(() => update(parent.id, { state: "done", closeSubTodos: false })),
     ).toBe("conflict");
-    expect(get(parent.id)).toEqual(parent);
+    expect(get(parent.id)).toEqual({
+      ...parent,
+      subTodos: { done: 0, total: 2 },
+    });
     expect(get(s1.id)).toEqual(s1);
     expect(get(s2.id)).toEqual(s2);
   });
@@ -404,7 +407,11 @@ describe("todos.update: closing and reopening", () => {
     const parent = create("parent");
     const sub = create("sub", parent.id);
     expect(update(sub.id, { state: "done" }).state).toBe("done");
-    expect(get(parent.id)).toEqual(parent);
+    // Only the count moves; the parent itself is untouched.
+    expect(get(parent.id)).toEqual({
+      ...parent,
+      subTodos: { done: 1, total: 1 },
+    });
   });
 
   it("reopens a parent without touching its Sub-to-dos", () => {
