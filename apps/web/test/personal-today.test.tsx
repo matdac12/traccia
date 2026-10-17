@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TodayList } from "../components/personal/today-list";
 import { TodoRow } from "../components/personal/todo-row";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { type PersonalTodo, withSubTodoCounts } from "../lib/personal/lists";
 
 const TODAY = "2026-10-17";
@@ -65,7 +66,9 @@ describe("TodayList", () => {
 });
 
 describe("TodoRow", () => {
-  const renderRow = (t: PersonalTodo, showDay = false) => render(<ul><TodoRow todo={t} today={TODAY} showDay={showDay} /></ul>).container;
+  // Linked chips use the app's TooltipProvider (root layout).
+  const renderRow = (t: PersonalTodo, showDay = false) =>
+    render(<ul><TodoRow todo={t} today={TODAY} showDay={showDay} /></ul>, { wrapper: TooltipProvider }).container;
 
   it("shows the Reminder time by status: pending in the accent, sent dimmed, failed red with a crossed bell", () => {
     renderRow(row({ reminder: reminder("pending", "15:00") }));
@@ -122,7 +125,7 @@ describe("PersonalSpace", () => {
     const fresh = withSubTodoCounts([todo({ title: "Created by curl", day: "2026-10-18" })]);
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ today: "2026-10-18", todos: fresh })));
     vi.stubGlobal("fetch", fetchMock);
-    render(<PersonalSpace initial={{ today: TODAY, todos: withSubTodoCounts([todo({ title: "Already here" })]) }} />);
+    render(<PersonalSpace initial={{ today: TODAY, todos: withSubTodoCounts([todo({ title: "Already here" })]) }} projects={[]} />);
     expect(screen.getByText("Already here")).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);
@@ -133,7 +136,7 @@ describe("PersonalSpace", () => {
   });
 
   it("counts Today and Anytime in the list menu and opens the other lists", async () => {
-    render(<PersonalSpace initial={{ today: TODAY, todos: withSubTodoCounts([todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })]) }} />);
+    render(<PersonalSpace initial={{ today: TODAY, todos: withSubTodoCounts([todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })]) }} projects={[]} />);
     const menu = screen.getByRole("navigation", { name: "Personal lists" });
     expect(within(menu).getByRole("button", { name: /Today/ })).toHaveTextContent("Today2");
     expect(within(menu).getByRole("button", { name: /Anytime/ })).toHaveTextContent("Anytime1");

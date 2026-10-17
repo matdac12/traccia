@@ -25,6 +25,9 @@ export function addDays(day: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** 0 for Sunday to 6 for Saturday. */
+export const dayOfWeek = (day: string) => atNoon(day).getUTCDay();
+
 /** "Saturday". */
 export const weekdayName = (day: string) => format(day, { weekday: "long" });
 
