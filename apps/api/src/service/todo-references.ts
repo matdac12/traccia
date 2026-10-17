@@ -8,12 +8,15 @@ export type TodoReference = Todo["references"][number];
 /**
  * The Project keys a title names, uppercased, in order of appearance and
  * without duplicates. A candidate is an `@` followed by a run of letters and
- * digits; the whole run has to be a valid Project key (`issueKeySchema`), so
- * `@ABCDEFGHI` (9) or `@1AB` is plain text rather than a truncated match.
+ * digits, at the start of the title or right after a character that is not a
+ * letter or digit: `bob@crm.com` is an email address, `(@crm)` and `x,@crm`
+ * are references. The whole run has to be a valid Project key
+ * (`issueKeySchema`), so `@ABCDEFGHI` (9) or `@1AB` is plain text rather than
+ * a truncated match.
  */
 export function projectKeysIn(title: string): string[] {
   const keys = new Set<string>();
-  for (const [, run] of title.matchAll(/@([A-Za-z0-9]+)/g)) {
+  for (const [, run] of title.matchAll(/(?<![\p{L}\p{N}])@([A-Za-z0-9]+)/gu)) {
     const key = (run as string).toUpperCase();
     if (issueKeySchema.safeParse(key).success) keys.add(key);
   }

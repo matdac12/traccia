@@ -1,9 +1,13 @@
-import { createTodoInputSchema, listTodosQuerySchema } from "@traccia/shared";
+import {
+  createTodoInputSchema,
+  listTodosQuerySchema,
+  updateTodoInputSchema,
+} from "@traccia/shared";
 import type { Hono } from "hono";
 import { type TodoView, todoUrl } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";
-import { validateBody, validateQuery } from "./validate.js";
+import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 /** Personal Space To-dos: thin adapter over `services.todos` (ADR 0017: REST only). */
 export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
@@ -27,4 +31,11 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.get("/todos/:id", (c) => c.json(withUrl(todos.get(c.req.param("id")))));
+
+  v1.patch("/todos/:id", async (c) => {
+    const body = await validateBody(c, updateTodoInputSchema);
+    // The body field wins over the header when both are present.
+    body.expectedUpdatedAt ??= ifMatch(c);
+    return c.json(withUrl(todos.update(c.req.param("id"), body)));
+  });
 }

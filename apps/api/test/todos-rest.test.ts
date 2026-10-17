@@ -7,10 +7,16 @@ import { createTestApp } from "./helpers/test-app.js";
 function setup() {
   const t = createTestApp({ BASE_URL: "https://traccia.example.ts.net/" });
   const parla = createToken(t.db, { name: "parla", actor: "you" });
-  const call = (method: string, path: string, body?: unknown) =>
+  const call = (
+    method: string,
+    path: string,
+    body?: unknown,
+    headers: Record<string, string> = {},
+  ) =>
     t.app.request(path, {
       method,
       headers: {
+        ...headers,
         Authorization: `Bearer ${parla.token}`,
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
@@ -159,6 +165,191 @@ describe("GET /v1/todos/:id", () => {
   });
 });
 
+describe("POST /v1/todos with parentId", () => {
+  it("creates a Sub-to-do, and refuses a Sub-to-do, closed or unknown parent with 400", async () => {
+    const { call, json } = setup();
+    const parent = await json(await call("POST", "/v1/todos", { title: "p" }));
+    const res = await call("POST", "/v1/todos", {
+      title: "s",
+      parentId: parent.id,
+    });
+    expect(res.status).toBe(201);
+    const sub = await json(res);
+    expect(todoSchema.parse(sub)).toEqual(sub);
+    expect(sub.parentId).toBe(parent.id);
+
+    const closed = await json(await call("POST", "/v1/todos", { title: "c" }));
+    await call("PATCH", `/v1/todos/${closed.id}`, { state: "done" });
+    for (const parentId of [sub.id, closed.id, "nope"]) {
+      const bad = await call("POST", "/v1/todos", { title: "x", parentId });
+      expect(bad.status, parentId).toBe(400);
+      const { error } = await json(bad);
+      expect(error.code).toBe("validation_error");
+      expect(error.details.fields).toHaveProperty("parentId");
+    }
+  });
+});
+
+describe("PATCH /v1/todos/:id", () => {
+  const make = async (
+    t: ReturnType<typeof setup>,
+    body: Record<string, unknown> = { title: "a" },
+  ) => t.json(await t.call("POST", "/v1/todos", body));
+
+  it("edits the To-do and returns it with its url", async () => {
+    const t = setup();
+    const todo = await make(t, { title: "a", day: "2026-10-20" });
+    const res = await t.call("PATCH", `/v1/todos/${todo.id}`, {
+      title: "b",
+      day: null,
+      details: "notes",
+    });
+    expect(res.status).toBe(200);
+    const updated = await t.json(res);
+    expect(todoSchema.parse(updated)).toEqual(updated);
+    expect(updated).toMatchObject({
+      title: "b",
+      day: null,
+      details: "notes",
+      url: todo.url,
+    });
+  });
+
+  it("re-derives references from a new title", async () => {
+    const t = setup();
+    const crm = createServices({
+      db: t.db,
+      defaultIssueKey: "MAT",
+    }).projects.create("you", { name: "CRM", key: "CRM" });
+    const todo = await make(t);
+    const updated = await t.json(
+      await t.call("PATCH", `/v1/todos/${todo.id}`, { title: "ship @crm" }),
+    );
+    expect(updated.references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: false },
+    ]);
+  });
+
+  it.each([
+    ["an empty patch", {}, "No fields to update"],
+    ["only closeSubTodos", { closeSubTodos: true }, "No fields to update"],
+  ])("refuses %s with 400", async (_, body, message) => {
+    const t = setup();
+    const todo = await make(t);
+    const res = await t.call("PATCH", `/v1/todos/${todo.id}`, body);
+    expect(res.status).toBe(400);
+    const { error } = await t.json(res);
+    expect(error).toMatchObject({ code: "validation_error", message });
+  });
+
+  it.each([
+    ["an empty title", { title: " " }, "title"],
+    ["a malformed day", { day: "tomorrow" }, "day"],
+    ["an unknown state", { state: "finished" }, "state"],
+  ])("refuses %s with validation_error", async (_, body, field) => {
+    const t = setup();
+    const todo = await make(t);
+    const res = await t.call("PATCH", `/v1/todos/${todo.id}`, body);
+    expect(res.status).toBe(400);
+    expect((await t.json(res)).error.details.fields).toHaveProperty(field);
+  });
+
+  it("is 404 for an unknown To-do", async () => {
+    const t = setup();
+    const res = await t.call("PATCH", "/v1/todos/nope", { title: "x" });
+    expect(res.status).toBe(404);
+  });
+
+  it("is 409 conflict with currentUpdatedAt for a stale expectedUpdatedAt or If-Match", async () => {
+    const t = setup();
+    const todo = await make(t);
+    await new Promise((r) => setTimeout(r, 5));
+    const first = await t.json(
+      await t.call("PATCH", `/v1/todos/${todo.id}`, {
+        title: "b",
+        expectedUpdatedAt: todo.updatedAt,
+      }),
+    );
+    const byBody = await t.call("PATCH", `/v1/todos/${todo.id}`, {
+      title: "c",
+      expectedUpdatedAt: todo.updatedAt,
+    });
+    expect(byBody.status).toBe(409);
+    const { error } = await t.json(byBody);
+    expect(error.code).toBe("conflict");
+    expect(error.details).toEqual({ currentUpdatedAt: first.updatedAt });
+
+    const byHeader = await t.call(
+      "PATCH",
+      `/v1/todos/${todo.id}`,
+      { title: "c" },
+      { "If-Match": `"${todo.updatedAt}"` },
+    );
+    expect(byHeader.status).toBe(409);
+    expect((await t.json(byHeader)).error.details).toEqual({
+      currentUpdatedAt: first.updatedAt,
+    });
+
+    const fresh = await t.call(
+      "PATCH",
+      `/v1/todos/${todo.id}`,
+      { title: "c" },
+      { "If-Match": `"${first.updatedAt}"` },
+    );
+    expect(fresh.status).toBe(200);
+    // The body field wins over the header.
+    const both = await t.call(
+      "PATCH",
+      `/v1/todos/${todo.id}`,
+      { title: "d", expectedUpdatedAt: (await t.json(fresh)).updatedAt },
+      { "If-Match": '"stale"' },
+    );
+    expect(both.status).toBe(200);
+  });
+
+  it("closes with the cascade: 409 openSubTodos, then closeSubTodos closes all", async () => {
+    const t = setup();
+    const parent = await make(t, { title: "p" });
+    const s1 = await make(t, { title: "s1", parentId: parent.id });
+    const s2 = await make(t, { title: "s2", parentId: parent.id });
+
+    const refused = await t.call("PATCH", `/v1/todos/${parent.id}`, {
+      state: "done",
+    });
+    expect(refused.status).toBe(409);
+    const { error } = await t.json(refused);
+    expect(error.code).toBe("conflict");
+    expect(error.details).toEqual({ openSubTodos: 2 });
+
+    const res = await t.call("PATCH", `/v1/todos/${parent.id}`, {
+      state: "done",
+      closeSubTodos: true,
+    });
+    expect(res.status).toBe(200);
+    const done = await t.json(res);
+    expect(done.closedAt).not.toBeNull();
+    for (const sub of [s1, s2]) {
+      const got = await t.json(await t.call("GET", `/v1/todos/${sub.id}`));
+      expect(got).toMatchObject({ state: "done", closedAt: done.closedAt });
+    }
+    const logbook = await t.json(await t.call("GET", "/v1/todos?state=closed"));
+    expect(logbook.items).toHaveLength(3);
+    expect(
+      (await t.json(await t.call("GET", "/v1/todos?state=open"))).items,
+    ).toEqual([]);
+  });
+
+  it("reopens a To-do and clears closedAt", async () => {
+    const t = setup();
+    const todo = await make(t);
+    await t.call("PATCH", `/v1/todos/${todo.id}`, { state: "dropped" });
+    const reopened = await t.json(
+      await t.call("PATCH", `/v1/todos/${todo.id}`, { state: "open" }),
+    );
+    expect(reopened).toMatchObject({ state: "open", closedAt: null });
+  });
+});
+
 describe("Project references", () => {
   const makeProject = (db: ReturnType<typeof setup>["db"], key: string) =>
     createServices({ db, defaultIssueKey: "MAT" }).projects.create("you", {
@@ -207,6 +398,7 @@ describe("auth", () => {
       ["GET", "/v1/todos?state=open"],
       ["POST", "/v1/todos"],
       ["GET", "/v1/todos/x"],
+      ["PATCH", "/v1/todos/x"],
     ] as const) {
       expect(
         (await app.request(path, { method })).status,

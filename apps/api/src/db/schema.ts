@@ -372,7 +372,7 @@ export const todos = sqliteTable(
   ],
 );
 
-/** Projects named by `@KEY` in a To-do's title (filled from step 02). */
+/** Projects named by `@KEY` in a To-do's title, rewritten on every title save. */
 export const todoReferences = sqliteTable(
   "todo_references",
   {
