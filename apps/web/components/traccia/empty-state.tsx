@@ -1,9 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-export function EmptyState({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children?: ReactNode }) {
+export function EmptyState({ icon: Icon, title, children, className }: { icon: LucideIcon; title: string; children?: ReactNode; className?: string }) {
   return (
-    <div className="grid flex-1 place-items-center p-8">
+    <div className={cn("grid flex-1 place-items-center p-8", className)}>
       <div className="max-w-xs text-center">
         <div className="mx-auto mb-3 grid size-9 place-items-center rounded-lg border bg-surface text-muted-foreground">
           <Icon className="size-4" />

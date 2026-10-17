@@ -27,3 +27,13 @@ describe("AppShell on narrow screens", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+describe("AppShell navigation", () => {
+  it("puts Personal first, above Issues", () => {
+    render(<AppShell projects={[]} login="me@x">content</AppShell>);
+    const nav = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(nav.indexOf("/personal")).toBeGreaterThan(-1);
+    expect(nav.indexOf("/personal")).toBeLessThan(nav.indexOf("/issues"));
+    expect(screen.getAllByRole("link", { name: "Personal" })[0]).toHaveAttribute("href", "/personal");
+  });
+});

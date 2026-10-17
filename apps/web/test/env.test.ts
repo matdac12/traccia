@@ -47,4 +47,12 @@ describe("parseEnv", () => {
     const env = parseEnv({ ...base, NODE_ENV: "development", DASHBOARD_ALLOWED_LOGINS: "", DASHBOARD_DEV_LOGIN: "dev@local" });
     expect(env.access.devLogin).toBe("dev@local");
   });
+  it("defaults OWNER_TIMEZONE to Europe/Rome, like the API", () => {
+    expect(parseEnv(base).ownerTimezone).toBe("Europe/Rome");
+    expect(parseEnv({ ...base, OWNER_TIMEZONE: "" }).ownerTimezone).toBe("Europe/Rome");
+    expect(parseEnv({ ...base, OWNER_TIMEZONE: "America/New_York" }).ownerTimezone).toBe("America/New_York");
+  });
+  it("refuses an OWNER_TIMEZONE that is not an IANA zone", () => {
+    expect(() => parseEnv({ ...base, OWNER_TIMEZONE: "Mars/Olympus" })).toThrow(/OWNER_TIMEZONE/);
+  });
 });
