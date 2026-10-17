@@ -75,10 +75,28 @@ export const createTodoInputSchema = z.object({
   title: todoTitleSchema,
   /** Omit or null for Anytime. */
   day: dateOnlySchema.nullable().optional(),
+  /** Makes it a Sub-to-do: an open, top-level, live To-do. */
+  parentId: z.string().min(1).optional(),
   /** Markdown. */
   details: z.string().optional(),
 });
 export type CreateTodoInput = z.input<typeof createTodoInputSchema>;
+
+/**
+ * `PATCH /v1/todos/:id`: partial. `day: null` makes it Anytime; an empty
+ * `details` clears it. `closeSubTodos` only matters when `state` closes a
+ * To-do that has open Sub-to-dos. `time` joins with Reminders (a later step).
+ */
+export const updateTodoInputSchema = z.object({
+  title: todoTitleSchema.optional(),
+  day: dateOnlySchema.nullable().optional(),
+  details: z.string().optional(),
+  state: z.enum(TODO_STATES).optional(),
+  closeSubTodos: z.boolean().optional(),
+  /** Optimistic concurrency: the `updatedAt` the caller last saw. */
+  expectedUpdatedAt: z.string().optional(),
+});
+export type UpdateTodoInput = z.input<typeof updateTodoInputSchema>;
 
 /**
  * `open`: every open To-do, Sub-to-dos included, by day (Anytime last), then

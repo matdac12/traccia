@@ -68,6 +68,370 @@ describe("todos.create", () => {
   });
 });
 
+describe("todos.create with parentId", () => {
+  const fields = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (e) {
+      return (e as { details?: { fields?: Record<string, string[]> } }).details
+        ?.fields;
+    }
+    return undefined;
+  };
+
+  it("creates a Sub-to-do at the bottom of its parent's bucket", () => {
+    const { services } = setupServices();
+    const parent = services.todos.create("you", "t", { title: "parent" });
+    const a = services.todos.create("you", "t", {
+      title: "a",
+      parentId: parent.id,
+    });
+    const b = services.todos.create("you", "t", {
+      title: "b",
+      day: "2026-10-20",
+      parentId: parent.id,
+    });
+    const c = services.todos.create("you", "t", {
+      title: "c",
+      parentId: parent.id,
+    });
+    expect(a).toMatchObject({ parentId: parent.id, day: null, state: "open" });
+    expect(b.day).toBe("2026-10-20");
+    // Same bucket (Anytime under this parent): c is below a. b starts afresh.
+    expect(c.position).toBeGreaterThan(a.position);
+    expect(b.position).toBe(a.position);
+  });
+
+  it("gives a Sub-to-do only the references its own title names", () => {
+    const { services } = setupServices();
+    services.projects.create("you", { name: "CRM", key: "CRM" });
+    const parent = services.todos.create("you", "t", { title: "@crm plan" });
+    const sub = services.todos.create("you", "t", {
+      title: "write it",
+      parentId: parent.id,
+    });
+    expect(parent.references).toHaveLength(1);
+    expect(sub.references).toEqual([]);
+  });
+
+  it("refuses a missing, nested, closed or deleted parent as a 400 on parentId", () => {
+    const { services, sqlite } = setupServices();
+    const make = (title: string, parentId?: string) =>
+      services.todos.create("you", "t", { title, parentId });
+    const top = make("top");
+    const sub = make("sub", top.id);
+    const closed = make("closed");
+    const gone = make("gone");
+    sqlite
+      .prepare("UPDATE todos SET state = 'done', closed_at = ? WHERE id = ?")
+      .run("2026-10-17T09:00:00.000Z", closed.id);
+    sqlite
+      .prepare("UPDATE todos SET deleted_at = ? WHERE id = ?")
+      .run("2026-10-17T12:00:00.000Z", gone.id);
+    for (const parentId of ["nope", sub.id, closed.id, gone.id]) {
+      const run = () => make("child", parentId);
+      expect(code(run)).toBe("validation_error");
+      expect(fields(run)?.parentId).toHaveLength(1);
+    }
+    // Nothing was created by the refused calls.
+    expect(services.todos.list({ state: "open" }).items).toHaveLength(2);
+  });
+});
+
+describe("todos.update", () => {
+  function setup() {
+    const t = setupServices();
+    const create = (
+      title: string,
+      extra: { day?: string; parentId?: string } = {},
+    ) => t.services.todos.create("you", "t", { title, ...extra });
+    const update = (
+      id: string,
+      patch: Parameters<typeof t.services.todos.update>[1],
+    ) => t.services.todos.update(id, patch);
+    return { ...t, create, update };
+  }
+  const details = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (e) {
+      return (e as { details?: Record<string, unknown> }).details;
+    }
+    return undefined;
+  };
+
+  it("edits title and Details, and bumps updatedAt", async () => {
+    const { create, update } = setup();
+    const todo = create("old");
+    await new Promise((r) => setTimeout(r, 5));
+    const updated = update(todo.id, { title: "  new ", details: "# notes" });
+    expect(updated).toMatchObject({ title: "new", details: "# notes" });
+    expect(updated.updatedAt > todo.updatedAt).toBe(true);
+    expect(updated.createdAt).toBe(todo.createdAt);
+    expect(update(todo.id, { details: "" }).details).toBeNull();
+  });
+
+  it("re-derives references on a title change, in the same write", () => {
+    const { services, create, update } = setup();
+    const crm = services.projects.create("you", { name: "CRM", key: "CRM" });
+    const bbva = services.projects.create("you", { name: "BBVA", key: "BBVA" });
+    const todo = create("plain");
+    expect(update(todo.id, { title: "do @crm" }).references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: false },
+    ]);
+    expect(
+      update(todo.id, { title: "do @bbva and @crm" }).references.map(
+        (r) => r.projectId,
+      ),
+    ).toEqual([bbva.id, crm.id]);
+    expect(update(todo.id, { title: "nothing" }).references).toEqual([]);
+    expect(services.todos.get(todo.id).references).toEqual([]);
+    // Details are not scanned.
+    expect(update(todo.id, { details: "@crm" }).references).toEqual([]);
+  });
+
+  it("leaves references and updatedAt alone when nothing changes", () => {
+    const { services, create, update } = setup();
+    services.projects.create("you", { name: "CRM", key: "CRM" });
+    const todo = create("do @crm", { day: "2026-10-20" });
+    const same = update(todo.id, {
+      title: "do @crm",
+      day: "2026-10-20",
+      state: "open",
+    });
+    expect(same).toEqual(todo);
+  });
+
+  it("moves the To-do to the bottom of its new bucket when the day changes", () => {
+    const { create, update } = setup();
+    const a = create("a", { day: "2026-10-20" });
+    const b = create("b", { day: "2026-10-20" });
+    const c = create("c", { day: "2026-10-21" });
+    const moved = update(a.id, { day: "2026-10-21" });
+    expect(moved.day).toBe("2026-10-21");
+    expect(moved.position).toBeGreaterThan(c.position);
+    // The old bucket is untouched.
+    expect(b.position).toBeGreaterThan(a.position);
+    // Anytime is a bucket too.
+    const any1 = create("any1");
+    const anytime = update(b.id, { day: null });
+    expect(anytime.day).toBeNull();
+    expect(anytime.position).toBeGreaterThan(any1.position);
+  });
+
+  it("keeps the Position when the day is sent unchanged", () => {
+    const { create, update } = setup();
+    const a = create("a", { day: "2026-10-20" });
+    create("b", { day: "2026-10-20" });
+    expect(update(a.id, { day: "2026-10-20" }).position).toBe(a.position);
+  });
+
+  it("moves a Sub-to-do to the bottom of its day under the same parent", () => {
+    const { create, update } = setup();
+    const parent = create("parent");
+    const s1 = create("s1", { parentId: parent.id });
+    const s2 = create("s2", { parentId: parent.id });
+    expect(update(s1.id, { day: null }).position).toBe(s1.position);
+    const moved = update(s1.id, { day: "2026-10-20" });
+    expect(moved.parentId).toBe(parent.id);
+    expect(moved.position).toBe(s1.position); // first of its new bucket
+    expect(s2.position).toBeGreaterThan(s1.position);
+  });
+
+  it("refuses an empty patch, a bad title or day, and an unknown or deleted To-do", () => {
+    const { sqlite, create, update } = setup();
+    const todo = create("a");
+    expect(code(() => update(todo.id, {}))).toBe("validation_error");
+    expect(code(() => update(todo.id, { closeSubTodos: true }))).toBe(
+      "validation_error",
+    );
+    expect(
+      code(() => update(todo.id, { expectedUpdatedAt: todo.updatedAt })),
+    ).toBe("validation_error");
+    expect(code(() => update(todo.id, { title: " " }))).toBe(
+      "validation_error",
+    );
+    expect(code(() => update(todo.id, { day: "2026-02-30" }))).toBe(
+      "validation_error",
+    );
+    expect(code(() => update("nope", { title: "x" }))).toBe("not_found");
+    sqlite
+      .prepare("UPDATE todos SET deleted_at = ? WHERE id = ?")
+      .run("2026-10-17T12:00:00.000Z", todo.id);
+    expect(code(() => update(todo.id, { title: "x" }))).toBe("not_found");
+  });
+
+  it("is a conflict, with the current updatedAt, when expectedUpdatedAt is stale", async () => {
+    const { services, create, update } = setup();
+    const todo = create("a");
+    await new Promise((r) => setTimeout(r, 5));
+    const first = update(todo.id, {
+      title: "b",
+      expectedUpdatedAt: todo.updatedAt,
+    });
+    const stale = () =>
+      update(todo.id, { title: "c", expectedUpdatedAt: todo.updatedAt });
+    expect(code(stale)).toBe("conflict");
+    expect(details(stale)).toEqual({ currentUpdatedAt: first.updatedAt });
+    expect(services.todos.get(todo.id).title).toBe("b");
+    expect(
+      update(todo.id, { title: "c", expectedUpdatedAt: first.updatedAt }).title,
+    ).toBe("c");
+  });
+});
+
+describe("todos.update: closing and reopening", () => {
+  function setup() {
+    const t = setupServices();
+    const create = (title: string, parentId?: string) =>
+      t.services.todos.create("you", "t", { title, parentId });
+    const update = (
+      id: string,
+      patch: Parameters<typeof t.services.todos.update>[1],
+    ) => t.services.todos.update(id, patch);
+    const get = (id: string) => t.services.todos.get(id);
+    return { ...t, create, update, get };
+  }
+  const details = (fn: () => unknown) => {
+    try {
+      fn();
+    } catch (e) {
+      return (e as { details?: Record<string, unknown> }).details;
+    }
+    return undefined;
+  };
+
+  it("sets closed_at when closing and clears it when reopening", () => {
+    const { create, update } = setup();
+    const todo = create("a");
+    const done = update(todo.id, { state: "done" });
+    expect(done).toMatchObject({ state: "done" });
+    expect(done.closedAt).toBe(done.updatedAt);
+    const reopened = update(todo.id, { state: "open" });
+    expect(reopened).toMatchObject({ state: "open", closedAt: null });
+    expect(update(todo.id, { state: "dropped" }).state).toBe("dropped");
+  });
+
+  it("shows closed To-dos in the Logbook, newest closed first, Sub-to-dos included", async () => {
+    const { services, create, update } = setup();
+    const parent = create("parent");
+    const sub = create("sub", parent.id);
+    const other = create("other");
+    update(other.id, { state: "done" });
+    await new Promise((r) => setTimeout(r, 5));
+    update(parent.id, { state: "dropped", closeSubTodos: true });
+    const logbook = services.todos.list({ state: "closed" }).items;
+    // The parent and its Sub-to-do closed together, after `other`.
+    expect(
+      logbook
+        .map((t) => t.id)
+        .slice(0, 2)
+        .sort(),
+    ).toEqual([parent.id, sub.id].sort());
+    expect(logbook.map((t) => [t.title, t.state]).slice(2)).toEqual([
+      ["other", "done"],
+    ]);
+    expect(logbook.slice(0, 2).map((t) => t.state)).toEqual([
+      "dropped",
+      "dropped",
+    ]);
+    expect(services.todos.list({ state: "open" }).items).toEqual([]);
+  });
+
+  it("refuses to close a parent with open Sub-to-dos without closeSubTodos, and changes nothing", () => {
+    const { create, update, get } = setup();
+    const parent = create("parent");
+    const s1 = create("s1", parent.id);
+    const s2 = create("s2", parent.id);
+    const attempt = () =>
+      update(parent.id, { state: "done", title: "renamed" });
+    expect(code(attempt)).toBe("conflict");
+    expect(details(attempt)).toEqual({ openSubTodos: 2 });
+    expect(
+      code(() => update(parent.id, { state: "done", closeSubTodos: false })),
+    ).toBe("conflict");
+    expect(get(parent.id)).toEqual(parent);
+    expect(get(s1.id)).toEqual(s1);
+    expect(get(s2.id)).toEqual(s2);
+  });
+
+  it("closes the parent and its open Sub-to-dos together with closeSubTodos", () => {
+    const { create, update, get } = setup();
+    const parent = create("parent");
+    const s1 = create("s1", parent.id);
+    const s2 = create("s2", parent.id);
+    const stranger = create("stranger");
+    const done = update(parent.id, { state: "done", closeSubTodos: true });
+    expect(done.closedAt).not.toBeNull();
+    for (const id of [s1.id, s2.id]) {
+      expect(get(id)).toMatchObject({ state: "done", closedAt: done.closedAt });
+    }
+    expect(get(stranger.id)).toEqual(stranger);
+  });
+
+  it("drops the open Sub-to-dos when dropping, and leaves done and deleted ones alone", () => {
+    const { sqlite, create, update, get } = setup();
+    const parent = create("parent");
+    const open = create("open", parent.id);
+    const finished = create("finished", parent.id);
+    const gone = create("gone", parent.id);
+    const finishedDone = update(finished.id, { state: "done" });
+    sqlite
+      .prepare("UPDATE todos SET deleted_at = ? WHERE id = ?")
+      .run("2026-10-17T12:00:00.000Z", gone.id);
+    const dropped = update(parent.id, {
+      state: "dropped",
+      closeSubTodos: true,
+    });
+    expect(get(open.id)).toMatchObject({
+      state: "dropped",
+      closedAt: dropped.closedAt,
+    });
+    expect(get(finished.id)).toEqual(finishedDone);
+    expect(get(gone.id)).toMatchObject({ state: "open", deleted: true });
+  });
+
+  it("counts only open, live Sub-to-dos; a parent with none closes without the flag", () => {
+    const { create, update } = setup();
+    const parent = create("parent");
+    const sub = create("sub", parent.id);
+    update(sub.id, { state: "done" });
+    expect(update(parent.id, { state: "done" }).state).toBe("done");
+  });
+
+  it("closes a Sub-to-do on its own without touching its parent", () => {
+    const { create, update, get } = setup();
+    const parent = create("parent");
+    const sub = create("sub", parent.id);
+    expect(update(sub.id, { state: "done" }).state).toBe("done");
+    expect(get(parent.id)).toEqual(parent);
+  });
+
+  it("reopens a parent without touching its Sub-to-dos", () => {
+    const { create, update, get } = setup();
+    const parent = create("parent");
+    const sub = create("sub", parent.id);
+    update(parent.id, { state: "done", closeSubTodos: true });
+    const closedSub = get(sub.id);
+    const reopened = update(parent.id, { state: "open" });
+    expect(reopened).toMatchObject({ state: "open", closedAt: null });
+    expect(get(sub.id)).toEqual(closedSub);
+  });
+
+  it("checks expectedUpdatedAt before the open Sub-to-do conflict", async () => {
+    const { create, update } = setup();
+    const parent = create("parent");
+    create("sub", parent.id);
+    await new Promise((r) => setTimeout(r, 5));
+    update(parent.id, { title: "renamed" });
+    const attempt = () =>
+      update(parent.id, { state: "done", expectedUpdatedAt: parent.updatedAt });
+    expect(code(attempt)).toBe("conflict");
+    expect(details(attempt)).toHaveProperty("currentUpdatedAt");
+    expect(details(attempt)).not.toHaveProperty("openSubTodos");
+  });
+});
+
 describe("todos.get", () => {
   it("returns one To-do and is not_found for an unknown id", () => {
     const { services } = setupServices();
@@ -269,6 +633,30 @@ describe("Project references", () => {
       { key: "WEB", projectId: web.id, projectDeleted: false },
       { key: "CRM", projectId: crm.id, projectDeleted: false },
     ]);
+  });
+
+  it("counts an @KEY only at the start of the title or after a non-alphanumeric", () => {
+    const { project, create } = setup();
+    project("CRM", "CRM");
+    for (const title of [
+      "bob@crm.com",
+      "mail bob@crm.com now",
+      "x1@crm",
+      "è@crm",
+    ]) {
+      expect(create(title).references).toEqual([]);
+    }
+    for (const title of [
+      "@crm first",
+      "(@crm)",
+      "x,@crm",
+      "see\n@crm",
+      "a-@crm",
+    ]) {
+      expect(create(title).references.map((r) => r.key)).toEqual(["CRM"]);
+    }
+    // One preceded and one free occurrence of the same key is still one reference.
+    expect(create("bob@crm.com and @crm").references).toHaveLength(1);
   });
 
   it("references every Project that shares the key", () => {

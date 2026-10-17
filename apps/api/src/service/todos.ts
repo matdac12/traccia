@@ -6,13 +6,20 @@ import {
   listTodosInputSchema,
   ServiceError,
   type Todo,
+  type UpdateTodoInput,
+  updateTodoInputSchema,
 } from "@traccia/shared";
 import { and, asc, desc, eq, isNull, ne, type SQL, sql } from "drizzle-orm";
 import { todos } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { decodeCursor, type Page, toPage } from "../rest/pagination.js";
 import { nowIso } from "../time.js";
-import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
+import {
+  type DbHandle,
+  parseInput,
+  type ServiceContext,
+  type Tx,
+} from "./context.js";
 import { POSITION_STEP } from "./issue-position.js";
 import {
   deriveReferences,
@@ -89,6 +96,62 @@ function bottomOfBucket(
   return (row?.max ?? 0) + POSITION_STEP;
 }
 
+/**
+ * The parent a new Sub-to-do hangs under: it must exist, be top-level (one
+ * level deep), open and not deleted.
+ */
+function requireParent(db: DbHandle, parentId: string): void {
+  const parent = db.select().from(todos).where(eq(todos.id, parentId)).get();
+  const problem = !parent
+    ? "does not exist"
+    : parent.deletedAt !== null
+      ? "is deleted"
+      : parent.parentId !== null
+        ? "is a Sub-to-do; Sub-to-dos go one level deep"
+        : parent.state !== "open"
+          ? "is closed"
+          : null;
+  if (problem === null) return;
+  throw new ServiceError("validation_error", `parentId ${problem}`, {
+    fields: { parentId: [`parentId ${problem}`] },
+  });
+}
+
+/**
+ * Closing a parent never leaves open Sub-to-dos behind silently: without
+ * `closeSubTodos` it is a `conflict` that says how many are open; with it they
+ * close the same way (done to done, dropped to dropped) at the same instant.
+ * Sub-to-dos that are already closed or deleted are left alone.
+ */
+function closeOpenSubTodos(
+  tx: Tx,
+  parentId: string,
+  state: "done" | "dropped",
+  now: string,
+  confirmed: boolean | undefined,
+): void {
+  const open = and(
+    eq(todos.parentId, parentId),
+    eq(todos.state, "open"),
+    isNull(todos.deletedAt),
+  );
+  const count =
+    tx.select({ n: sql<number>`count(*)` }).from(todos).where(open).get()?.n ??
+    0;
+  if (count === 0) return;
+  if (!confirmed) {
+    throw new ServiceError(
+      "conflict",
+      `To-do has ${count} open Sub-to-do${count === 1 ? "" : "s"}; send closeSubTodos: true to close them too`,
+      { openSubTodos: count },
+    );
+  }
+  tx.update(todos)
+    .set({ state, closedAt: now, updatedAt: now })
+    .where(open)
+    .run();
+}
+
 const invalidCursor = () =>
   new ServiceError("validation_error", "Invalid cursor", {
     fields: { cursor: ["Invalid cursor"] },
@@ -118,6 +181,11 @@ function afterClosedCursor(cursor: string): SQL | undefined {
   return descKeysetAfter(todos.closedAt, todos.id, c.c, c.i);
 }
 
+/** One To-do with its references. */
+function view(db: DbHandle, row: TodoRecord): TodoView {
+  return toTodo(row, loadReferences(db, [row]).get(row.id) ?? []);
+}
+
 /** The page's To-dos with their references, resolved in one query. */
 function toTodos(db: DbHandle, rows: TodoRecord[]): TodoView[] {
   const references = loadReferences(db, rows);
@@ -135,13 +203,16 @@ export function createTodosService(ctx: ServiceContext) {
       return ctx.write((tx) => {
         const now = nowIso();
         const day = data.day ?? null;
+        const parentId = data.parentId ?? null;
+        if (parentId !== null) requireParent(tx, parentId);
         const row = tx
           .insert(todos)
           .values({
             id: newId(),
             title: data.title,
             day,
-            position: bottomOfBucket(tx, { day, parentId: null }),
+            parentId,
+            position: bottomOfBucket(tx, { day, parentId }),
             details: data.details || null,
             createdBy: actor,
             createdByToken: tokenName,
@@ -151,14 +222,81 @@ export function createTodosService(ctx: ServiceContext) {
           .returning()
           .get();
         deriveReferences(tx, row.id, row.title);
-        return toTodo(row, loadReferences(tx, [row]).get(row.id) ?? []);
+        return view(tx, row);
+      });
+    },
+
+    /**
+     * Partial update of a live To-do. A title change re-derives its
+     * references, a new `day` moves it to the bottom of that bucket, and
+     * `state` closes (`closed_at` is set) or reopens it (cleared). Closing a
+     * To-do with open Sub-to-dos is a `conflict` carrying `openSubTodos`
+     * unless `closeSubTodos` is true, which closes them the same way in the
+     * same write. A stale `expectedUpdatedAt` is a `conflict` too.
+     */
+    update(id: string, input: UpdateTodoInput): TodoView {
+      const { expectedUpdatedAt, closeSubTodos, ...patch } = parseInput(
+        updateTodoInputSchema,
+        input,
+      );
+      if (Object.values(patch).every((value) => value === undefined)) {
+        throw new ServiceError("validation_error", "No fields to update");
+      }
+      return ctx.write((tx) => {
+        const todo = findTodo(tx, id);
+        if (todo.deletedAt !== null) {
+          throw new ServiceError("not_found", `To-do "${id}" not found`);
+        }
+        if (expectedUpdatedAt && expectedUpdatedAt !== todo.updatedAt) {
+          throw new ServiceError(
+            "conflict",
+            "To-do was modified since it was read",
+            { currentUpdatedAt: todo.updatedAt },
+          );
+        }
+        const now = nowIso();
+        const set: Partial<typeof todos.$inferInsert> = {};
+
+        if (patch.title !== undefined && patch.title !== todo.title) {
+          set.title = patch.title;
+        }
+        if (patch.details !== undefined) {
+          const details = patch.details || null;
+          if (details !== todo.details) set.details = details;
+        }
+        if (patch.day !== undefined && patch.day !== todo.day) {
+          set.day = patch.day;
+          set.position = bottomOfBucket(tx, {
+            day: patch.day,
+            parentId: todo.parentId,
+          });
+        }
+        if (patch.state !== undefined && patch.state !== todo.state) {
+          set.state = patch.state;
+          if (patch.state === "open") {
+            set.closedAt = null;
+          } else {
+            set.closedAt = now;
+            closeOpenSubTodos(tx, todo.id, patch.state, now, closeSubTodos);
+          }
+        }
+
+        if (Object.keys(set).length === 0) return view(tx, todo);
+        const row = tx
+          .update(todos)
+          .set({ ...set, updatedAt: now })
+          .where(eq(todos.id, todo.id))
+          .returning()
+          .get();
+        if (set.title !== undefined) deriveReferences(tx, row.id, row.title);
+        return view(tx, row);
       });
     },
 
     /** One To-do, deleted ones included (flagged `deleted`). */
     get(id: string): TodoView {
       const row = findTodo(ctx.db, id);
-      return toTodo(row, loadReferences(ctx.db, [row]).get(id) ?? []);
+      return view(ctx.db, row);
     },
 
     /**
