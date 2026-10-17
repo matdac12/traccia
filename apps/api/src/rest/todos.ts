@@ -6,6 +6,7 @@ import {
   updateTodoInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
+import { initialDelivery } from "../reminders/scheduler.js";
 import { type TodoView, todoUrl } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { servicesFor } from "./services.js";
@@ -31,6 +32,14 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
       201,
     );
   });
+
+  // Before `/todos/:id`, which would take "delivery" as an id.
+  v1.get("/todos/delivery", (c) =>
+    c.json(
+      container.reminders?.delivery() ??
+        initialDelivery(container.config.telegram !== undefined),
+    ),
+  );
 
   v1.get("/todos/:id", (c) => c.json(withUrl(todos.get(c.req.param("id")))));
 

@@ -184,3 +184,23 @@ export const listTodosQuerySchema = listTodosInputSchema.extend({
   includeDeleted: queryBooleanSchema.optional(),
   limit: z.coerce.number().int().min(1).optional(),
 });
+
+/** Why Reminders can't go out (`GET /v1/todos/delivery`, §6.4). */
+export const TODO_DELIVERY_REASONS = [
+  "not_configured",
+  "telegram_unauthorized",
+  "telegram_forbidden",
+] as const;
+export type TodoDeliveryReason = (typeof TODO_DELIVERY_REASONS)[number];
+
+/**
+ * `GET /v1/todos/delivery`: whether Reminders are being delivered, held in the
+ * API's memory. `reason` is set when `ok` is false; `lastSentAt` is the last
+ * successful send since the API started.
+ */
+export const todoDeliverySchema = z.object({
+  ok: z.boolean(),
+  reason: z.enum(TODO_DELIVERY_REASONS).optional(),
+  lastSentAt: z.string().optional(),
+});
+export type TodoDelivery = z.infer<typeof todoDeliverySchema>;

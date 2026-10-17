@@ -37,7 +37,16 @@ export function createApp(
   app.onError(errorHandler);
   app.notFound(notFoundHandler);
 
-  app.get("/healthz", (c) => c.json({ ok: true }));
+  // §6.4: unhealthy (503) once the Reminder checks stall for 10 minutes.
+  app.get("/healthz", (c) => {
+    const reminders = container.reminders?.health();
+    if (!reminders) return c.json({ ok: true });
+    const ok = !reminders.stale;
+    return c.json(
+      { ok, reminders: { lastCheckAt: reminders.lastCheckAt } },
+      ok ? 200 : 503,
+    );
+  });
 
   app.route(
     "/",

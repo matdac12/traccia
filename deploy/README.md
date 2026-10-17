@@ -69,7 +69,7 @@ docker buildx build --platform linux/amd64 --load -f apps/api/Dockerfile -t trac
 docker buildx build --platform linux/amd64 --load -f apps/web/Dockerfile -t traccia-web:latest .
 cd deploy && cp .env.example .env   # set BASE_URL=http://localhost:8787
 docker compose up
-curl localhost:8787/healthz   # {"ok":true}
+curl localhost:8787/healthz   # {"ok":true,"reminders":{"lastCheckAt":"..."}}
 ```
 
 Run the CLI inside the api container: `docker compose exec api node dist/traccia.js db migrate`.
@@ -107,8 +107,12 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 | `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Per `you` token (dashboard) |
 | `LOG_LEVEL` | api | `info` | |
 | `TRUST_PROXY` | api | `true` | Read client IP from `X-Forwarded-For` |
+| `OWNER_TIMEZONE` | api | `Europe/Rome` | Owner timezone of the Personal Space |
+| `TELEGRAM_BOT_TOKEN` | api | unset | Bot token for Reminder delivery; set it with `TELEGRAM_CHAT_ID` or neither |
+| `TELEGRAM_CHAT_ID` | api | unset | Chat that receives Reminders |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
 | `DASHBOARD_ALLOWED_LOGINS` | web | empty | Tailscale logins allowed to open the dashboard |
+| `OWNER_TIMEZONE` | web | `Europe/Rome` | Passed through by the compose file, so the dashboard's "today" matches the api's |
 
 `PORT` and `DATA_DIR` are fixed in the compose file (`8787` and `/data`), and `TRACCIA_API_URL` is `http://api:8787` over the compose network. Data lives in the `traccia-data` named volume (`TRACCIA_DATA_VOLUME` overrides its name; see the rename notes below).
 

@@ -302,6 +302,13 @@ function toTodos(db: DbHandle, rows: TodoRecord[]): TodoView[] {
 }
 
 export function createTodosService(ctx: ServiceContext) {
+  /** `ctx.write`, then tells the Reminder scheduler (§4: every write reschedules). */
+  const write = <T>(fn: (tx: Tx) => T): T => {
+    const result = ctx.write(fn);
+    ctx.onTodosChanged();
+    return result;
+  };
+
   return {
     /**
      * Creates an open To-do at the bottom of its bucket. `tokenName` is the
@@ -309,7 +316,7 @@ export function createTodosService(ctx: ServiceContext) {
      */
     create(actor: Actor, tokenName: string, input: CreateTodoInput): TodoView {
       const data = parseInput(createTodoInputSchema, input);
-      return ctx.write((tx) => {
+      return write((tx) => {
         const now = new Date();
         const stamp = now.toISOString();
         const parentId = data.parentId ?? null;
@@ -355,7 +362,7 @@ export function createTodosService(ctx: ServiceContext) {
       if (Object.values(patch).every((value) => value === undefined)) {
         throw new ServiceError("validation_error", "No fields to update");
       }
-      return ctx.write((tx) => {
+      return write((tx) => {
         const todo = requireLiveTodo(tx, id);
         requireFresh(todo, expectedUpdatedAt);
         const now = new Date();
@@ -402,7 +409,7 @@ export function createTodosService(ctx: ServiceContext) {
      */
     move(id: string, input: MoveTodoPositionInput): TodoView {
       const data = parseInput(moveTodoPositionInputSchema, input);
-      return ctx.write((tx) => {
+      return write((tx) => {
         const todo = requireLiveTodo(tx, id);
         requireFresh(todo, data.expectedUpdatedAt);
         const bucket = tx
