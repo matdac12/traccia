@@ -59,7 +59,7 @@ const pad = (n: number, width = 2) => String(n).padStart(width, "0");
  * undefined when it is not one. Bare offsets like `+01:00` are refused: they
  * have no daylight saving, so they never describe where the owner lives.
  */
-export function ownerTimeZone(zone: string): string | undefined {
+export function canonicalTimeZone(zone: string): string | undefined {
   if (zone === "" || /^[+-]/.test(zone)) return undefined;
   try {
     return new Intl.DateTimeFormat("en-US", {

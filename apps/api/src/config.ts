@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isAcceptableRedirectUri } from "./service/oauth.js";
-import { ownerTimeZone } from "./time.js";
+import { canonicalTimeZone } from "./time.js";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 
@@ -64,7 +64,7 @@ const envSchema = z.object({
     .string()
     .default("Europe/Rome")
     .transform((v, ctx) => {
-      const zone = ownerTimeZone(v);
+      const zone = canonicalTimeZone(v);
       if (zone === undefined) {
         ctx.addIssue({
           code: "custom",

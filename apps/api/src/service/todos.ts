@@ -7,25 +7,14 @@ import {
   ServiceError,
   type Todo,
 } from "@traccia/shared";
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  isNull,
-  lt,
-  ne,
-  or,
-  type SQL,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, type SQL, sql } from "drizzle-orm";
 import { todos } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { decodeCursor, type Page, toPage } from "../rest/pagination.js";
 import { nowIso } from "../time.js";
 import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
 import { POSITION_STEP } from "./issue-position.js";
-import { pageLimit } from "./updated-at-page.js";
+import { descKeysetAfter, pageLimit } from "./updated-at-page.js";
 
 export type TodoRecord = typeof todos.$inferSelect;
 
@@ -60,6 +49,8 @@ export function toTodo(row: TodoRecord): TodoView {
     source: row.createdByToken,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    // §5: `deleted: true` only on a deleted To-do, on every read (not
+    // `flagDeleted`, which adds `deleted: false` to live rows of some lists).
     ...(row.deletedAt !== null ? { deleted: true as const } : {}),
   };
 }
@@ -120,10 +111,7 @@ function openOffset(cursor: string): number {
 function afterClosedCursor(cursor: string): SQL | undefined {
   const c = decode(cursor);
   if (typeof c.c !== "string" || typeof c.i !== "string") throw invalidCursor();
-  return or(
-    lt(todos.closedAt, c.c),
-    and(eq(todos.closedAt, c.c), lt(todos.id, c.i)),
-  );
+  return descKeysetAfter(todos.closedAt, todos.id, c.c, c.i);
 }
 
 export function createTodosService(ctx: ServiceContext) {

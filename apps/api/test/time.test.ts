@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { instantIn, ownerTimeZone, todayIn, wallClockIn } from "../src/time.js";
+import {
+  canonicalTimeZone,
+  instantIn,
+  todayIn,
+  wallClockIn,
+} from "../src/time.js";
 
 const ROME = "Europe/Rome";
 
@@ -77,17 +82,17 @@ describe("wallClockIn", () => {
   });
 });
 
-describe("ownerTimeZone", () => {
+describe("canonicalTimeZone", () => {
   it("returns the canonical IANA name", () => {
-    expect(ownerTimeZone("Europe/Rome")).toBe("Europe/Rome");
-    expect(ownerTimeZone("europe/rome")).toBe("Europe/Rome");
-    expect(ownerTimeZone("UTC")).toBe("UTC");
+    expect(canonicalTimeZone("Europe/Rome")).toBe("Europe/Rome");
+    expect(canonicalTimeZone("europe/rome")).toBe("Europe/Rome");
+    expect(canonicalTimeZone("UTC")).toBe("UTC");
   });
 
   it("rejects unknown zones and bare UTC offsets", () => {
-    expect(ownerTimeZone("Mars/Base")).toBeUndefined();
-    expect(ownerTimeZone("+01:00")).toBeUndefined();
-    expect(ownerTimeZone("-05:00")).toBeUndefined();
-    expect(ownerTimeZone("")).toBeUndefined();
+    expect(canonicalTimeZone("Mars/Base")).toBeUndefined();
+    expect(canonicalTimeZone("+01:00")).toBeUndefined();
+    expect(canonicalTimeZone("-05:00")).toBeUndefined();
+    expect(canonicalTimeZone("")).toBeUndefined();
   });
 });
