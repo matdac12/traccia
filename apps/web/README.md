@@ -231,7 +231,7 @@ Not done: single-key shortcuts (S/P/A/L) on a focused row.
 
 ## Board polish (TRC-85)
 
-A board card opens its issue on a click anywhere on it except its own controls (links, buttons, pickers, the "..." menu, and anything rendered in a portal); a click that ends a drag or selects text is ignored, and Cmd/Ctrl/Shift-click opens a new tab. Each column header has a "+" that opens the create dialog with that status (and the project, on a project page); it uses `useOptionalCreateIssue`, so a board rendered outside the provider simply has no "+". A fade on the right edge shows when columns are scrolled out of view. Trash folds an issue's comments and attachments deleted in the same batch into the issue's row (`groupedRows`), except when the list is filtered to one type.
+A board card opens its issue on a click anywhere on it except its own controls (links, buttons, pickers, the "..." menu, and anything rendered in a portal); a click that ends a drag or selects text is ignored, and Cmd/Ctrl/Shift-click opens a new tab. Each column header has a "+" that opens the create dialog with that status (and the project, on a project page); it uses `useOptionalCreateIssue`, so a board rendered outside the provider simply has no "+". A fade on the right edge shows when columns are scrolled out of view. Trash folds an issue's comments and attachments deleted in the same batch into the issue's row (`groupedRows`), except when the list is filtered to one type. A Sub-to-do deleted in the same batch as its parent To-do always folds into the parent's row, filtered or not (TRC-155).
 
 ## Docker
 

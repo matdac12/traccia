@@ -33,6 +33,9 @@ function describeCounts(byType: Partial<Record<Counted, number>>): string {
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
 
+/** A To-do that hangs under a parent (Trash items carry the parent in `parentId`). */
+const isSubTodo = (item: Pick<TrashItem, "type" | "parentId">) => item.type === "todo" && item.parentId !== null;
+
 /** The part of a trash label that is the issue identifier ("MAT-12 Fix it" -> "MAT-12"). */
 export const issueIdentifier = (label: string) => label.split(" ")[0] ?? label;
 
@@ -50,12 +53,12 @@ export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashIte
  */
 export function groupedRows(items: readonly TrashItem[], all: readonly TrashItem[], group = true): TrashItem[] {
   const issueBatches = new Set(all.flatMap((o) => (o.type === "issue" && o.deletedBatch !== null ? [o.deletedBatch] : [])));
-  const withParent = (t: TrashItem) =>
-    t.type === "todo" && t.parentId !== null && all.some((o) => o.type === "todo" && o.id === t.parentId && o.deletedBatch === t.deletedBatch);
+  const foldedIntoParent = (t: TrashItem) =>
+    isSubTodo(t) && all.some((o) => o.type === "todo" && o.id === t.parentId && o.deletedBatch === t.deletedBatch);
   return items.filter(
     (t) =>
       !(group && (t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)) &&
-      !withParent(t),
+      !foldedIntoParent(t),
   );
 }
 
@@ -91,7 +94,7 @@ export function companions(item: TrashItem, all: readonly TrashItem[]): TrashIte
     case "comment":
       return item.deletedBatch === null ? [] : others.filter((o) => o.deletedBatch === item.deletedBatch);
     case "todo":
-      return item.parentId === null ? others.filter((o) => o.type === "todo" && o.parentId === item.id) : [];
+      return isSubTodo(item) ? [] : others.filter((o) => o.type === "todo" && o.parentId === item.id);
     case "milestone":
     case "attachment":
       return [];
@@ -106,7 +109,7 @@ export function deletedByText(item: Pick<TrashItem, "deletedBy">): string {
 export function summarize(items: readonly TrashItem[]): string {
   const byType: Partial<Record<Counted, number>> = {};
   for (const i of items) {
-    const key: Counted = i.type === "todo" && i.parentId !== null ? "subtodo" : i.type;
+    const key: Counted = isSubTodo(i) ? "subtodo" : i.type;
     byType[key] = (byType[key] ?? 0) + 1;
   }
   return describeCounts(byType);
