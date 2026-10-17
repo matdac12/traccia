@@ -41,6 +41,12 @@ export type ServiceContext = {
   /** Where purge deletes attachment files; absent in tests that don't need files. */
   storage?: AttachmentStorage;
   /**
+   * Called after every committed To-do write (create, update, move, delete,
+   * restore, purge), so the Reminder scheduler can re-arm its timer. A
+   * callback rather than an import, so the service never depends on it.
+   */
+  onTodosChanged(): void;
+  /**
    * Runs `fn` in a write transaction and returns its result; throwing rolls
    * back. The transaction is IMMEDIATE (takes the write lock up front) so a
    * read-then-write sequence can never hit SQLITE_BUSY on lock upgrade when
@@ -56,6 +62,8 @@ export function createServiceContext(options: {
   /** Defaults to `Europe/Rome`, like `OWNER_TIMEZONE`. */
   ownerTimezone?: string;
   storage?: AttachmentStorage;
+  /** See `ServiceContext.onTodosChanged`; nothing by default. */
+  onTodosChanged?: () => void;
 }): ServiceContext {
   const { db, defaultIssueKey } = options;
   return {
@@ -64,6 +72,7 @@ export function createServiceContext(options: {
     allowAgentPurge: options.allowAgentPurge ?? false,
     ownerTimezone: options.ownerTimezone ?? "Europe/Rome",
     storage: options.storage,
+    onTodosChanged: options.onTodosChanged ?? (() => {}),
     write: (fn) => db.transaction(fn, { behavior: "immediate" }),
   };
 }
