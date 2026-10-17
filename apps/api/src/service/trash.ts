@@ -921,6 +921,22 @@ function purgeRows(
 }
 
 export function createTrashService(ctx: ServiceContext) {
+  /** A To-do leaving or coming back may change the Reminder scheduler's timer. */
+  const todosChanged = <T>(type: TrashType, result: T): T => {
+    if (type === "todo") ctx.onTodosChanged();
+    return result;
+  };
+
+  const softDeleteItem = (
+    actor: Actor,
+    type: TrashType,
+    ref: string,
+  ): DeleteResult =>
+    todosChanged(
+      type,
+      ctx.write((tx) => softDelete(tx, actor, type, ref)),
+    );
+
   async function purge(
     actor: Actor,
     type: TrashType,
@@ -954,7 +970,12 @@ export function createTrashService(ctx: ServiceContext) {
         if (!(e instanceof StorageNotFoundError)) failedFiles.push(key);
       }
     }
-    return { type, id, counts: countsOf(sets), failedFiles };
+    return todosChanged(type, {
+      type,
+      id,
+      counts: countsOf(sets),
+      failedFiles,
+    });
   }
 
   return {
@@ -971,17 +992,18 @@ export function createTrashService(ctx: ServiceContext) {
       options: { purge?: boolean } = {},
     ): Promise<DeleteResult | PurgeResult> {
       if (options.purge) return purge(actor, type, ref);
-      return ctx.write((tx) => softDelete(tx, actor, type, ref));
+      return softDeleteItem(actor, type, ref);
     },
 
     /** Synchronous soft delete (what `delete` does without `purge`). */
-    softDelete(actor: Actor, type: TrashType, ref: string): DeleteResult {
-      return ctx.write((tx) => softDelete(tx, actor, type, ref));
-    },
+    softDelete: softDeleteItem,
 
     /** Restores the whole batch `type`/`ref` was deleted in. */
     restore(actor: Actor, type: TrashType, ref: string): RestoreResult {
-      return ctx.write((tx) => restoreBatch(tx, actor, type, ref));
+      return todosChanged(
+        type,
+        ctx.write((tx) => restoreBatch(tx, actor, type, ref)),
+      );
     },
 
     purge,
