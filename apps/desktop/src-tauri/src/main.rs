@@ -1,9 +1,13 @@
 // No console window in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod api;
+mod commands;
 mod launch;
 mod placement;
 mod resident;
+mod secrets;
+mod settings;
 mod tray;
 mod window;
 
@@ -37,7 +41,14 @@ fn main() {
         ))
         .plugin(tauri_plugin_opener::init())
         .manage(window::BlurHide::default())
-        .invoke_handler(tauri::generate_handler![window::hide_window])
+        .manage(commands::Http(api::client()))
+        .invoke_handler(tauri::generate_handler![
+            window::hide_window,
+            commands::load_settings,
+            commands::save_settings,
+            commands::api,
+            commands::test_connection,
+        ])
         .setup(move |app| {
             tray::build(app)?;
             start_at_logon(app);

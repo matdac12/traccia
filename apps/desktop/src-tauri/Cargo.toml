@@ -14,6 +14,15 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
+# The Token in Windows Credential Manager (docs/desktop-app.md §7).
+keyring = { version = "3", features = ["windows-native"] }
+# Requests to the API (§6). Native TLS is Schannel on Windows: no extra build tools.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [

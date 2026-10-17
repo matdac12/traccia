@@ -3,7 +3,7 @@
 A small resident Windows window with the owner's open To-dos, shown and hidden with Caps+R. Spec: [`docs/desktop-app.md`](../../docs/desktop-app.md). Why Tauri, a thin client and no local database: [ADR 0018](../../docs/adr/0018-desktop-app-tauri-thin-client.md).
 
 - `src/`: the front end (Vite, React, Tailwind). It imports the Dashboard's tokens from `apps/web/app/globals.css` and bundles Geist and Geist Mono from the `geist` package, so it looks like the Dashboard and works offline.
-- `src-tauri/`: the Rust shell (Tauri 2). It owns the window, the tray, single instance, `--toggle` and the logon autostart. Product logic stays in TypeScript.
+- `src-tauri/`: the Rust shell (Tauri 2). It owns the window, the tray, single instance, `--toggle`, the logon autostart, Settings storage and the one `api` command that talks to Traccia. Product logic stays in TypeScript.
 
 ## Checks
 
@@ -12,6 +12,8 @@ A small resident Windows window with the owner's open To-dos, shown and hidden w
 ```sh
 cd apps/desktop/src-tauri && cargo test
 ```
+
+`cargo test -- --ignored` also round-trips a Token through the real Credential Manager, under the test target `traccia-desktop-test:token`, and deletes it again.
 
 ## Build the exe
 
@@ -47,7 +49,16 @@ Only one instance stays resident. Caps+R in the owner's AutoHotkey script, which
 - Shown on the monitor the mouse is on, bottom-right of its work area (above the taskbar), 12 px from the edges.
 - Hides on Esc, on losing focus, on Caps+R again, and from the tray.
 - Follows the Windows light or dark setting, live.
-- Tray icon: left-click shows or hides. Menu: "Open dashboard" (enabled once Settings has the API URL, TRC-169), "Settings…" (for now it shows the window), "Quit".
+- Tray icon: left-click shows or hides. Menu: "Open dashboard" (`<API URL>/personal`, enabled once Settings has an API URL), "Settings…", "Quit".
+
+## Settings and the API
+
+- A fresh install opens **Settings**: API URL, Token and Owner timezone (default `Europe/Rome`), with **Test connection** (`GET /v1/todos?state=open&limit=1`). The tray's "Settings…" opens it later; Esc or the back arrow returns to the list.
+- The **Token** is in Windows Credential Manager, target `traccia-desktop:token` (Control Panel → Credential Manager → Windows Credentials). It never goes in a file and never comes back to the front end. Create it with `traccia token create --name desktop --actor you --scope todos`.
+- The API URL and Owner timezone are in `%APPDATA%\app.traccia.desktop\settings.json`.
+- Every request goes through the Rust command `api(method, path, body)` (`src-tauri/src/api.rs`): it only sends `GET`, `POST` and `PATCH` to `/v1/…` under the API URL, adds `Authorization: Bearer <token>`, times out after 10 s, and reports network failures as `offline`. `src/api-client.ts` parses the answers with the `packages/shared` To-do schemas; a 401 or 403 becomes "Traccia refused the Token. Open Settings."
+
+To start over: `cmdkey /delete:traccia-desktop:token`, then delete `%APPDATA%\app.traccia.desktop` (and the WebView2 cache in `%LOCALAPPDATA%\app.traccia.desktop`).
 
 ## Start at logon
 
