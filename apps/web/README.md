@@ -181,14 +181,24 @@ The API's search prefix-matches the last word (so `perch` finds `perché`); the 
 
 Spec: `docs/personal-space.md` §7. The page is `app/(app)/personal/page.tsx`; its components live in
 `components/personal/` and the pure helpers in `lib/personal/` (`days.ts` for Planned days in the Owner timezone,
-`lists.ts` for what each list shows and the menu counts, `title.ts` for Project chips). "Personal" (lucide `Sun`) is
-the first sidebar item, above Issues.
+`lists.ts` for what each list shows and the menu counts, `title.ts` for Project chips, `quick-add.ts` for the quick-add
+parser, `project-autocomplete.ts` for `@` matching). "Personal" (lucide `Sun`) is the first sidebar item, above Issues.
 
 - **Data.** `loadPersonalSpace` (`lib/api/todos.ts`) dates today in `OWNER_TIMEZONE`, then reads every open To-do
   (`GET /todos?state=open`, following `nextCursor`) and the Logbook only as far back as today
   (`GET /todos?state=closed`, newest first). Two requests, plus one per extra page. The page renders it on the server;
   the live refresh (TRC-52) polls the same function through `GET /api/todos`, so a page left open across midnight
-  rolls over to the new day on its next refresh.
+  rolls over to the new day on its next refresh. The page also passes the live Projects (`listProjects`, shared
+  with the layout through React `cache`) to `projects-context.tsx`, for `@` autocomplete and chip tooltips; the poll
+  doesn't re-read them.
+- **Quick add (TRC-160).** `quick-add.tsx` sits at the top of Today (its `defaultDay` prop is the day a line with no
+  day word goes to; `null` is Anytime). It parses `@KEY`, a day word and `HH:MM`, shows a read-back line, and posts
+  through `createTodoAction` (`app/(app)/personal/actions.ts`), which revalidates `/personal` so the new To-do shows in
+  the same round trip. API errors (a Reminder time already past) show under the field. `mention-input.tsx` is the
+  `@` autocomplete input (an ARIA combobox) that title editing and the Sub-to-do input reuse.
+- **Project chips.** A chip links to `/projects/:id` with an "Open <name>" tooltip and stops the click, so it never
+  selects the row; a chip whose Project is deleted is greyed and not a link. A key that names several Projects links
+  to the first one the API lists.
 - **Sub-to-do counts.** The row's `n/m` comes from `withSubTodoCounts` (dropped ones are left out), which only sees
   the Sub-to-dos the page loaded: those closed on an earlier day are missing until the API sends `subTodos` itself
   (TRC-177).

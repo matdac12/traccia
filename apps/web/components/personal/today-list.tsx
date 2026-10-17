@@ -5,6 +5,7 @@ import { longDate, weekdayName } from "@/lib/personal/days";
 import { type PersonalTodo, todayList } from "@/lib/personal/lists";
 import { cn, plural } from "@/lib/utils";
 import { ListHeading } from "./list-heading";
+import { QuickAdd } from "./quick-add";
 import { TodoRow } from "./todo-row";
 
 export function SectionLabel({ children, count, tone, id }: { children: ReactNode; count?: number; tone?: "danger"; id?: string }) {
@@ -17,7 +18,7 @@ export function SectionLabel({ children, count, tone, id }: { children: ReactNod
 }
 
 /**
- * Today (docs/personal-space.md §7.3): the weekday masthead, then Overdue (each row with its day), today's open
+ * Today (docs/personal-space.md §7.3): the weekday masthead, quick add (onto today), then Overdue (each row with its day), today's open
  * To-dos by Position, and today's done and dropped ones at the bottom.
  */
 export function TodayList({ todos, today }: { todos: PersonalTodo[]; today: string }) {
@@ -28,9 +29,10 @@ export function TodayList({ todos, today }: { todos: PersonalTodo[]; today: stri
       <ListHeading masthead sub={`${longDate(today)} · ${list.today.length} open · ${plural(list.remindersToCome, "Reminder", "Reminders")} still to come`}>
         {weekdayName(today)}
       </ListHeading>
+      <QuickAdd today={today} defaultDay={today} className="mb-2" />
       {empty ? (
         <EmptyState icon={Sun} title="Nothing planned for today" className="rounded-lg border border-dashed py-12">
-          Add a To-do with quick add. Type @ for a Project, or a time like 15:00 for a Reminder.
+          Add one with quick add above. Type @ for a Project, or a time like 15:00 for a Reminder.
         </EmptyState>
       ) : (
         <>

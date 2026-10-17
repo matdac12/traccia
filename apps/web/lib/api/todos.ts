@@ -1,4 +1,5 @@
 import "server-only";
+import type { CreateTodoInput } from "@traccia/shared";
 import { dayInZone } from "../personal/days";
 import { type PersonalSpaceData, withSubTodoCounts } from "../personal/lists";
 import { serverEnv } from "../server-env";
@@ -39,4 +40,8 @@ export async function loadPersonalSpace(now = new Date()): Promise<PersonalSpace
   const today = dayInZone(now, timeZone);
   const [open, closed] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone)]);
   return { today, todos: withSubTodoCounts([...open, ...closed]) };
+}
+
+export function createTodo(body: CreateTodoInput) {
+  return api().request("/todos", { schema: todoSchema, method: "POST", body });
 }
