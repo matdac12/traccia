@@ -113,7 +113,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap (10 MiB) for attachments |
 | `MAX_MCP_UPLOAD_BYTES` | api | `5242880` | Base64 upload cap over MCP (5 MiB) |
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key used when a project is created without one |
-| `ALLOW_AGENT_PURGE` | api | `false` | Whether `agent` tokens may purge. Agents may always purge memories and documents, whatever this says |
+| `ALLOW_AGENT_PURGE` | api | `false` | Whether `agent` tokens may purge. Agents may always purge memories and documents, and never To-dos (`you` only), whatever this says |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Requests per minute, per token |
 | `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Requests per minute, per `you` token (the dashboard fans out several requests per page). Agent tokens keep `RATE_LIMIT_PER_MIN` |
 | `LOG_LEVEL` | api | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent` |

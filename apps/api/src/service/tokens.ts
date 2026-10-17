@@ -9,6 +9,13 @@ import { NotFoundError, ValidationError } from "./errors.js";
 
 export const TOKEN_PREFIX = "trk_";
 
+/** `todos` limits a token to the To-do API (see `auth/scope.ts`); `all` is unrestricted. */
+export const TOKEN_SCOPES = ["all", "todos"] as const;
+export type TokenScope = (typeof TOKEN_SCOPES)[number];
+
+export const isTokenScope = (value: string): value is TokenScope =>
+  (TOKEN_SCOPES as readonly string[]).includes(value);
+
 export type TokenSummary = {
   id: string;
   name: string;
@@ -37,7 +44,7 @@ const summary = {
 
 export function createToken(
   db: Db,
-  input: { name: string; actor: Actor },
+  input: { name: string; actor: Actor; scope?: TokenScope },
 ): CreatedToken {
   const name = input.name.trim();
   if (!name) throw new ValidationError("Token name must not be empty");
@@ -47,7 +54,7 @@ export function createToken(
     name,
     actor: input.actor,
     tokenHash: hashToken(token),
-    scopes: "all", // reserved
+    scopes: input.scope ?? "all",
     createdAt: nowIso(),
   };
   db.insert(tokens).values(row).run();

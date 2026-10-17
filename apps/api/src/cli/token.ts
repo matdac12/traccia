@@ -1,7 +1,13 @@
 import { parseArgs } from "node:util";
 import { ACTORS, type Actor } from "@traccia/shared";
 import type { Db } from "../db/connection.js";
-import { createToken, listTokens, revokeToken } from "../service/tokens.js";
+import {
+  createToken,
+  isTokenScope,
+  listTokens,
+  revokeToken,
+  TOKEN_SCOPES,
+} from "../service/tokens.js";
 
 /** Thrown for bad usage; the CLI prints the message and exits non-zero. */
 export class UsageError extends Error {
@@ -9,19 +15,21 @@ export class UsageError extends Error {
 }
 
 const TOKEN_USAGE = `Usage:
-  traccia token create --name <name> --actor agent|you
+  traccia token create --name <name> --actor agent|you [--scope all|todos]
   traccia token list
   traccia token revoke <id>
 
 Run "traccia token <command> --help" for details.`;
 
 const HELP = {
-  create: `Usage: traccia token create --name <name> --actor agent|you
+  create: `Usage: traccia token create --name <name> --actor agent|you [--scope all|todos]
 
-Creates a token and prints its plaintext once. It cannot be shown again.`,
+Creates a token and prints its plaintext once. It cannot be shown again.
+--scope defaults to all. A todos token can only use the To-do API, read-only
+Projects and /v1/me, and cannot purge.`,
   list: `Usage: traccia token list
 
-Lists tokens: id, name, actor, created, last used, revoked. Never prints secrets.`,
+Lists tokens: id, name, actor, scope, created, last used, revoked. Never prints secrets.`,
   revoke: `Usage: traccia token revoke <id>
 
 Revokes a token immediately. Revoking an already revoked token is a no-op.`,
@@ -36,6 +44,7 @@ function parse(args: string[]) {
         help: { type: "boolean", short: "h" },
         name: { type: "string" },
         actor: { type: "string" },
+        scope: { type: "string" },
       },
     });
   } catch (err) {
@@ -86,9 +95,13 @@ export function runTokenCommand(
   const { values, positionals } = parse(rest);
   if (
     command !== "create" &&
-    (values.name !== undefined || values.actor !== undefined)
+    (values.name !== undefined ||
+      values.actor !== undefined ||
+      values.scope !== undefined)
   ) {
-    throw new UsageError(`traccia token ${command} takes no --name or --actor`);
+    throw new UsageError(
+      `traccia token ${command} takes no --name, --actor or --scope`,
+    );
   }
 
   if (command === "create") {
@@ -99,12 +112,19 @@ export function runTokenCommand(
     if (!actor || !(ACTORS as readonly string[]).includes(actor)) {
       throw new UsageError("--actor must be one of: agent, you");
     }
+    const scope = values.scope ?? "all";
+    if (!isTokenScope(scope)) {
+      throw new UsageError(
+        `--scope must be one of: ${TOKEN_SCOPES.join(", ")}`,
+      );
+    }
     const created = createToken(db, {
       name: values.name,
       actor: actor as Actor,
+      scope,
     });
     out(
-      `Created token ${created.id} (${created.name}, actor ${created.actor}).\n\n` +
+      `Created token ${created.id} (${created.name}, actor ${created.actor}, scope ${created.scopes}).\n\n` +
         `${created.token}\n\n` +
         "Copy it now: this is the only time it is shown and it cannot be recovered.",
     );
@@ -118,11 +138,12 @@ export function runTokenCommand(
     }
     out(
       table(
-        ["ID", "NAME", "ACTOR", "CREATED", "LAST USED", "REVOKED"],
+        ["ID", "NAME", "ACTOR", "SCOPE", "CREATED", "LAST USED", "REVOKED"],
         rows.map((t) => [
           t.id,
           t.name,
           t.actor,
+          t.scopes,
           t.createdAt,
           cell(t.lastUsedAt),
           cell(t.revokedAt),

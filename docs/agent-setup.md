@@ -19,6 +19,16 @@ The plaintext is printed once and cannot be shown again. Use `--actor agent` for
 
 Name each token `<tool>-<machine>`, one per tool and machine, for example `claude-code-mac`, `codex-windows`, `opencode-mac` or `opencode-windows`. The name shows up as `tokenName` in `whoami` and in write attribution, and lets you revoke one tool on one machine alone.
 
+### Scoped tokens (Parla)
+
+A token can be limited to the To-do API with `--scope todos` (the default is `--scope all`):
+
+```bash
+cd /opt/tracker && docker compose exec -T api node dist/traccia.js token create --name parla --actor you --scope todos
+```
+
+A `todos` token may use `/v1/todos` and everything under it, `POST /v1/restore` for a To-do, read-only `GET /v1/projects` and `GET /v1/projects/:id`, and `GET /v1/me`. It cannot purge (`?purge=true` is 403), and everything else, including `/mcp` and `/files`, is 403 `forbidden`. So it is for a REST client like Parla, not for an agent connecting over MCP: use a normal token there. `token list` shows each token's scope. See [personal-space.md](personal-space.md) for the full rule.
+
 If you use the optional environment variable, name it `TRACCIA_TOKEN`. Claude Code reads some credential names (such as `ANTHROPIC_AUTH_TOKEN` or `NPM_TOKEN`) as empty inside MCP headers, so avoid those names.
 
 ## 2. Store the token per tool
