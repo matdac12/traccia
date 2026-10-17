@@ -3,7 +3,7 @@
 A small resident Windows window with the owner's open To-dos, shown and hidden with Caps+R. Spec: [`docs/desktop-app.md`](../../docs/desktop-app.md). Why Tauri, a thin client and no local database: [ADR 0018](../../docs/adr/0018-desktop-app-tauri-thin-client.md).
 
 - `src/`: the front end (Vite, React, Tailwind). It imports the Dashboard's tokens from `apps/web/app/globals.css` and bundles Geist and Geist Mono from the `geist` package, so it looks like the Dashboard and works offline.
-- `src-tauri/`: the Rust shell (Tauri 2). It owns the window, the tray, single instance, `--toggle`, the logon autostart, Settings storage and the one `api` command that talks to Traccia. Product logic stays in TypeScript.
+- `src-tauri/`: the Rust shell (Tauri 2). It owns the window, the tray, single instance, `--toggle`, the logon autostart, Settings storage, the one `api` command that talks to Traccia, and `open_url`, which opens a To-do's link in the default browser. Product logic stays in TypeScript.
 
 ## Checks
 
@@ -66,6 +66,23 @@ Every open To-do, Sub-to-dos included (§3): Overdue (oldest first, each row wit
 - **Freshness**: the list re-fetches on every show and every 30 s while shown, and makes no calls while hidden. The Rust side tells the front end with the `window-shown` and `window-hidden` events (`src-tauri/src/window.rs`). Projects (chip tooltips) are fetched once per show.
 - **Offline**: the last list stays, read-only, under "Offline · showing the list from HH:MM · changes are off"; the next successful fetch clears it.
 - A parent's "n/m" needs an API with Sub-to-do counts (TRC-177); against an older API it is left out.
+
+## Actions on rows
+
+`src/row-actions.ts` (the writes) and the list's keyboard in `src/app.tsx` (§4):
+
+| Action | Mouse | Keyboard (row selected) |
+|---|---|---|
+| Mark done | Click the check | Space |
+| Reopen | Click the check of a closed row | Space |
+| Drop | Right-click the row | Del |
+| Undo a drop | "Undo" in the toast | Ctrl+Z, while the toast shows |
+| Open in the Dashboard | Click the title | Enter |
+
+- ↑ ↓ move the selection (the orange bar); clicking a row's empty area selects it. Opening sends the To-do's `url` from the API to `open_url`, which only opens `http://` and `https://` links.
+- Every write shows at once, and is put back with a short toast if Traccia refuses it. While offline nothing is sent: the checks are disabled and the keys say "changes are off".
+- Closing a parent with open Sub-to-dos: the API answers 409 with `openSubTodos`, and a line under the row asks "Also mark 2 open Sub-to-dos done?". Yes or Enter sends it again with `closeSubTodos: true`; Cancel or Esc does nothing. Undo after such a drop reopens the parent, then its Sub-to-dos.
+- Closed rows stay, struck through, until the window hides (Settings counts too); then they leave the list. They are in the Dashboard's Logbook.
 
 ## Settings and the API
 

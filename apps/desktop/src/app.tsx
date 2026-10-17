@@ -1,15 +1,17 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { createApiClient } from "./api-client";
+import { createApiClient, type Todo } from "./api-client";
 import { clockIn, todayIn } from "./days";
-import { listCounts } from "./list";
+import { buildSections, listCounts } from "./list";
 import {
   hideWindow,
   loadSettings,
   onOpenSettings,
   onWindowShown,
+  openUrl,
   sendApi,
 } from "./native";
 import { type ListProblem, type OpenList, useOpenList } from "./open-list";
+import { type RowActions, type Toast, useRowActions } from "./row-actions";
 import { FRESH_SETTINGS, type SavedSettings } from "./settings";
 import { SettingsView } from "./settings-view";
 import { TitleBar } from "./title-bar";
@@ -46,7 +48,14 @@ export function App() {
   }, []);
 
   const canGoBack = saved !== null && isComplete(saved);
-  const list = useOpenList(client, shown && view === "list" && canGoBack);
+  const listShown = shown && view === "list" && canGoBack;
+  const list = useOpenList(client, listShown);
+  const rows = useRowActions(client, {
+    todos: list.todos,
+    // Settings counts as a hide: the rows closed before it leave the list.
+    shown: listShown,
+    offline: list.problem?.kind === "offline",
+  });
 
   // Every show starts at the top (docs/desktop-app.md §2).
   useEffect(() => {
@@ -55,7 +64,8 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      // The list's own Esc (the cascade confirm) comes first.
+      if (event.key !== "Escape" || event.defaultPrevented) return;
       if (view === "settings" && canGoBack) setView("list");
       else void hideWindow();
     };
@@ -66,7 +76,7 @@ export function App() {
   if (!saved) return <div className="h-full bg-background" />;
 
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="relative flex h-full flex-col bg-background text-foreground">
       {view === "settings" ? (
         <SettingsView
           saved={saved}
@@ -79,6 +89,8 @@ export function App() {
       ) : (
         <ListView
           list={list}
+          rows={rows}
+          shown={listShown}
           ownerTimezone={saved.ownerTimezone}
           listRef={listRef}
           onOpenSettings={() => setView("settings")}
@@ -90,21 +102,103 @@ export function App() {
 
 function ListView({
   list,
+  rows,
+  shown,
   ownerTimezone,
   listRef,
   onOpenSettings,
 }: {
   list: OpenList;
+  rows: RowActions;
+  shown: boolean;
   ownerTimezone: string;
   listRef: RefObject<HTMLElement | null>;
   onOpenSettings: () => void;
 }) {
   const today = todayIn(ownerTimezone);
   const offline = list.problem?.kind === "offline";
+  const todos = rows.todos;
+  const [selected, setSelected] = useState<string | null>(null);
+  // The rows in the order they show, for ↑ ↓.
+  const order = todos
+    ? buildSections(todos, today).flatMap((s) => s.items.map((t) => t.id))
+    : [];
+  const selectedId = selected && order.includes(selected) ? selected : null;
+
+  // Every show starts with nothing selected.
+  useEffect(() => {
+    if (!shown) setSelected(null);
+  }, [shown]);
+
+  useEffect(() => {
+    if (selectedId)
+      document
+        .querySelector(`[data-todo="${CSS.escape(selectedId)}"]`)
+        ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedId]);
+
+  const open = (todo: Todo) =>
+    void openUrl(todo.url).catch((err) =>
+      rows.notify(`Couldn't open it. ${err}`),
+    );
+
+  // The keyboard (docs/desktop-app.md §4). On `document`, so it runs before the window's Esc-hides.
+  const keys = useRef({ order, selectedId, rows, todos, open });
+  keys.current = { order, selectedId, rows, todos, open };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const { order, selectedId, rows, todos, open } = keys.current;
+      // A focused button handles its own Enter and Space, except a row's: a click leaves the focus on the check
+      // or the title, and the keys then belong to the selection.
+      const target = event.target as Element | null;
+      const onButton =
+        !!target?.closest?.("button") && !target.closest("[data-todo]");
+      const take = () => event.preventDefault();
+      if (rows.confirm && event.key === "Escape") {
+        take();
+        rows.cancelCascade();
+      } else if (rows.confirm && event.key === "Enter" && !onButton) {
+        take();
+        rows.confirmCascade();
+      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        take();
+        const i = selectedId ? order.indexOf(selectedId) : -1;
+        setSelected(
+          event.key === "ArrowDown"
+            ? (order[Math.min(order.length - 1, i + 1)] ?? null)
+            : i <= 0
+              ? null
+              : (order[i - 1] ?? null),
+        );
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "z" &&
+        rows.toast?.canUndo
+      ) {
+        take();
+        rows.undo();
+      } else if (selectedId && event.key === "Delete") {
+        take();
+        rows.drop(selectedId);
+      } else if (selectedId && event.key === " " && !onButton) {
+        take();
+        rows.toggle(selectedId);
+      } else if (selectedId && event.key === "Enter" && !onButton) {
+        const todo = todos?.find((t) => t.id === selectedId);
+        if (todo) {
+          take();
+          open(todo);
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <>
       <TitleBar
-        counts={list.todos ? listCounts(list.todos, today) : undefined}
+        counts={todos ? listCounts(todos, today) : undefined}
         offline={offline}
       />
       {list.problem && (
@@ -118,15 +212,26 @@ function ListView({
         ref={listRef}
         className="flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]"
       >
-        {list.todos && (
+        {todos && (
           <TodoList
-            todos={list.todos}
+            todos={todos}
             projects={list.projects}
             today={today}
             offline={offline}
+            selectedId={selectedId}
+            confirm={rows.confirm}
+            handlers={{
+              onSelect: setSelected,
+              onToggle: rows.toggle,
+              onDrop: rows.drop,
+              onOpen: open,
+              onConfirmCascade: rows.confirmCascade,
+              onCancelCascade: rows.cancelCascade,
+            }}
           />
         )}
       </main>
+      {rows.toast && <ToastLine toast={rows.toast} onUndo={rows.undo} />}
     </>
   );
 }
@@ -168,5 +273,28 @@ function ProblemLine({
         <span className="text-destructive">{problem.message}</span>
       )}
     </p>
+  );
+}
+
+/** "Dropped “Gym” · Undo", or a short error, at the bottom of the window for 5 s (docs/desktop-app.md §4). */
+function ToastLine({ toast, onUndo }: { toast: Toast; onUndo: () => void }) {
+  return (
+    <div
+      role="status"
+      className="absolute inset-x-2.5 bottom-2.5 z-[5] flex items-center gap-2.5 rounded-md bg-foreground px-2.5 py-2 text-xs text-background shadow-[0_4px_16px_rgba(0,0,0,0.2)]"
+    >
+      <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+        {toast.text}
+      </span>
+      {toast.canUndo && (
+        <button
+          type="button"
+          onClick={onUndo}
+          className="font-semibold text-primary"
+        >
+          Undo
+        </button>
+      )}
+    </div>
   );
 }

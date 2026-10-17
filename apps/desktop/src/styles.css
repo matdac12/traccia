@@ -27,3 +27,29 @@
 
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
 body { font-size: 13px; user-select: none; }
+
+/* A closed row's title (docs/desktop-app.md §3.3): the Personal Space's 1.5 px orange line, grey when dropped. */
+.todo-strike {
+  background-image: linear-gradient(var(--primary), var(--primary));
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 0% 1.5px;
+  transition: background-size 0.3s ease-out;
+}
+[data-state="done"] .todo-strike {
+  background-size: 100% 1.5px;
+  color: var(--muted-foreground);
+}
+[data-state="dropped"] .todo-strike {
+  background-image: linear-gradient(var(--muted-foreground), var(--muted-foreground));
+  background-size: 100% 1.5px;
+  color: var(--muted-foreground);
+}
+.todo-title:hover .todo-strike {
+  text-decoration: underline;
+  text-decoration-color: var(--input);
+  text-underline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .todo-strike { transition: none; }
+}

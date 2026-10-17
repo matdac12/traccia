@@ -48,6 +48,7 @@ fn main() {
             commands::save_settings,
             commands::api,
             commands::test_connection,
+            commands::open_url,
         ])
         .setup(move |app| {
             tray::build(app)?;

@@ -4,6 +4,7 @@
 use reqwest::Client;
 use serde::Serialize;
 use tauri::{AppHandle, Runtime, State};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::api::{self, ApiOutcome};
 use crate::{secrets, settings, tray};
@@ -26,14 +27,19 @@ impl SettingsView {
     }
 }
 
-/// Trims it and drops trailing slashes; only `http://` and `https://` URLs with a host.
+/// An `http://` or `https://` URL with a host.
+fn is_web_url(input: &str) -> bool {
+    reqwest::Url::parse(input)
+        .is_ok_and(|parsed| matches!(parsed.scheme(), "http" | "https") && parsed.host().is_some())
+}
+
+/// Trims it and drops trailing slashes; only web URLs.
 fn normalize_api_url(input: &str) -> Result<String, String> {
     let url = input.trim().trim_end_matches('/');
-    match reqwest::Url::parse(url) {
-        Ok(parsed) if matches!(parsed.scheme(), "http" | "https") && parsed.host().is_some() => {
-            Ok(url.to_string())
-        }
-        _ => Err("Enter the API URL, starting with https://".to_string()),
+    if is_web_url(url) {
+        Ok(url.to_string())
+    } else {
+        Err("Enter the API URL, starting with https://".to_string())
     }
 }
 
@@ -105,6 +111,16 @@ pub async fn test_connection<R: Runtime>(
     Ok(api::send(&http.0, request).await)
 }
 
+/// Opens a To-do's `url` (the Dashboard's details panel for it) in the default browser (docs/desktop-app.md §4).
+/// Only a web URL: the link comes from the API, and anything else would start a program.
+#[tauri::command]
+pub fn open_url<R: Runtime>(app: AppHandle<R>, url: String) -> Result<(), String> {
+    if !is_web_url(&url) {
+        return Err("The To-do's link is not a web address".to_string());
+    }
+    app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,6 +129,21 @@ mod tests {
     fn accepts_http_and_https_urls_and_drops_the_trailing_slash() {
         assert_eq!(normalize_api_url(" https://box.tail.ts.net/ ").unwrap(), "https://box.tail.ts.net");
         assert_eq!(normalize_api_url("http://127.0.0.1:8871").unwrap(), "http://127.0.0.1:8871");
+    }
+
+    #[test]
+    fn opens_only_web_urls() {
+        assert!(is_web_url("https://box.tail.ts.net/personal?todo=td_1"));
+        assert!(is_web_url("http://127.0.0.1:8873/personal?todo=td_1"));
+        for bad in [
+            "",
+            "file:///C:/Windows/notepad.exe",
+            "javascript:alert(1)",
+            "ms-settings:",
+            "personal?todo=td_1",
+        ] {
+            assert!(!is_web_url(bad), "{bad}");
+        }
     }
 
     #[test]
