@@ -33,6 +33,14 @@ pnpm --filter desktop tauri dev
 
 That starts Vite on port 3170 and a debug build of the app on it. A debug build never registers the logon autostart. To look at the front end in a browser instead, run `pnpm --filter desktop dev` and open `http://127.0.0.1:3170/` (the window's content) or `/preview.html` (the window at 380×520 in the bottom-right corner of a fake desktop).
 
+In a browser the page acts as a fresh install, so it opens Settings. To see the list with real data, point the dev server at an API:
+
+```sh
+VITE_TRACCIA_DEV_API=http://127.0.0.1:8871 TRACCIA_DEV_TOKEN=<a todos Token> pnpm --filter desktop dev
+```
+
+Vite then proxies `/v1/…` to that API and adds the Token itself, so the page never sees it; a stopped API reads as offline. A build ignores both variables.
+
 ## Command line
 
 | Launch | No instance running | An instance running |
@@ -50,6 +58,14 @@ Only one instance stays resident. Caps+R in the owner's AutoHotkey script, which
 - Hides on Esc, on losing focus, on Caps+R again, and from the tray.
 - Follows the Windows light or dark setting, live.
 - Tray icon: left-click shows or hides. Menu: "Open dashboard" (`<API URL>/personal`, enabled once Settings has an API URL), "Settings…", "Quit".
+
+## The list
+
+Every open To-do, Sub-to-dos included (§3): Overdue (oldest first, each row with its day), Today with its date, one heading per later day that has To-dos, then Anytime; within a day by Position. The title bar counts "today" (a Planned day of today or earlier) and "open". "Today" is in the Owner timezone from Settings, not the laptop's zone.
+
+- **Freshness**: the list re-fetches on every show and every 30 s while shown, and makes no calls while hidden. The Rust side tells the front end with the `window-shown` and `window-hidden` events (`src-tauri/src/window.rs`). Projects (chip tooltips) are fetched once per show.
+- **Offline**: the last list stays, read-only, under "Offline · showing the list from HH:MM · changes are off"; the next successful fetch clears it.
+- A parent's "n/m" needs an API with Sub-to-do counts (TRC-177); against an older API it is left out.
 
 ## Settings and the API
 

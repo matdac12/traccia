@@ -1,14 +1,46 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { ApiOutcome, Transport } from "./api-client";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { ApiMethod, ApiOutcome, Transport } from "./api-client";
 import {
+  DEFAULT_TIMEZONE,
   FRESH_SETTINGS,
   type SavedSettings,
   type SettingsForm,
 } from "./settings";
 
 // The Rust side (src-tauri/src). In a plain browser, for previews, each call answers as a fresh install
-// would: no Settings, nothing reachable.
+// would: no Settings, nothing reachable. The one exception is a dev server started with VITE_TRACCIA_DEV_API
+// (README, "Run it while developing"): then the API calls go through Vite's proxy to that API, which adds the
+// Token, so the page never sees it.
+
+/** The dev proxy's API, in `vite` only; a build never has it. */
+const DEV_API: string | undefined = import.meta.env.DEV
+  ? import.meta.env.VITE_TRACCIA_DEV_API
+  : undefined;
+
+/** Through the dev proxy (vite.config.ts), which answers an unreachable API with this header. */
+async function sendThroughDevProxy(
+  method: ApiMethod,
+  path: string,
+  body?: unknown,
+): Promise<ApiOutcome> {
+  try {
+    const response = await fetch(path, {
+      method,
+      ...(body !== undefined && {
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    });
+    const text = await response.text();
+    return response.headers.get("x-traccia-dev-proxy") === "offline"
+      ? { kind: "offline", reason: text }
+      : { kind: "response", status: response.status, body: text };
+  } catch (err) {
+    return { kind: "offline", reason: String(err) };
+  }
+}
 
 /** Hides the window (window.rs). */
 export function hideWindow(): Promise<void> {
@@ -19,12 +51,17 @@ export function hideWindow(): Promise<void> {
 export const sendApi: Transport = (method, path, body) =>
   isTauri()
     ? invoke<ApiOutcome>("api", { method, path, body: body ?? null })
-    : Promise.resolve({ kind: "notConfigured" });
+    : DEV_API
+      ? sendThroughDevProxy(method, path, body)
+      : Promise.resolve({ kind: "notConfigured" });
 
 export function loadSettings(): Promise<SavedSettings> {
-  return isTauri()
-    ? invoke<SavedSettings>("load_settings")
-    : Promise.resolve(FRESH_SETTINGS);
+  if (isTauri()) return invoke<SavedSettings>("load_settings");
+  return Promise.resolve(
+    DEV_API
+      ? { apiUrl: DEV_API, ownerTimezone: DEFAULT_TIMEZONE, hasToken: true }
+      : FRESH_SETTINGS,
+  );
 }
 
 /** Saves the URL and timezone to the settings file and a typed Token to Credential Manager. */
@@ -61,4 +98,29 @@ export function onOpenSettings(handler: () => void): () => void {
   if (!isTauri()) return () => {};
   const stop = listen("open-settings", handler);
   return () => void stop.then((unlisten) => unlisten());
+}
+
+/**
+ * Whether the window is shown: once now, then on every show and hide (window.rs emits `window-shown` and
+ * `window-hidden`). In a browser, the page's visibility. Returns a function that stops listening.
+ */
+export function onWindowShown(handler: (shown: boolean) => void): () => void {
+  if (!isTauri()) {
+    const report = () => handler(document.visibilityState === "visible");
+    report();
+    document.addEventListener("visibilitychange", report);
+    return () => document.removeEventListener("visibilitychange", report);
+  }
+  let live = true;
+  void getCurrentWindow()
+    .isVisible()
+    .then((shown) => live && handler(shown));
+  const stops = [
+    listen("window-shown", () => handler(true)),
+    listen("window-hidden", () => handler(false)),
+  ];
+  return () => {
+    live = false;
+    for (const stop of stops) void stop.then((unlisten) => unlisten());
+  };
 }

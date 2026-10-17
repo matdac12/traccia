@@ -12,6 +12,11 @@ pub const MAIN: &str = "main";
 /// The event that switches the front end to Settings.
 const OPEN_SETTINGS: &str = "open-settings";
 
+/// Tell the front end the window was shown or hidden: it re-fetches on every show and makes no calls while
+/// hidden (docs/desktop-app.md §6; src/native.ts `onWindowShown`).
+const SHOWN: &str = "window-shown";
+const HIDDEN: &str = "window-hidden";
+
 /// A click on the tray icon first takes the focus away from the window, which hides it, and only then
 /// arrives as a click. A tray click this soon after a focus-loss hide is that same click: it stays hidden.
 const BLUR_GRACE: Duration = Duration::from_millis(300);
@@ -34,6 +39,7 @@ pub fn show<R: Runtime>(app: &AppHandle<R>) {
     let _ = window.show();
     let _ = window.set_always_on_top(true);
     let _ = window.set_focus();
+    let _ = app.emit_to(MAIN, SHOWN, ());
 }
 
 /// The tray's "Settings…": shows the window on the Settings view (src/app.tsx listens for the event).
@@ -45,6 +51,7 @@ pub fn show_settings<R: Runtime>(app: &AppHandle<R>) {
 pub fn hide<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = main_window(app) {
         let _ = window.hide();
+        let _ = app.emit_to(MAIN, HIDDEN, ());
     }
 }
 
@@ -76,6 +83,7 @@ pub fn hide_on_blur<R: Runtime>(window: &tauri::Window<R>) {
         return;
     }
     let _ = window.hide();
+    let _ = window.app_handle().emit_to(MAIN, HIDDEN, ());
     *window.state::<BlurHide>().0.lock().unwrap() = Some(Instant::now());
 }
 

@@ -1,8 +1,7 @@
 import {
   type CreateTodoInput,
   type ListTodosInput,
-  type Todo,
-  todoSchema,
+  todoSchema as sharedTodoSchema,
   type UpdateTodoInput,
 } from "@traccia/shared";
 import { z } from "zod";
@@ -26,6 +25,31 @@ export type Transport = (
   path: string,
   body?: unknown,
 ) => Promise<ApiOutcome>;
+
+/**
+ * A To-do as the API returns it: the shared schema, plus a parent's Sub-to-do count (`n/m`). The count comes with
+ * TRC-177, which `packages/shared` on this branch doesn't have yet, so it is optional here; once the shared schema
+ * has `subTodos`, this extension can go.
+ */
+export const todoSchema = sharedTodoSchema.extend({
+  subTodos: z
+    .object({ done: z.number().int().min(0), total: z.number().int().min(0) })
+    .nullable()
+    .optional(),
+});
+export type Todo = z.infer<typeof todoSchema>;
+
+/**
+ * A Project as `GET /v1/projects` lists it, narrowed to what the window uses (chip tooltips, and `@` autocomplete
+ * from step 06). `packages/shared` has no Project response schema.
+ */
+export const projectSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  status: z.string(),
+});
+export type Project = z.infer<typeof projectSchema>;
 
 export const REFUSED_MESSAGE = "Traccia refused the Token. Open Settings.";
 
@@ -56,6 +80,11 @@ export const todoPageSchema = z.object({
 });
 export type TodoPage = z.infer<typeof todoPageSchema>;
 
+const projectPageSchema = z.object({
+  items: z.array(projectSchema),
+  nextCursor: z.string().nullable(),
+});
+
 const errorBodySchema = z.object({
   error: z.object({
     code: z.string(),
@@ -64,7 +93,7 @@ const errorBodySchema = z.object({
   }),
 });
 
-/** The API's page size limit for `GET /v1/todos`. */
+/** The API's page size limit. */
 const PAGE_LIMIT = 250;
 
 const UNREADABLE = "Traccia sent a response the Desktop app can't read.";
@@ -131,6 +160,23 @@ export function interpret<T>(
   }
 }
 
+/** Follows `nextCursor` from the first page to the last, stopping at the first failure. */
+async function pageToTheEnd<T>(
+  fetchPage: (
+    cursor: string | undefined,
+  ) => Promise<ApiResult<{ items: T[]; nextCursor: string | null }>>,
+): Promise<ApiResult<T[]>> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await fetchPage(cursor);
+    if (!page.ok) return page;
+    items.push(...page.value.items);
+    cursor = page.value.nextCursor ?? undefined;
+  } while (cursor);
+  return { ok: true, value: items };
+}
+
 export function createApiClient(send: Transport) {
   async function request<T>(
     schema: z.ZodType<T>,
@@ -163,20 +209,19 @@ export function createApiClient(send: Transport) {
     listTodos,
 
     /** Every open To-do, Sub-to-dos included, paged to the end. */
-    async listOpenTodos(): Promise<ApiResult<Todo[]>> {
-      const todos: Todo[] = [];
-      let cursor: string | undefined;
-      do {
-        const page = await listTodos({
-          state: "open",
-          limit: PAGE_LIMIT,
-          cursor,
-        });
-        if (!page.ok) return page;
-        todos.push(...page.value.items);
-        cursor = page.value.nextCursor ?? undefined;
-      } while (cursor);
-      return { ok: true, value: todos };
+    listOpenTodos(): Promise<ApiResult<Todo[]>> {
+      return pageToTheEnd((cursor) =>
+        listTodos({ state: "open", limit: PAGE_LIMIT, cursor }),
+      );
+    },
+
+    /** Every live Project, paged to the end. */
+    listProjects(): Promise<ApiResult<Project[]>> {
+      return pageToTheEnd((cursor) => {
+        const query = new URLSearchParams({ limit: String(PAGE_LIMIT) });
+        if (cursor) query.set("cursor", cursor);
+        return request(projectPageSchema, "GET", `/v1/projects?${query}`);
+      });
     },
 
     createTodo(input: CreateTodoInput): Promise<ApiResult<Todo>> {

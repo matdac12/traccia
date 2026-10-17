@@ -75,6 +75,48 @@ describe("the API client", () => {
     expect(result).toEqual({ ok: true, value: [todo, second] });
   });
 
+  it("keeps a parent's Sub-to-do count, and reads a To-do from an API without one", async () => {
+    const parent = { ...todo, id: "td_p", subTodos: { done: 1, total: 3 } };
+    const send = transport(
+      json(200, { items: [parent, todo], nextCursor: null }),
+    );
+
+    const result = await createApiClient(send).listOpenTodos();
+
+    expect(result.ok && result.value.map((t) => t.subTodos)).toEqual([
+      { done: 1, total: 3 },
+      undefined,
+    ]);
+  });
+
+  it("pages through every live Project, keeping what the window uses", async () => {
+    const project = (id: string, key: string) => ({
+      id,
+      key,
+      name: `${key} project`,
+      status: "active",
+      issueCounts: { open: 2 },
+    });
+    const send = transport(
+      json(200, { items: [project("pr_1", "TRC")], nextCursor: "c1" }),
+      json(200, { items: [project("pr_2", "CRM")], nextCursor: null }),
+    );
+
+    const result = await createApiClient(send).listProjects();
+
+    expect(send.mock.calls.map((call) => call[1])).toEqual([
+      "/v1/projects?limit=250",
+      "/v1/projects?limit=250&cursor=c1",
+    ]);
+    expect(result).toEqual({
+      ok: true,
+      value: [
+        { id: "pr_1", key: "TRC", name: "TRC project", status: "active" },
+        { id: "pr_2", key: "CRM", name: "CRM project", status: "active" },
+      ],
+    });
+  });
+
   it("creates and updates To-dos with a JSON body", async () => {
     const send = transport(
       json(201, todo),
