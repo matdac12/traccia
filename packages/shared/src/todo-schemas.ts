@@ -99,6 +99,19 @@ export const updateTodoInputSchema = z.object({
 export type UpdateTodoInput = z.input<typeof updateTodoInputSchema>;
 
 /**
+ * `PATCH /v1/todos/:id/position`: place the To-do directly above `beforeId` or
+ * directly below `afterId` (both must then be adjacent), within its bucket;
+ * with neither it goes to the bottom.
+ */
+export const moveTodoPositionInputSchema = z.object({
+  beforeId: z.string().min(1).optional(),
+  afterId: z.string().min(1).optional(),
+  /** Optimistic concurrency: the `updatedAt` the caller last saw. */
+  expectedUpdatedAt: z.string().optional(),
+});
+export type MoveTodoPositionInput = z.input<typeof moveTodoPositionInputSchema>;
+
+/**
  * `open`: every open To-do, Sub-to-dos included, by day (Anytime last), then
  * Position. `closed`: the Logbook, most recently closed first.
  */

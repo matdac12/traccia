@@ -24,6 +24,7 @@ Every route returns To-dos in this shape:
 - Both lists take `limit` (default 50, at most 250), `cursor` (the previous page's `nextCursor`) and `includeDeleted=true`, and return `{ items, nextCursor }`. `state` is required. A cursor only continues the list it came from.
 - `GET /v1/todos/:id` returns one To-do, a deleted one included.
 - `PATCH /v1/todos/:id` edits one To-do and returns it. See [Editing](#editing).
+- `PATCH /v1/todos/:id/position` reorders one To-do within its bucket and returns it. See [Manual order](#manual-order).
 - `DELETE /v1/todos/:id` deletes a To-do (`?purge=true` purges it). `POST /v1/restore` with `{ type: "todo", id }` restores it. See [Delete, restore and purge](#delete-restore-and-purge).
 
 ## Sub-to-dos
@@ -47,6 +48,15 @@ A Sub-to-do is a full To-do (own day, `details` and references) that hangs under
 ### Closing a parent
 
 A parent never closes on its own. Closing a To-do that has open Sub-to-dos (deleted ones don't count) without `closeSubTodos: true` is `409 conflict` with `details.openSubTodos: <n>`, and nothing is written. With `closeSubTodos: true` the open Sub-to-dos close the same way (done to done, dropped to dropped) with the same `closedAt`, in the same transaction. Sub-to-dos that are already done or dropped are left alone. The flag does nothing for a To-do without open Sub-to-dos. The `expectedUpdatedAt` check runs first.
+
+## Manual order
+
+`PATCH /v1/todos/:id/position` with `{ beforeId?, afterId?, expectedUpdatedAt? }` moves a live To-do inside its **bucket**: the live To-dos with the same `day` (Anytime is `day: null`) and the same `parentId` (top level is `null`). The order is `position`, so `GET /v1/todos?state=open` reflects the move at once. It returns the To-do. To change a To-do's day, use `PATCH /v1/todos/:id` with `day`: it goes to the bottom of the new bucket.
+
+- `beforeId` puts it directly above that To-do, `afterId` directly below it. With both they must be adjacent. With neither it goes to the bottom of the bucket.
+- A neighbour that is in another bucket (another day, Anytime, another parent, or top level versus a Sub-to-do), is deleted, doesn't exist or is the To-do itself is `400 validation_error` with `details.fields.beforeId` or `afterId`, as is a `beforeId` and `afterId` that aren't adjacent. Done and dropped To-dos are still in their bucket and can be neighbours.
+- The new `position` is the midpoint of the neighbours, or 1024 past the end it sits at (1024 in an empty bucket). When the neighbours are under 1e-6 apart the bucket is first renumbered 1024, 2048, … in the same transaction. A renumbering keeps the order and doesn't change any other To-do's `updatedAt`; only the moved To-do's `updatedAt` changes.
+- A deleted or unknown To-do is `404 not_found`. **Concurrency** is as in [Editing](#editing): `expectedUpdatedAt` in the body or `If-Match: "<updatedAt>"`, a stale value is `409 conflict` with `details.currentUpdatedAt` and nothing is written.
 
 ## Delete, restore and purge
 
@@ -73,4 +83,4 @@ Every `@KEY` in the title (2 to 8 letters and digits, starting with a letter, ca
 
 ## Errors
 
-The standard body `{ error: { code, message, details } }`. A bad request is `400 validation_error` with `details.fields` naming each field: an empty or over-long `title`, a malformed `day`, a missing or unknown `state`, a bad `parentId`, an empty patch, a bad `limit`, `includeDeleted` or `cursor`, or a body that is not JSON. An unknown id is `404 not_found`. A stale `expectedUpdatedAt` or closing a parent with open Sub-to-dos is `409 conflict`, with `details.currentUpdatedAt` or `details.openSubTodos`.
+The standard body `{ error: { code, message, details } }`. A bad request is `400 validation_error` with `details.fields` naming each field: an empty or over-long `title`, a malformed `day`, a missing or unknown `state`, a bad `parentId`, an empty patch, a bad `beforeId` or `afterId`, a bad `limit`, `includeDeleted` or `cursor`, or a body that is not JSON. An unknown id is `404 not_found`. A stale `expectedUpdatedAt` or closing a parent with open Sub-to-dos is `409 conflict`, with `details.currentUpdatedAt` or `details.openSubTodos`.

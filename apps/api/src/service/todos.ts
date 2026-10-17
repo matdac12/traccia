@@ -4,6 +4,8 @@ import {
   createTodoInputSchema,
   type ListTodosInput,
   listTodosInputSchema,
+  type MoveTodoPositionInput,
+  moveTodoPositionInputSchema,
   ServiceError,
   type Todo,
   type UpdateTodoInput,
@@ -20,7 +22,7 @@ import {
   type ServiceContext,
   type Tx,
 } from "./context.js";
-import { POSITION_STEP } from "./issue-position.js";
+import { POSITION_STEP, slotPosition } from "./issue-position.js";
 import {
   deriveReferences,
   loadReferences,
@@ -83,17 +85,34 @@ function bottomOfBucket(
   const row = db
     .select({ max: sql<number | null>`max(${todos.position})` })
     .from(todos)
-    .where(
-      and(
-        bucket.day === null ? isNull(todos.day) : eq(todos.day, bucket.day),
-        bucket.parentId === null
-          ? isNull(todos.parentId)
-          : eq(todos.parentId, bucket.parentId),
-        isNull(todos.deletedAt),
-      ),
-    )
+    .where(inBucket(bucket))
     .get();
   return (row?.max ?? 0) + POSITION_STEP;
+}
+
+/** The live To-dos of one bucket. */
+function inBucket(bucket: { day: string | null; parentId: string | null }) {
+  return and(
+    bucket.day === null ? isNull(todos.day) : eq(todos.day, bucket.day),
+    bucket.parentId === null
+      ? isNull(todos.parentId)
+      : eq(todos.parentId, bucket.parentId),
+    isNull(todos.deletedAt),
+  );
+}
+
+/**
+ * Renumbers a bucket (already in order) as STEP, 2*STEP, ... Only changed rows
+ * are written, and `updated_at` is left alone: order is not content, and
+ * bumping it would spuriously invalidate other callers' `expectedUpdatedAt`.
+ */
+function rebalance(tx: Tx, bucket: TodoRecord[]): void {
+  bucket.forEach((row, i) => {
+    const position = (i + 1) * POSITION_STEP;
+    if (row.position === position) return;
+    tx.update(todos).set({ position }).where(eq(todos.id, row.id)).run();
+    row.position = position;
+  });
 }
 
 /**
@@ -289,6 +308,84 @@ export function createTodosService(ctx: ServiceContext) {
           .returning()
           .get();
         if (set.title !== undefined) deriveReferences(tx, row.id, row.title);
+        return view(tx, row);
+      });
+    },
+
+    /**
+     * Moves a live To-do within its bucket (same Planned day or Anytime, same
+     * parent). `beforeId` places it directly above that To-do, `afterId`
+     * directly below; with both they must be adjacent; with neither it goes
+     * to the bottom. A neighbour that is deleted, unknown or in another
+     * bucket is a `validation_error`. Same fractional algorithm as the Issue
+     * columns: the bucket is rebalanced (without touching `updated_at`) when
+     * the gap gets too small. A stale `expectedUpdatedAt` is a `conflict`.
+     */
+    move(id: string, input: MoveTodoPositionInput): TodoView {
+      const data = parseInput(moveTodoPositionInputSchema, input);
+      return ctx.write((tx) => {
+        const todo = findTodo(tx, id);
+        if (todo.deletedAt !== null) {
+          throw new ServiceError("not_found", `To-do "${id}" not found`);
+        }
+        if (
+          data.expectedUpdatedAt &&
+          data.expectedUpdatedAt !== todo.updatedAt
+        ) {
+          throw new ServiceError(
+            "conflict",
+            "To-do was modified since it was read",
+            { currentUpdatedAt: todo.updatedAt },
+          );
+        }
+        const bucket = tx
+          .select()
+          .from(todos)
+          .where(and(inBucket(todo), ne(todos.id, todo.id)))
+          .orderBy(asc(todos.position), asc(todos.id))
+          .all();
+
+        const invalid = (field: "beforeId" | "afterId", message: string) =>
+          new ServiceError("validation_error", message, {
+            fields: { [field]: [message] },
+          });
+        const indexOf = (field: "beforeId" | "afterId", ref: string) => {
+          const i = bucket.findIndex((t) => t.id === ref);
+          if (i < 0) {
+            throw invalid(
+              field,
+              `${field} must be another live To-do in the same bucket (same Planned day, same parent)`,
+            );
+          }
+          return i;
+        };
+        let index = bucket.length;
+        if (data.afterId !== undefined) {
+          index = indexOf("afterId", data.afterId) + 1;
+        }
+        if (data.beforeId !== undefined) {
+          const beforeIndex = indexOf("beforeId", data.beforeId);
+          if (data.afterId !== undefined && beforeIndex !== index) {
+            throw invalid(
+              "beforeId",
+              "beforeId and afterId must be adjacent To-dos",
+            );
+          }
+          index = beforeIndex;
+        }
+
+        const position = slotPosition(
+          bucket,
+          index,
+          (t) => t.position,
+          () => rebalance(tx, bucket),
+        );
+        const row = tx
+          .update(todos)
+          .set({ position, updatedAt: nowIso() })
+          .where(eq(todos.id, todo.id))
+          .returning()
+          .get();
         return view(tx, row);
       });
     },

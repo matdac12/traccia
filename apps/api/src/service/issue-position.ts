@@ -34,10 +34,29 @@ function rebalance(tx: Tx, column: Issue[]): void {
   });
 }
 
-function between(prev: Issue | undefined, next: Issue | undefined): number {
-  if (prev && next) return (prev.sortOrder + next.sortOrder) / 2;
-  if (prev) return prev.sortOrder + POSITION_STEP;
-  if (next) return next.sortOrder - POSITION_STEP;
+/**
+ * The order value for a slot at `index` of an ordered `column` (the moved row
+ * not in it): the midpoint of its neighbours, a STEP past the end it sits at,
+ * or STEP in an empty column. When the neighbours are under MIN_POSITION_GAP
+ * apart (or equal) `rebalance` renumbers the column first. Shared by the
+ * Issue columns and the To-do buckets.
+ */
+export function slotPosition<T>(
+  column: T[],
+  index: number,
+  order: (item: T) => number,
+  rebalance: () => void,
+): number {
+  let prev = column[index - 1];
+  let next = column[index];
+  if (prev && next && order(next) - order(prev) < MIN_POSITION_GAP) {
+    rebalance();
+    prev = column[index - 1];
+    next = column[index];
+  }
+  if (prev && next) return (order(prev) + order(next)) / 2;
+  if (prev) return order(prev) + POSITION_STEP;
+  if (next) return order(next) - POSITION_STEP;
   return POSITION_STEP;
 }
 
@@ -106,18 +125,12 @@ export function createIssuePositionService(ctx: ServiceContext) {
           index = beforeIndex;
         }
 
-        let prev = column[index - 1];
-        let next = column[index];
-        if (
-          prev &&
-          next &&
-          next.sortOrder - prev.sortOrder < MIN_POSITION_GAP
-        ) {
-          rebalance(tx, column);
-          prev = column[index - 1];
-          next = column[index];
-        }
-        const sortOrder = between(prev, next);
+        const sortOrder = slotPosition(
+          column,
+          index,
+          (c) => c.sortOrder,
+          () => rebalance(tx, column),
+        );
 
         const now = nowIso();
         const set: Partial<typeof issues.$inferInsert> = { sortOrder };

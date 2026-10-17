@@ -2,6 +2,7 @@ import {
   createTodoInputSchema,
   deleteQuerySchema,
   listTodosQuerySchema,
+  moveTodoPositionInputSchema,
   updateTodoInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
@@ -38,6 +39,12 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
     // The body field wins over the header when both are present.
     body.expectedUpdatedAt ??= ifMatch(c);
     return c.json(withUrl(todos.update(c.req.param("id"), body)));
+  });
+
+  v1.patch("/todos/:id/position", async (c) => {
+    const body = await validateBody(c, moveTodoPositionInputSchema);
+    body.expectedUpdatedAt ??= ifMatch(c);
+    return c.json(withUrl(todos.move(c.req.param("id"), body)));
   });
 
   // Soft delete (Sub-to-dos join the batch); `?purge=true` removes a deleted
