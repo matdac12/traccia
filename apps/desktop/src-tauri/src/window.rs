@@ -3,11 +3,14 @@
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, LogicalSize, Manager, Runtime, WebviewWindow};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, Runtime, WebviewWindow};
 
 use crate::placement::{bottom_right, outer_rect, Frame, Rect};
 
 pub const MAIN: &str = "main";
+
+/// The event that switches the front end to Settings.
+const OPEN_SETTINGS: &str = "open-settings";
 
 /// A click on the tray icon first takes the focus away from the window, which hides it, and only then
 /// arrives as a click. A tray click this soon after a focus-loss hide is that same click: it stays hidden.
@@ -31,6 +34,12 @@ pub fn show<R: Runtime>(app: &AppHandle<R>) {
     let _ = window.show();
     let _ = window.set_always_on_top(true);
     let _ = window.set_focus();
+}
+
+/// The tray's "Settings…": shows the window on the Settings view (src/app.tsx listens for the event).
+pub fn show_settings<R: Runtime>(app: &AppHandle<R>) {
+    let _ = app.emit_to(MAIN, OPEN_SETTINGS, ());
+    show(app);
 }
 
 pub fn hide<R: Runtime>(app: &AppHandle<R>) {
