@@ -44,7 +44,17 @@ export function afterCursor(
   if (typeof c.u !== "string" || typeof c.i !== "string") {
     throw new ServiceError("validation_error", "Invalid cursor");
   }
-  return or(lt(t.updatedAt, c.u), and(eq(t.updatedAt, c.u), lt(t.id, c.i)));
+  return descKeysetAfter(t.updatedAt, t.id, c.u, c.i);
+}
+
+/** Rows after `(value, id)` in `(column desc, id desc)` order: the keyset step of a newest-first list. */
+export function descKeysetAfter(
+  column: AnySQLiteColumn,
+  id: AnySQLiteColumn,
+  value: string,
+  lastId: string,
+): SQL | undefined {
+  return or(lt(column, value), and(eq(column, value), lt(id, lastId)));
 }
 
 export const cursorOf = (row: { updatedAt: string; id: string }) =>

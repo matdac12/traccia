@@ -19,6 +19,7 @@ describe("loadConfig", () => {
       trustProxy: true,
       sourceUrlExtraPorts: [],
       oauthExtraRedirectUris: [],
+      ownerTimezone: "Europe/Rome",
     });
   });
 
@@ -111,4 +112,23 @@ describe("loadConfig", () => {
       /ALLOW_AGENT_PURGE/,
     );
   });
+
+  it("takes OWNER_TIMEZONE as its canonical IANA name", () => {
+    expect(
+      loadConfig({ ...valid, OWNER_TIMEZONE: "america/new_york" })
+        .ownerTimezone,
+    ).toBe("America/New_York");
+  });
+
+  it.each(["Mars/Base", "+01:00", "Rome"])(
+    "fails naming OWNER_TIMEZONE when it is %s",
+    (v) => {
+      expect(() => loadConfig({ ...valid, OWNER_TIMEZONE: v })).toThrow(
+        ConfigError,
+      );
+      expect(() => loadConfig({ ...valid, OWNER_TIMEZONE: v })).toThrow(
+        /OWNER_TIMEZONE/,
+      );
+    },
+  );
 });

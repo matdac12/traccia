@@ -7,3 +7,4 @@ export * from "./mcp-tool-schemas.js";
 export * from "./rest-catalog-schemas.js";
 export * from "./rest-issue-schemas.js";
 export * from "./schemas.js";
+export * from "./todo-schemas.js";
