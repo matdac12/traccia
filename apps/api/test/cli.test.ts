@@ -178,6 +178,69 @@ describe("traccia token", () => {
     expect((await run(e, "token", "list")).out).toBe("No tokens.");
   });
 
+  it("--scope defaults to all, accepts todos, and list shows it", async () => {
+    const e = await migrated();
+    const plain = await run(
+      e,
+      "token",
+      "create",
+      "--name",
+      "plain",
+      "--actor",
+      "you",
+    );
+    const parla = await run(
+      e,
+      "token",
+      "create",
+      "--name",
+      "parla",
+      "--actor",
+      "you",
+      "--scope",
+      "todos",
+    );
+    expect(plain.code).toBe(0);
+    expect(parla.code).toBe(0);
+    expect(await verify(e, tokenOf(plain.out))).toMatchObject({ scope: "all" });
+    expect(await verify(e, tokenOf(parla.out))).toMatchObject({
+      scope: "todos",
+    });
+    const listed = (await run(e, "token", "list")).out.split("\n");
+    expect(listed[0]).toMatch(/\bSCOPE\b/);
+    expect(listed.find((l) => l.includes("plain"))).toMatch(/\ball\b/);
+    expect(listed.find((l) => l.includes("parla"))).toMatch(/\btodos\b/);
+  });
+
+  it("--scope rejects anything but all or todos and creates nothing", async () => {
+    const e = await migrated();
+    for (const scope of ["admin", "", "TODOS"]) {
+      const r = await run(
+        e,
+        "token",
+        "create",
+        "--name",
+        "x",
+        "--actor",
+        "you",
+        "--scope",
+        scope,
+      );
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/all, todos/);
+    }
+    expect((await run(e, "token", "list")).out).toBe("No tokens.");
+  });
+
+  it("list and revoke take no --scope", async () => {
+    const e = await migrated();
+    for (const command of ["list", "revoke"]) {
+      const r = await run(e, "token", command, "--scope", "todos");
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/--scope/);
+    }
+  });
+
   it("create requires --name", async () => {
     const r = await run(await migrated(), "token", "create", "--actor", "you");
     expect(r.code).toBe(1);

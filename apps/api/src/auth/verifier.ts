@@ -4,9 +4,19 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/connection.js";
 import { tokens } from "../db/schema.js";
 import { nowIso } from "../time.js";
-import { hashToken, TOKEN_PREFIX } from "../service/tokens.js";
+import {
+  hashToken,
+  isTokenScope,
+  TOKEN_PREFIX,
+  type TokenScope,
+} from "../service/tokens.js";
 
-export type Credential = { actor: Actor; tokenId: string; tokenName: string };
+export type Credential = {
+  actor: Actor;
+  tokenId: string;
+  tokenName: string;
+  scope: TokenScope;
+};
 
 /**
  * Resolves the caller of a request, or null if it carries no valid
@@ -48,6 +58,13 @@ export function createBearerVerifier(db: Db): VerifyCredential {
     ) {
       return null;
     }
-    return { actor: row.actor, tokenId: row.id, tokenName: row.name };
+    // An unrecognised scope fails closed rather than falling back to `all`.
+    if (!isTokenScope(row.scopes)) return null;
+    return {
+      actor: row.actor,
+      tokenId: row.id,
+      tokenName: row.name,
+      scope: row.scopes,
+    };
   };
 }

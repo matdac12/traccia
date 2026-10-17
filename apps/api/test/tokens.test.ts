@@ -27,6 +27,24 @@ describe("token service", () => {
     expect(dump).not.toContain(token);
   });
 
+  it("stores the requested scope, defaulting to all, and lists it", () => {
+    const { db } = createTestDb();
+    const plain = createToken(db, { name: "plain", actor: "you" });
+    const parla = createToken(db, {
+      name: "parla",
+      actor: "you",
+      scope: "todos",
+    });
+    expect(plain.scopes).toBe("all");
+    expect(parla.scopes).toBe("todos");
+    expect(listTokens(db).map((t) => [t.name, t.scopes])).toEqual(
+      expect.arrayContaining([
+        ["plain", "all"],
+        ["parla", "todos"],
+      ]),
+    );
+  });
+
   it("generates a distinct token each time", () => {
     const { db } = createTestDb();
     const a = createToken(db, { name: "a", actor: "agent" });

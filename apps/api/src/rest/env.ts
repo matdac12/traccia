@@ -2,6 +2,7 @@ import type { Actor } from "@traccia/shared";
 import type { Config } from "../config.js";
 import type { Db } from "../db/connection.js";
 import type { LogFields, Logger } from "../logger.js";
+import type { TokenScope } from "../service/tokens.js";
 
 /** Everything the app needs from outside; tests build one against a temp DB. */
 export type AppContainer = {
@@ -22,5 +23,6 @@ export type AppEnv = {
     actor: Actor;
     tokenId: string;
     tokenName: string;
+    scope: TokenScope;
   };
 };

@@ -6,14 +6,15 @@ import type { AppEnv } from "../rest/env.js";
 import { RateLimitedError, UnauthorizedError } from "../service/errors.js";
 import { nowIso } from "../time.js";
 import { RateLimiter } from "./rate-limit.js";
+import { enforceTokenScope } from "./scope.js";
 import type { VerifyCredential } from "./verifier.js";
 
 const LAST_USED_INTERVAL_MS = 60_000;
 
 /**
- * Authenticates the request, stamps `actor`/`tokenId`/`tokenName` on the
- * context, rate limits per token and records `last_used_at` at most once a
- * minute per token.
+ * Authenticates the request, stamps `actor`/`tokenId`/`tokenName`/`scope` on
+ * the context, rate limits per token, enforces the token's scope and records
+ * `last_used_at` at most once a minute per token.
  */
 export function requireAuth(options: {
   verify: VerifyCredential;
@@ -53,6 +54,14 @@ export function requireAuth(options: {
     c.set("actor", credential.actor);
     c.set("tokenId", credential.tokenId);
     c.set("tokenName", credential.tokenName);
+    c.set("scope", credential.scope);
+    // After the rate limit, so a scoped token cannot probe for free; before
+    // any route runs or any body is read.
+    enforceTokenScope(credential.scope, {
+      method: c.req.method,
+      path: c.req.path,
+      purgeValues: c.req.queries("purge") ?? [],
+    });
     await next();
   };
 }

@@ -174,7 +174,15 @@ type Todo = {
 - `parentId` missing, not top-level, closed or deleted
 - `day: null` together with `time`
 
-**Token scope**: `traccia token create --name parla --actor you --scope todos` stores `scopes = 'todos'`. A `todos` token may call `/v1/todos*`, `POST /v1/restore` with `type: "todo"`, and **read-only** `GET /v1/projects` and `GET /v1/projects/:id` (so Parla can learn the keys). Everything else, including `/mcp`, returns 403 `forbidden`. Tokens with `scopes = 'all'` behave exactly as today. `token list` shows the scope.
+**Token scope**: `traccia token create --name parla --actor you --scope todos` stores `scopes = 'todos'`; `--scope` is `all` (the default) or `todos`, and anything else is rejected. A `todos` token may call:
+- `/v1/todos` and everything under it, so it can create, list, edit, close, delete and restore To-dos. It **may not purge**: `DELETE /v1/todos/:id?purge=true` returns 403 `forbidden`, because a misheard voice command must never erase a To-do for good (decided in TRC-157);
+- `POST /v1/restore` with `type: "todo"`;
+- **read-only** `GET /v1/projects` and `GET /v1/projects/:id` (so Parla can learn the keys);
+- `GET /v1/me`.
+
+Everything else, including `/mcp` and `/files`, returns 403 `forbidden` with a message that says what the token may use. The scope is checked before the route runs, so a denied request changes nothing. Tokens with `scopes = 'all'` behave exactly as today, and OAuth tokens are always `all`. `token list` shows the scope.
+
+**Purging To-dos is reserved for `you`**, whatever the scope: an `agent` Token cannot purge a To-do even with `ALLOW_AGENT_PURGE=true` (the switch still covers every other type).
 
 ## 6. Reminders
 

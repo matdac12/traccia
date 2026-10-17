@@ -14,5 +14,6 @@ No MCP tools, because agents work inside Projects and the Personal Space is the 
 ## Consequences
 
 - To-dos repeat some machinery: Position (the same algorithm as Issues), a new Trash type, and their own schemas in `packages/shared`.
+- `tokens.scopes` now carries `todos` (TRC-157), and agents never purge To-dos even with `ALLOW_AGENT_PURGE=true`, which narrows ADR 0004's agent-purge rule for this type.
 - Agents can't see or create To-dos. A future "agent asks the owner to do something" flow would need a new decision.
 - Spec: `docs/personal-space.md`. Decisions: TRC-143, TRC-146 and TRC-149 (map TRC-142).

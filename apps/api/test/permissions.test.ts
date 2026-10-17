@@ -28,4 +28,13 @@ describe("canPurge", () => {
       expect(canPurge("agent", { allowAgentPurge: true }, type)).toBe(true);
     },
   );
+
+  it("never lets `agent` purge a todo, even when ALLOW_AGENT_PURGE=true", () => {
+    expect(canPurge("agent", { allowAgentPurge: false }, "todo")).toBe(false);
+    expect(canPurge("agent", { allowAgentPurge: true }, "todo")).toBe(false);
+  });
+
+  it("lets `you` purge a todo", () => {
+    expect(canPurge("you", { allowAgentPurge: false }, "todo")).toBe(true);
+  });
 });

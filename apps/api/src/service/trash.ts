@@ -54,8 +54,9 @@ import {
  *                 document still shares the content-addressed object
  *   todo       -> its live Sub-to-dos (Personal Space, ADR 0017); a Sub-to-do
  *                 alone goes alone. Purge also drops their `todo_references`.
- *                 To-dos carry no activity or search rows, and purge stays
- *                 `you`-only (not in the agent-purgeable types).
+ *                 To-dos carry no activity or search rows, and purge is
+ *                 reserved for `you`: `canPurge` refuses an `agent` even with
+ *                 `ALLOW_AGENT_PURGE=true` (TRC-157).
  *
  * Restoring a milestone re-links the issues that lost it (found through their
  * `milestone_deleted` activity rows), unless an issue was given another
@@ -74,7 +75,7 @@ import {
  *
  * Purge is a separate second step: only on already-deleted items, only if
  * `canPurge(actor, config, type)`; agents may always purge memories and
- * documents (ADR 0015). It removes rows, activity of purged issues, search rows
+ * documents (ADR 0015) and never To-dos. It removes rows, activity of purged issues, search rows
  * and (after commit, via the storage interface) attachment files. The issue
  * key counter is untouched, so issue numbers are never reused.
  */

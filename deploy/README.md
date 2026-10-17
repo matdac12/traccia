@@ -102,7 +102,7 @@ One file, read by both services (never committed; `.env` is gitignored). See spe
 | `MAX_ATTACHMENT_BYTES` | api | `10485760` | Per-file cap |
 | `MAX_MCP_UPLOAD_BYTES` | api | `5242880` | Base64 upload cap |
 | `DEFAULT_ISSUE_KEY` | api | `MAT` | Issue key prefix for new projects |
-| `ALLOW_AGENT_PURGE` | api | `false` | Whether agent tokens may purge |
+| `ALLOW_AGENT_PURGE` | api | `false` | Whether agent tokens may purge. Agents may always purge memories and documents, and never To-dos (`you` only), whatever this says |
 | `RATE_LIMIT_PER_MIN` | api | `120` | Per token |
 | `RATE_LIMIT_YOU_PER_MIN` | api | `1200` | Per `you` token (dashboard) |
 | `LOG_LEVEL` | api | `info` | |
