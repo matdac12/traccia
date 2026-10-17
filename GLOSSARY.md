@@ -202,3 +202,7 @@ The private Tailscale network. Traccia is reachable only from devices on it.
 
 **Dashboard**:
 The web interface for `you`: a table grouped by status, a Kanban board, and the Personal Space. It reaches the data only through the API.
+
+**Desktop app**:
+The small Windows window that shows the owner's open To-dos, summoned by a hotkey and hidden again when done. It reaches the data only through the API, like the Dashboard.
+_Avoid_: widget, tray app, popup, companion
