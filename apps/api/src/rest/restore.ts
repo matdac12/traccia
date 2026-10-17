@@ -1,17 +1,13 @@
 import { restoreBodySchema } from "@traccia/shared";
 import type { Hono } from "hono";
 import { requireRestorable } from "../auth/scope.js";
-import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
+import { servicesFor } from "./services.js";
 import { validateBody } from "./validate.js";
 
 export function mountRestoreRoutes(v1: Hono<AppEnv>, container: AppContainer) {
-  const { config, db } = container;
-  const { trash } = createServices({
-    db,
-    defaultIssueKey: config.defaultIssueKey,
-    allowAgentPurge: config.allowAgentPurge,
-  });
+  // The shared container, so restoring a To-do reschedules its Reminder.
+  const { trash } = servicesFor(container);
 
   v1.post("/restore", async (c) => {
     const { type, id } = await validateBody(c, restoreBodySchema);
