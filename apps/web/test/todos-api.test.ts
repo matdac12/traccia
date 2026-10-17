@@ -44,14 +44,14 @@ describe("listTodosClosedOn", () => {
 });
 
 describe("loadPersonalSpace", () => {
-  it("dates today in the Owner timezone and returns the open To-dos plus those closed today, with Sub-to-do counts", async () => {
+  it("dates today in the Owner timezone and returns the open To-dos plus those closed today, with the API's Sub-to-do counts", async () => {
     request
-      .mockResolvedValueOnce({ items: [{ id: "p", parentId: null, state: "open" }], nextCursor: null })
-      .mockResolvedValueOnce({ items: [{ id: "k", parentId: "p", state: "done", closedAt: "2026-10-17T22:30:00Z" }], nextCursor: null });
+      .mockResolvedValueOnce({ items: [{ id: "p", parentId: null, state: "open", subTodos: { done: 2, total: 3 } }], nextCursor: null })
+      .mockResolvedValueOnce({ items: [{ id: "k", parentId: "p", state: "done", closedAt: "2026-10-17T22:30:00Z", subTodos: null }], nextCursor: null });
     // 22:45Z on the 17th is already the 18th in Rome.
     const out = await loadPersonalSpace(new Date("2026-10-17T22:45:00Z"));
     expect(out.today).toBe("2026-10-18");
     expect(request.mock.calls.map((c) => c[1].query.state)).toEqual(["open", "closed"]);
-    expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 1, total: 1 }], ["k", null]]);
+    expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 2, total: 3 }], ["k", null]]);
   });
 });

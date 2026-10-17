@@ -199,9 +199,8 @@ parser, `project-autocomplete.ts` for `@` matching). "Personal" (lucide `Sun`) i
 - **Project chips.** A chip links to `/projects/:id` with an "Open <name>" tooltip and stops the click, so it never
   selects the row; a chip whose Project is deleted is greyed and not a link. A key that names several Projects links
   to the first one the API lists.
-- **Sub-to-do counts.** The row's `n/m` comes from `withSubTodoCounts` (dropped ones are left out), which only sees
-  the Sub-to-dos the page loaded: those closed on an earlier day are missing until the API sends `subTodos` itself
-  (TRC-177).
+- **Sub-to-do counts.** The row's `n/m` is the API's `subTodos` (TRC-177): `done` of `total`, dropped ones left out
+  of both, `null` on a Sub-to-do. A parent without live Sub-to-dos (`{0,0}`) shows no count.
 - **Lists.** The list menu (`list-menu.tsx`) is a column on a laptop and a scrolling strip below `md`; the chosen list
   is page state, not in the URL. Today is built; Upcoming, Anytime, Logbook and By project are placeholders until
   TRC-163. Rows are display only until TRC-161.

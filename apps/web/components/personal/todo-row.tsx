@@ -1,7 +1,7 @@
 import type { Todo } from "@traccia/shared";
 import { Check, X } from "lucide-react";
 import { dayLabel } from "@/lib/personal/days";
-import { isFromParla, isOverdue, type PersonalTodo } from "@/lib/personal/lists";
+import { isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { ReminderTime } from "./reminder-time";
 import { TodoTitle } from "./todo-title";
@@ -34,7 +34,7 @@ export function TodoCheck({ state }: { state: Todo["state"] }) {
  * One To-do line (docs/personal-space.md §7.4): check, Reminder time, title with Project chips, a dot when it has
  * Details, the Sub-to-do count, "via Parla", and the Planned day where the list mixes days (red when Overdue).
  */
-export function TodoRow({ todo, today, showDay = false }: { todo: PersonalTodo; today: string; showDay?: boolean }) {
+export function TodoRow({ todo, today, showDay = false }: { todo: Todo; today: string; showDay?: boolean }) {
   const subTodos = todo.subTodos?.total ? todo.subTodos : null;
   return (
     <li data-todo-id={todo.id} className="group/row relative flex min-h-11 items-center gap-3 rounded-md px-2 text-[13px] md:min-h-9">

@@ -1,8 +1,9 @@
+import type { Todo } from "@traccia/shared";
 import { Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { longDate, weekdayName } from "@/lib/personal/days";
-import { type PersonalTodo, todayList } from "@/lib/personal/lists";
+import { todayList } from "@/lib/personal/lists";
 import { cn, plural } from "@/lib/utils";
 import { ListHeading } from "./list-heading";
 import { QuickAdd } from "./quick-add";
@@ -21,7 +22,7 @@ export function SectionLabel({ children, count, tone, id }: { children: ReactNod
  * Today (docs/personal-space.md §7.3): the weekday masthead, quick add (onto today), then Overdue (each row with its day), today's open
  * To-dos by Position, and today's done and dropped ones at the bottom.
  */
-export function TodayList({ todos, today }: { todos: PersonalTodo[]; today: string }) {
+export function TodayList({ todos, today }: { todos: Todo[]; today: string }) {
   const list = todayList(todos, today);
   const empty = list.overdue.length + list.today.length + list.closed.length === 0;
   return (
