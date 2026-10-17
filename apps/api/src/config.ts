@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isAcceptableRedirectUri } from "./service/oauth.js";
+import { ownerTimeZone } from "./time.js";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 
@@ -59,6 +60,20 @@ const envSchema = z.object({
       }
       return ports;
     }),
+  OWNER_TIMEZONE: z
+    .string()
+    .default("Europe/Rome")
+    .transform((v, ctx) => {
+      const zone = ownerTimeZone(v);
+      if (zone === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          message: `"${v}" is not an IANA time zone (e.g. Europe/Rome)`,
+        });
+        return z.NEVER;
+      }
+      return zone;
+    }),
 });
 
 /** Every environment variable the api reads; the README config table is checked against this. */
@@ -83,6 +98,8 @@ export type Config = {
   oauthPublicUrl: string | undefined;
   /** Redirect URIs allowed in addition to the built-in claude.ai and loopback ones. */
   oauthExtraRedirectUris: string[];
+  /** IANA zone where a day starts and ends for Planned days, Reminders and the Logbook. */
+  ownerTimezone: string;
 };
 
 export class ConfigError extends Error {
@@ -121,6 +138,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     oauthAdminSecret: e.OAUTH_ADMIN_SECRET,
     oauthPublicUrl: e.OAUTH_PUBLIC_URL,
     oauthExtraRedirectUris: e.OAUTH_EXTRA_REDIRECT_URIS,
+    ownerTimezone: e.OWNER_TIMEZONE,
   };
 }
 

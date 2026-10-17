@@ -122,6 +122,7 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `OAUTH_ADMIN_SECRET` | api | unset | Enables the OAuth server (`/register`, `/authorize`, `/token`) for the claude.ai connector. The secret you type on the consent page to approve a client; at least 16 characters, use a long random value. Unset means the OAuth endpoints answer 503 |
 | `OAUTH_PUBLIC_URL` | api | unset | https origin advertised in the OAuth metadata (issuer, resource, endpoints) and the `/mcp` `WWW-Authenticate` challenge, for when the public connector endpoint is on a different origin than `BASE_URL` (e.g. a Tailscale Funnel port). Unset means `BASE_URL`. Attachment links always use `BASE_URL` |
 | `OAUTH_EXTRA_REDIRECT_URIS` | api | empty | Comma-separated exact redirect URIs the OAuth server accepts in addition to the built-in ones (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`, and `http://localhost`, `http://127.0.0.1`, `http://[::1]` on any port). Enforced at `/register` and `/authorize`; each must be https (or http on loopback) with no fragment |
+| `OWNER_TIMEZONE` | api | `Europe/Rome` | IANA time zone that decides where a day starts and ends for Planned days, Reminders and the Logbook of the Personal Space. An unknown zone or a bare offset like `+01:00` fails startup |
 | `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
 | `TRACCIA_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
@@ -147,7 +148,7 @@ A daily SQLite snapshot on the server (last 3 kept), a manual pull of the newest
 - [Self-hosting](docs/self-hosting.md)
 - [Connect agents](docs/agent-setup.md)
 - [MCP tools](docs/mcp-tools.md)
-- [REST API](docs/rest-issues.md)
+- [REST API](docs/rest-issues.md), [REST: To-dos](docs/rest-todos.md)
 - [Backups and restore](docs/backup-restore.md)
 - [Deployment and rollback](deploy/README.md)
 - [Brand guidelines](assets/brand/brand-guidelines.md)

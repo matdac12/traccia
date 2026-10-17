@@ -5,8 +5,12 @@ import {
   type IssueStatus,
   PROJECT_STATUSES,
   type ProjectStatus,
+  type ReminderFailure,
+  type ReminderStatus,
+  TODO_STATES,
+  type TodoState,
 } from "@traccia/shared";
-import { sql } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import {
   type AnySQLiteColumn,
   check,
@@ -309,6 +313,77 @@ export const documents = sqliteTable(
       .on(t.projectId)
       .where(sql`${t.deletedAt} IS NULL`),
   ],
+);
+
+/** Personal Space To-dos (docs/personal-space.md §3, ADR 0017). */
+export const todos = sqliteTable(
+  "todos",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    /** Planned day, `YYYY-MM-DD` in the Owner timezone; null is Anytime. */
+    day: text("day"),
+    /** Reminder `HH:MM` on the Planned day; requires `day`. */
+    reminderTime: text("reminder_time"),
+    /** Null exactly when there is no Reminder. */
+    reminderStatus: text("reminder_status").$type<ReminderStatus>(),
+    reminderSentAt: text("reminder_sent_at"),
+    reminderAttempts: integer("reminder_attempts").notNull().default(0),
+    /** Set while retrying a transient delivery failure. */
+    reminderNextAttemptAt: text("reminder_next_attempt_at"),
+    reminderFailure: text("reminder_failure").$type<ReminderFailure>(),
+    state: text("state").$type<TodoState>().notNull().default("open"),
+    closedAt: text("closed_at"),
+    parentId: text("parent_id").references((): AnySQLiteColumn => todos.id),
+    position: real("position").notNull().default(0),
+    details: text("details"),
+    createdBy: text("created_by").$type<Actor>().notNull(),
+    /** Name of the creating Token, copied so revoking it later keeps "via Parla". */
+    createdByToken: text("created_by_token").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+    deletedBatch: text("deleted_batch"),
+    deletedBy: text("deleted_by").$type<Actor>(),
+  },
+  (t) => [
+    check("todos_state_check", inList("state", TODO_STATES)),
+    actorCheck("todos_created_by_check", "created_by"),
+    check(
+      "todos_reminder_needs_day",
+      sql`${t.reminderTime} IS NULL OR ${t.day} IS NOT NULL`,
+    ),
+    check(
+      "todos_reminder_status_iff_time",
+      sql`(${t.reminderTime} IS NULL) = (${t.reminderStatus} IS NULL)`,
+    ),
+    index("todos_open_day")
+      .on(t.state, t.day)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index("todos_parent").on(t.parentId),
+    index("todos_due")
+      .on(t.day, t.reminderTime)
+      .where(
+        sql`${t.state} = 'open' AND ${t.reminderStatus} = 'pending' AND ${t.deletedAt} IS NULL`,
+      ),
+    index("todos_closed")
+      .on(desc(t.closedAt), desc(t.id))
+      .where(sql`${t.state} <> 'open' AND ${t.deletedAt} IS NULL`),
+  ],
+);
+
+/** Projects named by `@KEY` in a To-do's title (filled from step 02). */
+export const todoReferences = sqliteTable(
+  "todo_references",
+  {
+    todoId: text("todo_id")
+      .notNull()
+      .references(() => todos.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+  },
+  (t) => [primaryKey({ columns: [t.todoId, t.projectId] })],
 );
 
 export const activity = sqliteTable(

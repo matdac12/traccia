@@ -19,6 +19,7 @@ import { mountProjectRoutes } from "./rest/projects.js";
 import { requestContext } from "./rest/request-context.js";
 import { mountRestoreRoutes } from "./rest/restore.js";
 import { mountSearchRoutes } from "./rest/search.js";
+import { mountTodoRoutes } from "./rest/todos.js";
 import { mountTrashRoutes } from "./rest/trash.js";
 
 /**
@@ -69,6 +70,7 @@ export function createApp(
   mountSearchRoutes(v1, container);
   mountActivityRoutes(v1, container);
   mountTrashRoutes(v1, container);
+  mountTodoRoutes(v1, container);
   app.route("/v1", v1);
   app.route("/mcp", createMcpRoute(container, mcpDeps));
 

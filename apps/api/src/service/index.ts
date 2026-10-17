@@ -15,6 +15,7 @@ import { createProjectsService } from "./projects.js";
 import { createRelationsService } from "./relations.js";
 import { createSearchService } from "./search.js";
 import { createStatsService } from "./stats.js";
+import { createTodosService } from "./todos.js";
 import { createTrashService } from "./trash.js";
 
 export { ServiceError } from "@traccia/shared";
@@ -49,6 +50,8 @@ export {
   reindexKnowledge,
   removeFromSearchIndex,
 } from "./search-index.js";
+export type { TodoView } from "./todos.js";
+export { todoUrl } from "./todos.js";
 export type {
   DeleteResult,
   PurgeResult,
@@ -87,6 +90,7 @@ export function createServices(options: {
     search: createSearchService(ctx),
     stats: createStatsService(ctx),
     activityFeed: createActivityFeedService(ctx),
+    todos: createTodosService(ctx),
   };
 }
 
