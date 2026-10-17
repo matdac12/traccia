@@ -35,6 +35,10 @@ The actor an issue is assigned to, or none. Uses the same two values as actor.
 A revocable bearer credential tied to one actor, stored hashed and shown once at creation.
 _Avoid_: API key, PAT
 
+**Token scope**:
+An optional limit on a token to one area of the API, such as `todos`. A token without a scope can do everything its actor can.
+_Avoid_: permission, role
+
 ### Work items
 
 **Project**:
@@ -79,7 +83,7 @@ A markdown note on an issue, with at most one level of replies.
 A file (such as a screenshot) on an issue, optionally tied to one comment.
 
 **Position**:
-An issue's place in the order within its status column. Set by moving the issue between neighbours.
+An item's place in a manual order: an issue's within its status column, a To-do's within its Planned day (or Anytime). Set by moving the item between neighbours.
 _Avoid_: rank, order index
 
 ### Knowledge
@@ -116,6 +120,56 @@ _Avoid_: ID, ticket number
 **ID**:
 The internal ULID of any row. Distinct from the identifier.
 
+### Personal Space
+
+**Personal Space**:
+The owner's private layer above all projects, where they plan their own life with To-dos and Reminders. It is not a project and does not contain projects. See `docs/personal-space.md`.
+_Avoid_: personal project, life project, coordinator
+
+**To-do**:
+Something the owner intends to do, living in the Personal Space. It is open, done or dropped, and is coarser than an issue (e.g. "work on client A UI").
+_Avoid_: task, issue, item, note
+
+**Sub-to-do**:
+A To-do nested under another To-do. It is a full To-do in every way except that it cannot have Sub-to-dos of its own.
+_Avoid_: checklist item, child task, subtask
+
+**Dropped**:
+A To-do the owner decided not to do. Distinct from done.
+_Avoid_: canceled, deleted
+
+**Project reference**:
+A `@KEY` written in a To-do's own title that names an existing project (ignoring case), so the owner knows where the To-do belongs. A `@KEY` naming no project is just text. It carries no sync with the project's issues.
+_Avoid_: link, tag, mention
+
+**Planned day**:
+The single day on which the owner intends to do a To-do. It is not a deadline. A To-do may have none.
+_Avoid_: due date, deadline, scheduled date
+
+**Overdue**:
+An open To-do whose Planned day has passed. It stays on its day until the owner moves or closes it.
+_Avoid_: late, rolled over
+
+**Anytime**:
+The open To-dos that have no Planned day.
+_Avoid_: someday, backlog, inbox
+
+**Details**:
+Optional markdown on a To-do holding what its title can't carry.
+_Avoid_: note (a memory is never a note), description, comment, body
+
+**Logbook**:
+The record of every done and dropped To-do, kept forever and grouped by the day each was closed.
+_Avoid_: archive, history, completed
+
+**Reminder**:
+A time of day on a To-do's Planned day at which Traccia nudges the owner about it on Telegram. A To-do has at most one, and only a To-do with a Planned day can have one.
+_Avoid_: alert, notification (a notification is how a Reminder is delivered, not the Reminder itself)
+
+**Owner timezone**:
+The single timezone (`OWNER_TIMEZONE`, default `Europe/Rome`) that decides where a day begins and ends for Planned days, Reminders and the Logbook.
+_Avoid_: local time, user timezone
+
 ### History and deletion
 
 **Activity row**:
@@ -147,4 +201,4 @@ The dashboard view listing deleted items, where `you` can restore or purge them.
 The private Tailscale network. Traccia is reachable only from devices on it.
 
 **Dashboard**:
-The web interface for `you`: a table grouped by status and a Kanban board. It reaches the data only through the API.
+The web interface for `you`: a table grouped by status, a Kanban board, and the Personal Space. It reaches the data only through the API.
