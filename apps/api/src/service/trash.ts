@@ -15,6 +15,7 @@ import {
   memories,
   milestones,
   projects,
+  todoReferences,
 } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { decodeCursor, encodeCursor } from "../rest/pagination.js";
@@ -839,6 +840,8 @@ function purgeRows(
       tx.delete(issueLabels).where(inArray(issueLabels.labelId, scoped)).run();
       tx.delete(labels).where(inArray(labels.id, scoped)).run();
     }
+    // To-dos keep their title; the `@KEY` just stops being a reference.
+    tx.delete(todoReferences).where(eq(todoReferences.projectId, id)).run();
     tx.delete(projects).where(eq(projects.id, id)).run();
   }
   removeFromSearchIndex(tx, {

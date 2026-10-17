@@ -1,5 +1,6 @@
 import { todoSchema } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
+import { createServices } from "../src/service/index.js";
 import { createToken } from "../src/service/tokens.js";
 import { createTestApp } from "./helpers/test-app.js";
 
@@ -155,6 +156,47 @@ describe("GET /v1/todos/:id", () => {
     const missing = await call("GET", "/v1/todos/nope");
     expect(missing.status).toBe(404);
     expect((await json(missing)).error.code).toBe("not_found");
+  });
+});
+
+describe("Project references", () => {
+  const makeProject = (db: ReturnType<typeof setup>["db"], key: string) =>
+    createServices({ db, defaultIssueKey: "MAT" }).projects.create("you", {
+      name: key,
+      key,
+    });
+
+  it("resolves @crm to CRM and keeps the title; an unknown key is still 201", async () => {
+    const { call, json, db } = setup();
+    const crm = makeProject(db, "CRM");
+    const res = await call("POST", "/v1/todos", { title: "Work on @crm UI" });
+    expect(res.status).toBe(201);
+    const todo = await json(res);
+    expect(todoSchema.parse(todo)).toEqual(todo);
+    expect(todo.title).toBe("Work on @crm UI");
+    expect(todo.references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: false },
+    ]);
+
+    const unknown = await call("POST", "/v1/todos", {
+      title: "Check @CMR export",
+    });
+    expect(unknown.status).toBe(201);
+    expect((await json(unknown)).references).toEqual([]);
+  });
+
+  it("returns the references on get and list", async () => {
+    const { call, json, db } = setup();
+    const crm = makeProject(db, "CRM");
+    const created = await json(
+      await call("POST", "/v1/todos", { title: "@CRM" }),
+    );
+    const expected = [{ key: "CRM", projectId: crm.id, projectDeleted: false }];
+    expect(
+      (await json(await call("GET", `/v1/todos/${created.id}`))).references,
+    ).toEqual(expected);
+    const list = await json(await call("GET", "/v1/todos?state=open"));
+    expect(list.items[0].references).toEqual(expected);
   });
 });
 

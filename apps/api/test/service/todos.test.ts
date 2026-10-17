@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deriveReferences } from "../../src/service/todo-references.js";
 import { code, setupServices } from "./helpers.js";
 
 describe("todos.create", () => {
@@ -212,5 +213,158 @@ describe("todos.list", () => {
     expect(
       code(() => services.todos.list({ state: "closed", cursor: openCursor })),
     ).toBe("validation_error");
+  });
+});
+
+describe("Project references", () => {
+  function setup() {
+    const t = setupServices();
+    const project = (name: string, key: string) =>
+      t.services.projects.create("you", { name, key });
+    const create = (title: string) =>
+      t.services.todos.create("you", "t", { title });
+    return { ...t, project, create };
+  }
+
+  it("derives a reference from @KEY, case-insensitively, and keeps the title as typed", () => {
+    const { project, create } = setup();
+    const crm = project("CRM", "CRM");
+    const todo = create("Work on @crm UI");
+    expect(todo.title).toBe("Work on @crm UI");
+    expect(todo.references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: false },
+    ]);
+  });
+
+  it("gives no reference and no error for an unknown key", () => {
+    const { project, create } = setup();
+    project("CRM", "CRM");
+    expect(create("Check @CMR export").references).toEqual([]);
+  });
+
+  it("ignores text that is not a whole key: a lone @, a too short or too long run", () => {
+    const { project, create } = setup();
+    project("CRM", "CRM");
+    project("Eight", "ABCDEFGH");
+    for (const title of [
+      "email me @ noon",
+      "@C is short",
+      "@ABCDEFGHI is nine",
+      "@1ABC starts with a digit",
+    ]) {
+      expect(create(title).references).toEqual([]);
+    }
+    expect(create("@CRM-x1").references.map((r) => r.key)).toEqual(["CRM"]);
+    expect(create("@abcdefgh").references.map((r) => r.key)).toEqual([
+      "ABCDEFGH",
+    ]);
+  });
+
+  it("handles two different keys in title order, and a repeated key once", () => {
+    const { project, create } = setup();
+    const crm = project("CRM", "CRM");
+    const web = project("Web", "WEB");
+    const todo = create("@web then @CRM then @Web again and @crm");
+    expect(todo.references).toEqual([
+      { key: "WEB", projectId: web.id, projectDeleted: false },
+      { key: "CRM", projectId: crm.id, projectDeleted: false },
+    ]);
+  });
+
+  it("references every Project that shares the key", () => {
+    const { project, create } = setup();
+    const a = project("A", "MAT");
+    const b = project("B", "MAT");
+    const ids = create("fix @mat").references.map((r) => r.projectId);
+    expect(ids).toEqual([a.id, b.id].sort());
+  });
+
+  it("flags a soft-deleted Project and clears the flag on Restore", () => {
+    const { services, project, create } = setup();
+    const crm = project("CRM", "CRM");
+    const todo = create("Work on @CRM");
+    services.trash.softDelete("you", "project", crm.id);
+    expect(services.todos.get(todo.id).references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: true },
+    ]);
+    expect(services.todos.list({ state: "open" }).items[0]?.references).toEqual(
+      [{ key: "CRM", projectId: crm.id, projectDeleted: true }],
+    );
+    services.trash.restore("you", "project", crm.id);
+    expect(services.todos.get(todo.id).references[0]?.projectDeleted).toBe(
+      false,
+    );
+  });
+
+  it("matches a Project that is already deleted when the To-do is created", () => {
+    const { services, project, create } = setup();
+    const crm = project("CRM", "CRM");
+    services.trash.softDelete("you", "project", crm.id);
+    expect(create("@CRM").references).toEqual([
+      { key: "CRM", projectId: crm.id, projectDeleted: true },
+    ]);
+  });
+
+  it("returns the same references from create, get and list", () => {
+    const { project, create, services } = setup();
+    project("CRM", "CRM");
+    project("Web", "WEB");
+    const a = create("@crm");
+    const b = create("plain");
+    const c = create("@web @crm");
+    expect(services.todos.get(a.id)).toEqual(a);
+    expect(services.todos.get(c.id)).toEqual(c);
+    expect(services.todos.list({ state: "open" }).items).toEqual([a, b, c]);
+  });
+
+  it("stores one todo_references row per Project", () => {
+    const { sqlite, project, create } = setup();
+    const crm = project("CRM", "CRM");
+    const todo = create("@crm @CRM @Crm");
+    expect(
+      sqlite.prepare("SELECT todo_id, project_id FROM todo_references").all(),
+    ).toEqual([{ todo_id: todo.id, project_id: crm.id }]);
+  });
+
+  it("re-derives, replacing the rows, when called again with a new title", () => {
+    const { db, sqlite, project, create } = setup();
+    project("CRM", "CRM");
+    const web = project("Web", "WEB");
+    const todo = create("@crm");
+    db.transaction((tx) => {
+      deriveReferences(tx, todo.id, "now @web only");
+    });
+    const rows = sqlite
+      .prepare("SELECT project_id FROM todo_references WHERE todo_id = ?")
+      .all(todo.id);
+    expect(rows).toEqual([{ project_id: web.id }]);
+  });
+
+  it("prefers live Projects over deleted ones that share the key", () => {
+    const { services, project, create } = setup();
+    const old = project("Old", "BBVA");
+    services.trash.softDelete("you", "project", old.id);
+    const fresh = project("New", "BBVA");
+    // The deleted one still matches while no live Project has the key.
+    expect(create("@bbva").references.map((r) => r.projectId)).toEqual([
+      fresh.id,
+    ]);
+    const only = project("Only", "ZED");
+    services.trash.softDelete("you", "project", only.id);
+    expect(create("@zed").references).toEqual([
+      { key: "ZED", projectId: only.id, projectDeleted: true },
+    ]);
+  });
+
+  it("drops the reference, not the To-do, when the Project is purged", async () => {
+    const { services, project, create } = setup();
+    const crm = project("CRM", "CRM");
+    const todo = create("@crm");
+    services.trash.softDelete("you", "project", crm.id);
+    await services.trash.purge("you", "project", crm.id);
+    expect(services.todos.get(todo.id)).toMatchObject({
+      title: "@crm",
+      references: [],
+    });
   });
 });

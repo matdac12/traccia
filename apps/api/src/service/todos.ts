@@ -14,6 +14,11 @@ import { decodeCursor, type Page, toPage } from "../rest/pagination.js";
 import { nowIso } from "../time.js";
 import { type DbHandle, parseInput, type ServiceContext } from "./context.js";
 import { POSITION_STEP } from "./issue-position.js";
+import {
+  deriveReferences,
+  loadReferences,
+  type TodoReference,
+} from "./todo-references.js";
 import { descKeysetAfter, pageLimit } from "./updated-at-page.js";
 
 export type TodoRecord = typeof todos.$inferSelect;
@@ -25,12 +30,11 @@ export type TodoView = Omit<Todo, "url">;
 export const todoUrl = (baseUrl: string, id: string) =>
   `${baseUrl.replace(/\/+$/, "")}/personal?todo=${id}`;
 
-export function toTodo(row: TodoRecord): TodoView {
+export function toTodo(row: TodoRecord, references: TodoReference[]): TodoView {
   return {
     id: row.id,
     title: row.title,
-    // Project references are derived from the title from step 02 on.
-    references: [],
+    references,
     day: row.day,
     reminder:
       row.reminderTime !== null && row.reminderStatus !== null
@@ -114,6 +118,12 @@ function afterClosedCursor(cursor: string): SQL | undefined {
   return descKeysetAfter(todos.closedAt, todos.id, c.c, c.i);
 }
 
+/** The page's To-dos with their references, resolved in one query. */
+function toTodos(db: DbHandle, rows: TodoRecord[]): TodoView[] {
+  const references = loadReferences(db, rows);
+  return rows.map((row) => toTodo(row, references.get(row.id) ?? []));
+}
+
 export function createTodosService(ctx: ServiceContext) {
   return {
     /**
@@ -140,13 +150,15 @@ export function createTodosService(ctx: ServiceContext) {
           })
           .returning()
           .get();
-        return toTodo(row);
+        deriveReferences(tx, row.id, row.title);
+        return toTodo(row, loadReferences(tx, [row]).get(row.id) ?? []);
       });
     },
 
     /** One To-do, deleted ones included (flagged `deleted`). */
     get(id: string): TodoView {
-      return toTodo(findTodo(ctx.db, id));
+      const row = findTodo(ctx.db, id);
+      return toTodo(row, loadReferences(ctx.db, [row]).get(id) ?? []);
     },
 
     /**
@@ -177,7 +189,7 @@ export function createTodosService(ctx: ServiceContext) {
           .offset(offset)
           .all();
         const page = toPage(rows, limit, () => ({ o: offset + limit }));
-        return { ...page, items: page.items.map(toTodo) };
+        return { ...page, items: toTodos(ctx.db, page.items) };
       }
 
       const rows = ctx.db
@@ -197,7 +209,7 @@ export function createTodosService(ctx: ServiceContext) {
         c: last.closedAt,
         i: last.id,
       }));
-      return { ...page, items: page.items.map(toTodo) };
+      return { ...page, items: toTodos(ctx.db, page.items) };
     },
   };
 }
