@@ -41,18 +41,18 @@ export function TodayList({ todos, today }: { todos: Todo[]; today: string }) {
             <section aria-labelledby="personal-overdue">
               <SectionLabel id="personal-overdue" tone="danger" count={list.overdue.length}>Overdue</SectionLabel>
               <ul>
-                {list.overdue.map((t) => <TodoRow key={t.id} todo={t} today={today} showDay />)}
+                {list.overdue.map((t) => <TodoRow key={t.id} todo={t} showDay />)}
               </ul>
             </section>
           ) : null}
           <section aria-labelledby="personal-today">
             <SectionLabel id="personal-today" count={list.today.length}>Today</SectionLabel>
             <ul>
-              {list.today.map((t) => <TodoRow key={t.id} todo={t} today={today} />)}
+              {list.today.map((t) => <TodoRow key={t.id} todo={t} />)}
             </ul>
             {list.closed.length ? (
               <ul aria-label="Closed today">
-                {list.closed.map((t) => <TodoRow key={t.id} todo={t} today={today} />)}
+                {list.closed.map((t) => <TodoRow key={t.id} todo={t} />)}
               </ul>
             ) : null}
           </section>

@@ -1,7 +1,7 @@
 import type { Todo } from "@traccia/shared";
 
-/** The Personal Space page's data: today (Owner timezone), the open To-dos and those closed today. */
-export type PersonalSpaceData = { today: string; todos: Todo[] };
+/** The Personal Space page's data: today in the Owner timezone (and the zone), the open To-dos and those closed today. */
+export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[] };
 
 /** A To-do that gets its own row in the day lists: top level, or a Sub-to-do with its own Planned day. */
 const ownRow = (t: Todo) => t.parentId === null || t.day !== null;

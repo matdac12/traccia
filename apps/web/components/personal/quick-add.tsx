@@ -2,6 +2,7 @@
 import { CornerDownLeft, Plus } from "lucide-react";
 import { type FormEvent, useId, useState, useTransition } from "react";
 import { createTodoAction } from "@/app/(app)/personal/actions";
+import { firstError } from "@/lib/action-message";
 import { dayLabel } from "@/lib/personal/days";
 import { parseQuickAdd } from "@/lib/personal/quick-add";
 import { cn } from "@/lib/utils";
@@ -9,8 +10,6 @@ import { MentionInput } from "./mention-input";
 import { useProjectOptions } from "./projects-context";
 import { ReminderTime } from "./reminder-time";
 import { TodoTitle } from "./todo-title";
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Quick add (docs/personal-space.md §7.5): one line with `@` autocomplete, a day word and a time. A read-back line
@@ -40,7 +39,7 @@ export function QuickAdd({ today, defaultDay, className }: { today: string; defa
         setValue("");
         setError(null);
       } else {
-        setError(capitalize(Object.values(result.fieldErrors)[0] ?? result.error));
+        setError(firstError(result));
       }
     });
   };

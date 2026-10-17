@@ -2,9 +2,11 @@
 import type { Todo } from "@traccia/shared";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TodayList } from "../components/personal/today-list";
+import { type TodoActions, TodoActionsProvider } from "../components/personal/todo-actions";
 import { TodoRow } from "../components/personal/todo-row";
 import { TooltipProvider } from "../components/ui/tooltip";
 
@@ -33,11 +35,22 @@ function todo(over: Partial<Todo> = {}): Todo {
   };
 }
 const reminder = (status: "pending" | "sent" | "failed" | "skipped", time = "15:00") => ({ time, status, failure: null, sentAt: null });
-const titles = (el: HTMLElement) => within(el).queryAllByRole("listitem").map((li) => li.textContent);
+const actions: TodoActions = { today: TODAY, timeZone: "Europe/Rome", update: async () => {}, deleteTodo: () => {}, errorFor: () => undefined, dismissError: () => {} };
+// Rows write through the page's actions; linked chips use the app's TooltipProvider (root layout).
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <TooltipProvider>
+      <TodoActionsProvider value={actions}>{children}</TodoActionsProvider>
+    </TooltipProvider>
+  );
+}
+// A row's text, without the `––:––` placeholder of a To-do that has no Reminder.
+const text = (el: Element) => el.textContent?.replace(" ––:––", "");
+const titles = (el: HTMLElement) => within(el).queryAllByRole("listitem").map(text);
 
 describe("TodayList", () => {
   it("shows the weekday masthead with the date, the open count and the Reminders still to come", () => {
-    render(<TodayList today={TODAY} todos={[todo({ reminder: reminder("pending") }), todo(), todo({ reminder: reminder("sent") })]} />);
+    render(<TodayList today={TODAY} todos={[todo({ reminder: reminder("pending") }), todo(), todo({ reminder: reminder("sent") })]} />, { wrapper: Providers });
     expect(screen.getByRole("heading", { level: 2, name: "Saturday" })).toBeInTheDocument();
     expect(screen.getByText("17 October · 3 open · 1 Reminder still to come")).toBeInTheDocument();
   });
@@ -49,25 +62,24 @@ describe("TodayList", () => {
       todo({ title: "First", position: 10 }),
       todo({ title: "Paid the bill", state: "done", closedAt: "2026-10-17T07:00:00Z" }),
     ];
-    render(<TodayList today={TODAY} todos={todos} />);
+    render(<TodayList today={TODAY} todos={todos} />, { wrapper: Providers });
     const overdue = screen.getByRole("region", { name: /Overdue/ });
     expect(titles(overdue)).toEqual(["LateThu 15 Oct"]);
     const today = screen.getByRole("region", { name: /Today/ });
     expect(titles(today)).toEqual(["First", "Second", "Paid the bill"]);
-    expect(within(screen.getByRole("list", { name: "Closed today" })).getByRole("img", { name: "Done" })).toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Closed today" })).getByRole("button", { name: "Reopen “Paid the bill”" })).toBeInTheDocument();
   });
 
   it("says nothing is planned when the day is empty", () => {
-    render(<TodayList today={TODAY} todos={[todo({ day: null }), todo({ day: "2026-10-18" })]} />);
+    render(<TodayList today={TODAY} todos={[todo({ day: null }), todo({ day: "2026-10-18" })]} />, { wrapper: Providers });
     expect(screen.getByText("Nothing planned for today")).toBeInTheDocument();
     expect(screen.queryByRole("region")).toBeNull();
   });
 });
 
 describe("TodoRow", () => {
-  // Linked chips use the app's TooltipProvider (root layout).
   const renderRow = (t: Todo, showDay = false) =>
-    render(<ul><TodoRow todo={t} today={TODAY} showDay={showDay} /></ul>, { wrapper: TooltipProvider }).container;
+    render(<ul><TodoRow todo={t} showDay={showDay} /></ul>, { wrapper: Providers }).container;
 
   it("shows the Reminder time by status: pending in the accent, sent dimmed, failed red with a crossed bell", () => {
     renderRow(todo({ reminder: reminder("pending", "15:00") }));
@@ -99,7 +111,7 @@ describe("TodoRow", () => {
 
   it("hides the count when a parent has no live Sub-to-dos, and the day unless asked", () => {
     const el = renderRow({ ...todo({ day: "2026-10-15" }), subTodos: { done: 0, total: 0 } });
-    expect(el.textContent).toBe(`To-do ${n}`);
+    expect(text(el)).toBe(`To-do ${n}`);
   });
 
   it("strikes done and dropped titles, and shows an Overdue day in red", () => {
@@ -122,9 +134,9 @@ describe("PersonalSpace", () => {
   it("shows a To-do created elsewhere after one polling cycle, and rolls over to the new day", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const fresh = [todo({ title: "Created by curl", day: "2026-10-18" })];
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ today: "2026-10-18", todos: fresh })));
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ today: "2026-10-18", timeZone: "Europe/Rome", todos: fresh })));
     vi.stubGlobal("fetch", fetchMock);
-    render(<PersonalSpace initial={{ today: TODAY, todos: [todo({ title: "Already here" })] }} projects={[]} />);
+    render(<PersonalSpace initial={{ today: TODAY, timeZone: "Europe/Rome", todos: [todo({ title: "Already here" })] }} projects={[]} />);
     expect(screen.getByText("Already here")).toBeInTheDocument();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);
@@ -135,7 +147,7 @@ describe("PersonalSpace", () => {
   });
 
   it("counts Today and Anytime in the list menu and opens the other lists", async () => {
-    render(<PersonalSpace initial={{ today: TODAY, todos: [todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })] }} projects={[]} />);
+    render(<PersonalSpace initial={{ today: TODAY, timeZone: "Europe/Rome", todos: [todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })] }} projects={[]} />);
     const menu = screen.getByRole("navigation", { name: "Personal lists" });
     expect(within(menu).getByRole("button", { name: /Today/ })).toHaveTextContent("Today2");
     expect(within(menu).getByRole("button", { name: /Anytime/ })).toHaveTextContent("Anytime1");
