@@ -24,7 +24,6 @@ export function servicesFor(container: AppContainer): Services {
       allowAgentPurge: config.allowAgentPurge,
       ownerTimezone: config.ownerTimezone,
       storage: fileStorageFor(container),
-      onTodosChanged: () => container.reminders?.reschedule(),
     });
     cache.set(container, services);
   }

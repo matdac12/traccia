@@ -71,7 +71,6 @@ export function createServices(options: {
   allowAgentPurge?: boolean;
   ownerTimezone?: string;
   storage?: AttachmentStorage;
-  onTodosChanged?: () => void;
 }) {
   const ctx = createServiceContext(options);
   return {

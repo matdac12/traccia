@@ -123,13 +123,10 @@ One `.env` file in `/opt/tracker` (never committed): the api reads it directly, 
 | `OAUTH_PUBLIC_URL` | api | unset | https origin advertised in the OAuth metadata (issuer, resource, endpoints) and the `/mcp` `WWW-Authenticate` challenge, for when the public connector endpoint is on a different origin than `BASE_URL` (e.g. a Tailscale Funnel port). Unset means `BASE_URL`. Attachment links always use `BASE_URL` |
 | `OAUTH_EXTRA_REDIRECT_URIS` | api | empty | Comma-separated exact redirect URIs the OAuth server accepts in addition to the built-in ones (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/api/mcp/auth_callback`, and `http://localhost`, `http://127.0.0.1`, `http://[::1]` on any port). Enforced at `/register` and `/authorize`; each must be https (or http on loopback) with no fragment |
 | `OWNER_TIMEZONE` | api | `Europe/Rome` | IANA time zone that decides where a day starts and ends for Planned days, Reminders and the Logbook of the Personal Space. An unknown zone or a bare offset like `+01:00` fails startup |
-| `TELEGRAM_BOT_TOKEN` | api | unset | Bot token (`<digits>:<secret>`, from BotFather) for sending Reminders as Telegram messages. Unset means Reminders are off and `GET /v1/todos/delivery` reports `not_configured`. Set it together with `TELEGRAM_CHAT_ID`, or startup fails. Never logged |
-| `TELEGRAM_CHAT_ID` | api | unset | Numeric id of the chat Reminders go to; the owner must have pressed Start in the bot's chat first. Set it together with `TELEGRAM_BOT_TOKEN`, or startup fails |
 | `PORT` | web | `3000` | Dashboard HTTP port; fixed in the compose file |
 | `TRACCIA_API_URL` | web | `http://api:8787` | API address for the dashboard's server-side calls; set by the compose file |
 | `TRACCIA_API_TOKEN` | web | empty | Token of a `you` actor, server-side only |
 | `DASHBOARD_ALLOWED_LOGINS` | web | empty | Comma-separated Tailscale logins allowed to open the dashboard |
-| `OWNER_TIMEZONE` | web | `Europe/Rome` | The api's Owner timezone, where the dashboard decides which day is today; the compose file passes it through |
 
 `TRACKER_API_URL` and `TRACKER_API_TOKEN` are the pre-rename names of the two web variables. They are still read when the `TRACCIA_*` name is unset; remove them from the `.env` when convenient. A test (`apps/web/test/env.test.ts`) pins both spellings.
 

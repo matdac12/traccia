@@ -33,8 +33,6 @@ services:
       # TRACKER_API_TOKEN is the pre-rename name; drop the fallback one release after the rename.
       TRACCIA_API_TOKEN: ${TRACCIA_API_TOKEN:-${TRACKER_API_TOKEN:-}}
       DASHBOARD_ALLOWED_LOGINS: ${DASHBOARD_ALLOWED_LOGINS:-}
-      # The dashboard decides "today" in the Owner timezone, like the api.
-      OWNER_TIMEZONE: ${OWNER_TIMEZONE:-Europe/Rome}
     ports:
       - "127.0.0.1:3000:3000"
     mem_limit: 512m

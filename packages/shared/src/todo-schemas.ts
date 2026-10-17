@@ -33,16 +33,6 @@ export const todoTitleSchema = z
   .min(1, "must not be empty")
   .max(TODO_TITLE_MAX, `must be at most ${TODO_TITLE_MAX} characters`);
 
-/**
- * A top-level To-do's Sub-to-do count (`n/m`): live Sub-to-dos only, `total`
- * leaves out dropped ones, `done` counts the done ones.
- */
-export const subTodoCountSchema = z.object({
-  done: z.number().int().min(0),
-  total: z.number().int().min(0),
-});
-export type SubTodoCount = z.infer<typeof subTodoCountSchema>;
-
 /** A To-do as the API returns it. */
 export const todoSchema = z.object({
   id: z.string(),
@@ -68,8 +58,6 @@ export const todoSchema = z.object({
   state: z.enum(TODO_STATES),
   closedAt: z.string().nullable(),
   parentId: z.string().nullable(),
-  /** Null for a Sub-to-do; a top-level To-do counts its live Sub-to-dos. */
-  subTodos: subTodoCountSchema.nullable(),
   position: z.number(),
   details: z.string().nullable(),
   /** Name of the Token that created it ("via Parla"). */
@@ -196,29 +184,3 @@ export const listTodosQuerySchema = listTodosInputSchema.extend({
   includeDeleted: queryBooleanSchema.optional(),
   limit: z.coerce.number().int().min(1).optional(),
 });
-
-/** `GET /v1/todos/:id/sub-todos`: every live Sub-to-do, open or closed, by Position. */
-export const subTodosResponseSchema = z.object({
-  items: z.array(todoSchema),
-});
-export type SubTodosResponse = z.infer<typeof subTodosResponseSchema>;
-
-/** Why Reminders can't go out (`GET /v1/todos/delivery`, §6.4). */
-export const TODO_DELIVERY_REASONS = [
-  "not_configured",
-  "telegram_unauthorized",
-  "telegram_forbidden",
-] as const;
-export type TodoDeliveryReason = (typeof TODO_DELIVERY_REASONS)[number];
-
-/**
- * `GET /v1/todos/delivery`: whether Reminders are being delivered, held in the
- * API's memory. `reason` is set when `ok` is false; `lastSentAt` is the last
- * successful send since the API started.
- */
-export const todoDeliverySchema = z.object({
-  ok: z.boolean(),
-  reason: z.enum(TODO_DELIVERY_REASONS).optional(),
-  lastSentAt: z.string().optional(),
-});
-export type TodoDelivery = z.infer<typeof todoDeliverySchema>;

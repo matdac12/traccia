@@ -74,15 +74,6 @@ const envSchema = z.object({
       }
       return zone;
     }),
-  // Never echo these values in an error: the token controls the bot.
-  TELEGRAM_BOT_TOKEN: z
-    .string()
-    .regex(/^\d+:[A-Za-z0-9_-]+$/, "is not a bot token (<digits>:<secret>)")
-    .optional(),
-  TELEGRAM_CHAT_ID: z
-    .string()
-    .regex(/^-?\d{1,20}$/, "is not a numeric chat id")
-    .optional(),
 });
 
 /** Every environment variable the api reads; the README config table is checked against this. */
@@ -109,11 +100,7 @@ export type Config = {
   oauthExtraRedirectUris: string[];
   /** IANA zone where a day starts and ends for Planned days, Reminders and the Logbook. */
   ownerTimezone: string;
-  /** Reminder delivery; Reminders are not sent while unset. */
-  telegram: TelegramConfig | undefined;
 };
-
-export type TelegramConfig = { botToken: string; chatId: string };
 
 export class ConfigError extends Error {
   override name = "ConfigError";
@@ -135,15 +122,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     );
   }
   const e = result.data;
-  const telegram =
-    e.TELEGRAM_BOT_TOKEN !== undefined && e.TELEGRAM_CHAT_ID !== undefined
-      ? { botToken: e.TELEGRAM_BOT_TOKEN, chatId: e.TELEGRAM_CHAT_ID }
-      : undefined;
-  if (!telegram && (e.TELEGRAM_BOT_TOKEN ?? e.TELEGRAM_CHAT_ID) !== undefined) {
-    throw new ConfigError(
-      "Invalid configuration:\n  - TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set together (or both left unset)",
-    );
-  }
   return {
     port: e.PORT,
     dataDir: e.DATA_DIR,
@@ -161,7 +139,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     oauthPublicUrl: e.OAUTH_PUBLIC_URL,
     oauthExtraRedirectUris: e.OAUTH_EXTRA_REDIRECT_URIS,
     ownerTimezone: e.OWNER_TIMEZONE,
-    telegram,
   };
 }
 
