@@ -425,9 +425,9 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
     expect(withDeleted.items.map((t: any) => [t.id, t.deleted]).sort()).toEqual(
       [parent.id, sub.id].map((id) => [id, true]).sort(),
     );
-    expect((await json(await call("GET", `/v1/todos/${sub.id}`))).deleted).toBe(
-      true,
-    );
+    expect(
+      (await json(await call("GET", `/v1/todos/${sub.id}`))).deleted,
+    ).toBe(true);
     const trash = await json(await call("GET", "/v1/trash?type=todo"));
     expect(trash.items.map((i: any) => i.id).sort()).toEqual(
       [parent.id, sub.id].sort(),
@@ -445,9 +445,9 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
     const open = await json(await call("GET", "/v1/todos?state=open"));
     expect(open.items).toHaveLength(2);
     expect(open.items.some((t: any) => "deleted" in t)).toBe(false);
-    expect(open.items.find((t: any) => t.id === parent.id).references).toEqual([
-      { key: "CRM", projectId: expect.any(String), projectDeleted: false },
-    ]);
+    expect(open.items.find((t: any) => t.id === parent.id).references).toEqual(
+      [{ key: "CRM", projectId: expect.any(String), projectDeleted: false }],
+    );
   });
 
   it("purges a deleted To-do for good, references included", async () => {
@@ -498,9 +498,9 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
         headers: { Authorization: `Bearer ${agent.token}` },
       });
     expect((await asAgent(`/v1/todos/${created.id}`)).status).toBe(200);
-    expect((await asAgent(`/v1/todos/${created.id}?purge=true`)).status).toBe(
-      403,
-    );
+    expect(
+      (await asAgent(`/v1/todos/${created.id}?purge=true`)).status,
+    ).toBe(403);
     expect((await s.call("GET", `/v1/todos/${created.id}`)).status).toBe(200);
   });
 
