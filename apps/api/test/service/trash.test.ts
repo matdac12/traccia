@@ -11,6 +11,8 @@ import {
   issues,
   milestones,
   projects,
+  todoReferences,
+  todos,
 } from "../../src/db/schema.js";
 import { newId } from "../../src/ids.js";
 import { createServices } from "../../src/service/index.js";
@@ -589,5 +591,207 @@ describe("search index", () => {
     await s.del("issue", i.id);
     await s.services.trash.purge("you", "issue", i.id);
     expect([found("alpha"), found("beta")]).toEqual([0, 0]);
+  });
+});
+
+describe("to-dos", () => {
+  type Setup = Awaited<ReturnType<typeof setup>>;
+  const todoRow = (s: Setup, id: string) =>
+    s.db.select().from(todos).where(eq(todos.id, id)).get();
+  const refCount = (s: Setup) => s.db.select().from(todoReferences).all().length;
+  afterEach(() => vi.useRealTimers());
+
+  /** A parent and two Sub-to-dos; the parent and one Sub-to-do name the Project. */
+  async function withSubs() {
+    const s = await setup();
+    const key = s.project.key;
+    const parent = s.services.todos.create("you", "t", {
+      title: `Plan @${key}`,
+    });
+    const sub = (title: string) =>
+      s.services.todos.create("you", "t", { title, parentId: parent.id });
+    return { s, parent, a: sub("a"), b: sub(`b @${key}`) };
+  }
+
+  it("deleting a To-do hides its Sub-to-dos in the same batch", async () => {
+    const { s, parent, a, b } = await withSubs();
+    const result = await s.del("todo", parent.id);
+    expect(result).toMatchObject({
+      type: "todo",
+      id: parent.id,
+      title: parent.title,
+      counts: { todos: 3, issues: 0, projects: 0 },
+    });
+    for (const t of [parent, a, b]) {
+      expect(todoRow(s, t.id)).toMatchObject({
+        deletedBatch: batchOf(result),
+        deletedBy: "you",
+      });
+    }
+    expect(s.services.todos.list({ state: "open" }).items).toEqual([]);
+    const all = s.services.todos.list({ state: "open", includeDeleted: true });
+    expect(all.items.map((t) => [t.id, t.deleted]).sort()).toEqual(
+      [parent.id, a.id, b.id].map((id) => [id, true]).sort(),
+    );
+  });
+
+  it("deleting a Sub-to-do leaves the parent and its siblings alone", async () => {
+    const { s, parent, a, b } = await withSubs();
+    await s.del("todo", a.id);
+    expect(todoRow(s, parent.id)?.deletedAt).toBeNull();
+    expect(todoRow(s, b.id)?.deletedAt).toBeNull();
+    expect(todoRow(s, a.id)?.deletedAt).not.toBeNull();
+  });
+
+  it("deleting twice or an unknown To-do is not_found", async () => {
+    const { s, parent } = await withSubs();
+    await s.del("todo", parent.id);
+    await expect(s.del("todo", parent.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
+    await expect(s.del("todo", "nope")).rejects.toMatchObject({
+      code: "not_found",
+    });
+  });
+
+  it("restore brings the whole batch back, references included", async () => {
+    const { s, parent, a, b } = await withSubs();
+    await s.del("todo", parent.id);
+    const result = s.services.trash.restore("you", "todo", parent.id);
+    expect(result).toMatchObject({
+      type: "todo",
+      id: parent.id,
+      counts: { todos: 3 },
+    });
+    expect(s.services.todos.list({ state: "open" }).items).toHaveLength(3);
+    expect(s.services.todos.get(a.id)).not.toHaveProperty("deleted");
+    expect(s.services.todos.get(b.id).references).toHaveLength(1);
+    expect(s.services.trash.list({ type: "todo" }).items).toEqual([]);
+  });
+
+  it("restore leaves a Sub-to-do deleted earlier in its own batch", async () => {
+    const { s, parent, a, b } = await withSubs();
+    const first = await s.del("todo", a.id);
+    const second = await s.del("todo", parent.id);
+    expect(todoRow(s, a.id)?.deletedBatch).toBe(batchOf(first));
+    expect(todoRow(s, b.id)?.deletedBatch).toBe(batchOf(second));
+    s.services.trash.restore("you", "todo", parent.id);
+    expect(todoRow(s, parent.id)?.deletedAt).toBeNull();
+    expect(todoRow(s, b.id)?.deletedAt).toBeNull();
+    expect(todoRow(s, a.id)?.deletedAt).not.toBeNull();
+  });
+
+  it("refuses to restore a Sub-to-do under a deleted parent", async () => {
+    const { s, parent, a } = await withSubs();
+    await s.del("todo", parent.id);
+    expect(() => s.services.trash.restore("you", "todo", a.id)).toThrow(
+      expect.objectContaining({ code: "conflict" }),
+    );
+    expect(todoRow(s, a.id)?.deletedAt).not.toBeNull();
+  });
+
+  it("restoring a To-do that is not deleted is a conflict", async () => {
+    const { s, parent } = await withSubs();
+    expect(() => s.services.trash.restore("you", "todo", parent.id)).toThrow(
+      expect.objectContaining({ code: "conflict" }),
+    );
+  });
+
+  it("delete and restore move updatedAt, so change probes see them", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { s, parent, a } = await withSubs();
+    const created = todoRow(s, a.id)?.updatedAt ?? "";
+    vi.advanceTimersByTime(1000);
+    await s.del("todo", parent.id);
+    const deleted = todoRow(s, a.id)?.updatedAt ?? "";
+    expect(deleted > created).toBe(true);
+    vi.advanceTimersByTime(1000);
+    s.services.trash.restore("you", "todo", parent.id);
+    expect((todoRow(s, a.id)?.updatedAt ?? "") > deleted).toBe(true);
+  });
+
+  it("purge needs a prior delete", async () => {
+    const { s, parent } = await withSubs();
+    await expect(
+      s.services.trash.purge("you", "todo", parent.id),
+    ).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("purge removes the To-do, its Sub-to-dos and every reference", async () => {
+    const { s, parent, a, b } = await withSubs();
+    expect(refCount(s)).toBe(2);
+    await s.del("todo", parent.id);
+    const result = await s.services.trash.purge("you", "todo", parent.id);
+    expect(result).toMatchObject({
+      type: "todo",
+      id: parent.id,
+      counts: { todos: 3 },
+      failedFiles: [],
+    });
+    for (const t of [parent, a, b]) expect(todoRow(s, t.id)).toBeUndefined();
+    expect(refCount(s)).toBe(0);
+    expect(s.services.trash.list().items).toEqual([]);
+    expect(
+      s.db.select().from(projects).where(eq(projects.id, s.project.id)).get(),
+    ).toBeDefined();
+  });
+
+  it("purging a parent also takes a Sub-to-do deleted earlier", async () => {
+    const { s, parent, a, b } = await withSubs();
+    await s.del("todo", a.id);
+    await s.del("todo", parent.id);
+    await s.services.trash.purge("you", "todo", parent.id);
+    for (const t of [parent, a, b]) expect(todoRow(s, t.id)).toBeUndefined();
+  });
+
+  it("purging one Sub-to-do leaves the parent and its siblings", async () => {
+    const { s, parent, a, b } = await withSubs();
+    await s.del("todo", a.id);
+    await s.services.trash.purge("you", "todo", a.id);
+    expect(todoRow(s, a.id)).toBeUndefined();
+    expect(todoRow(s, parent.id)).toBeDefined();
+    expect(todoRow(s, b.id)).toBeDefined();
+    expect(refCount(s)).toBe(2);
+  });
+
+  it("only you may purge a To-do, even one an agent deleted", async () => {
+    const { s, parent } = await withSubs();
+    await s.services.trash.delete("agent", "todo", parent.id);
+    await expect(
+      s.services.trash.purge("agent", "todo", parent.id),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      s.services.trash.delete("agent", "todo", parent.id, { purge: true }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect(todoRow(s, parent.id)).toBeDefined();
+  });
+
+  it("lists To-dos in the trash with their title and parent", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { s, parent, a } = await withSubs();
+    await s.del("todo", a.id);
+    vi.advanceTimersByTime(1000);
+    const issue = s.issue("gone");
+    await s.del("issue", issue.id);
+    vi.advanceTimersByTime(1000);
+    await s.del("todo", parent.id);
+    const items = s.services.trash.list({ type: "todo" }).items;
+    expect(items).toHaveLength(3);
+    expect(items.find((i) => i.id === parent.id)).toMatchObject({
+      type: "todo",
+      label: parent.title,
+      parentId: null,
+      issueId: null,
+      projectId: null,
+      projectName: null,
+      deletedBy: "you",
+      deleted: true,
+    });
+    expect(items.find((i) => i.id === a.id)).toMatchObject({
+      label: "a",
+      parentId: parent.id,
+    });
+    expect(s.services.trash.list().items.map((i) => i.type)).toContain("issue");
+    expect(s.services.trash.list({ type: "issue" }).items).toHaveLength(1);
   });
 });

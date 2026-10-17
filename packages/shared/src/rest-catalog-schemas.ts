@@ -40,8 +40,14 @@ export const RESTORE_TYPES = [
   "document",
 ] as const;
 
+/**
+ * What `POST /v1/restore` accepts. To-dos are REST-only (ADR 0017), so `todo`
+ * is here but not in `RESTORE_TYPES`, which the MCP `restore` tool also uses.
+ */
+export const REST_RESTORE_TYPES = [...RESTORE_TYPES, "todo"] as const;
+
 export const restoreBodySchema = z.object({
-  type: z.enum(RESTORE_TYPES),
+  type: z.enum(REST_RESTORE_TYPES),
   id: z.string().min(1),
 });
 export type RestoreBody = z.infer<typeof restoreBodySchema>;

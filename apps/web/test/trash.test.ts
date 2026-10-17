@@ -22,11 +22,18 @@ beforeEach(() => {
 
 describe("restore", () => {
   it("restores the batch and reports what came back", async () => {
-    const counts = { projects: 0, milestones: 0, issues: 1, comments: 2, attachments: 1 };
+    const counts = { projects: 0, milestones: 0, issues: 1, comments: 2, attachments: 1, todos: 0 };
     restoreItem.mockResolvedValue({ type: "issue", id: "i1", counts });
     const out = await restoreAction("issue", "i1");
     expect(restoreItem).toHaveBeenCalledWith("issue", "i1");
     expect(out.ok && restoreSummary(out.result)).toBe("Restored 1 issue, 2 comments and 1 attachment.");
+  });
+  it("restores a To-do with its Sub-to-dos", async () => {
+    const counts = { projects: 0, milestones: 0, issues: 0, comments: 0, attachments: 0, todos: 3 };
+    restoreItem.mockResolvedValue({ type: "todo", id: "t1", counts });
+    const out = await restoreAction("todo", "t1");
+    expect(restoreItem).toHaveBeenCalledWith("todo", "t1");
+    expect(out.ok && restoreSummary(out.result)).toBe("Restored 3 to-dos.");
   });
   it("shows the API message when a parent is still deleted", async () => {
     restoreItem.mockRejectedValue(new ApiError(409, "conflict", "Cannot restore comment: its issue is deleted. Restore the issue first."));
@@ -45,6 +52,11 @@ describe("purge", () => {
     purgeItem.mockResolvedValue({ purged: true });
     expect(await purgeAction("project", "p1")).toEqual({ ok: true });
     expect(purgeItem).toHaveBeenCalledWith("project", "p1");
+  });
+  it("purges a To-do", async () => {
+    purgeItem.mockResolvedValue({ purged: true });
+    expect(await purgeAction("todo", "t1")).toEqual({ ok: true });
+    expect(purgeItem).toHaveBeenCalledWith("todo", "t1");
   });
   it("displays a forbidden purge", async () => {
     purgeItem.mockRejectedValue(new ApiError(403, "forbidden", "This actor is not allowed to purge"));
@@ -94,6 +106,21 @@ describe("purge confirmation", () => {
     ];
     expect(purgeConfirmation(tree[0]!, tree).withIt).toBe("This also permanently removes 2 issues and 1 comment deleted with it.");
   });
+  it("counts a To-do's Sub-to-dos, deleted in any batch, and only its own", () => {
+    const tree = [
+      item({ type: "todo", id: "t1", label: "Plan", deletedBatch: "bt" }),
+      item({ type: "todo", id: "s1", label: "a", parentId: "t1", deletedBatch: "bt" }),
+      item({ type: "todo", id: "s2", label: "b", parentId: "t1", deletedBatch: "older" }),
+      item({ type: "todo", id: "other", label: "Other", deletedBatch: "b9" }),
+      item({ type: "todo", id: "s3", label: "c", parentId: "other", deletedBatch: "b9" }),
+    ];
+    const c = purgeConfirmation(tree[0]!, tree);
+    expect(c.title).toBe("Purge to-do permanently?");
+    expect(c.name).toBe("Plan");
+    expect(c.withIt).toBe("This also permanently removes 2 sub-to-dos deleted with it.");
+    expect(purgeConfirmation(tree[1]!, tree).withIt).toBeNull();
+    expect(purgeConfirmation(tree[3]!, tree).withIt).toBe("This also permanently removes 1 sub-to-do deleted with it.");
+  });
   it("says who deleted an item", () => {
     expect(deletedByText(item({ deletedBy: "you" }))).toBe("by you");
     expect(deletedByText(item({ deletedBy: "agent" }))).toBe("by an agent");
@@ -113,5 +140,6 @@ describe("links", () => {
     expect(itemHref(item({ type: "project", id: "p1", label: "P" }))).toBe("/projects/p1");
     expect(itemHref(item({ type: "comment", issueId: "i1" }))).toBe("/issues/i1");
     expect(itemHref(item({ type: "milestone" }))).toBeNull();
+    expect(itemHref(item({ type: "todo", id: "t1", label: "Plan" }))).toBeNull();
   });
 });

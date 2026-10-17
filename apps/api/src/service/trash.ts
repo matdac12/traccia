@@ -1,5 +1,5 @@
 import { type Actor, ServiceError } from "@traccia/shared";
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { canPurge } from "../auth/permissions.js";
@@ -16,6 +16,7 @@ import {
   milestones,
   projects,
   todoReferences,
+  todos,
 } from "../db/schema.js";
 import { newId } from "../ids.js";
 import { decodeCursor, encodeCursor } from "../rest/pagination.js";
@@ -51,6 +52,10 @@ import {
  *   memory     -> itself (ADR 0014)
  *   document   -> itself; its file goes after commit on purge, unless another
  *                 document still shares the content-addressed object
+ *   todo       -> its live Sub-to-dos (Personal Space, ADR 0017); a Sub-to-do
+ *                 alone goes alone. Purge also drops their `todo_references`.
+ *                 To-dos carry no activity or search rows, and purge stays
+ *                 `you`-only (not in the agent-purgeable types).
  *
  * Restoring a milestone re-links the issues that lost it (found through their
  * `milestone_deleted` activity rows), unless an issue was given another
@@ -82,6 +87,7 @@ export const TRASH_TYPES = [
   "attachment",
   "memory",
   "document",
+  "todo",
 ] as const;
 export type TrashType = (typeof TRASH_TYPES)[number];
 
@@ -113,6 +119,7 @@ type Counts = {
   attachments: number;
   memories: number;
   documents: number;
+  todos: number;
 };
 export type TrashItem = {
   type: TrashType;
@@ -123,7 +130,7 @@ export type TrashItem = {
   deletedBatch: string | null;
   /** Owning issue for comments and attachments. */
   issueId: string | null;
-  /** Parent issue, for sub-issues. */
+  /** Parent issue, for sub-issues; parent To-do, for Sub-to-dos. */
   parentId: string | null;
   /** Project the item belongs to (a project is its own); null only for legacy rows. */
   projectId: string | null;
@@ -151,6 +158,7 @@ type Sets = {
   attachmentIds: string[];
   memoryIds: string[];
   documentIds: string[];
+  todoIds: string[];
 };
 
 const countsOf = (s: Sets): Counts => ({
@@ -161,6 +169,7 @@ const countsOf = (s: Sets): Counts => ({
   attachments: s.attachmentIds.length,
   memories: s.memoryIds.length,
   documents: s.documentIds.length,
+  todos: s.todoIds.length,
 });
 
 const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
@@ -232,6 +241,7 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
     attachmentIds: [],
     memoryIds: [],
     documentIds: [],
+    todoIds: [],
   };
   const live = (col: AnySQLiteColumn) => (liveOnly ? isNull(col) : undefined);
   switch (type) {
@@ -295,6 +305,20 @@ function collect(tx: Tx, type: TrashType, id: string, liveOnly: boolean): Sets {
       return { ...empty, memoryIds: [id] };
     case "document":
       return { ...empty, documentIds: [id] };
+    case "todo":
+      return {
+        ...empty,
+        todoIds: [
+          id,
+          ...ids(
+            tx
+              .select({ id: todos.id })
+              .from(todos)
+              .where(and(eq(todos.parentId, id), live(todos.deletedAt)))
+              .all(),
+          ),
+        ],
+      };
   }
 }
 
@@ -341,6 +365,8 @@ function stamp(
       .set(touched)
       .where(inArray(documents.id, s.documentIds))
       .run();
+  if (s.todoIds.length)
+    tx.update(todos).set(touched).where(inArray(todos.id, s.todoIds)).run();
 }
 
 /** Loads a row of `type` by id, deleted or not. Issues also accept an identifier. */
@@ -370,6 +396,8 @@ function load(tx: Tx, type: TrashType, ref: string) {
       return tx.select().from(memories).where(eq(memories.id, ref)).get();
     case "document":
       return tx.select().from(documents).where(eq(documents.id, ref)).get();
+    case "todo":
+      return tx.select().from(todos).where(eq(todos.id, ref)).get();
   }
 }
 
@@ -399,6 +427,7 @@ function describeRow(
     case "document":
       return { title: String(row.filename) };
     case "memory":
+    case "todo":
       return { title: String(row.title) };
     default:
       return { title: String(row.name) };
@@ -571,6 +600,13 @@ function restoreBatch(
         .where(byBatch(documents, row.id))
         .all(),
     ),
+    todoIds: ids(
+      tx
+        .select({ id: todos.id })
+        .from(todos)
+        .where(byBatch(todos, row.id))
+        .all(),
+    ),
   };
   const now = nowIso();
   const clear = { deletedAt: null, deletedBatch: null, deletedBy: null };
@@ -609,6 +645,11 @@ function restoreBatch(
     tx.update(documents)
       .set(revived)
       .where(inArray(documents.id, sets.documentIds))
+      .run();
+  if (sets.todoIds.length)
+    tx.update(todos)
+      .set(revived)
+      .where(inArray(todos.id, sets.todoIds))
       .run();
 
   // A restored issue gets `issue_restored`; a restored comment/attachment
@@ -737,7 +778,7 @@ function assertRestorable(
       { [what]: id },
     );
   const isDeleted = (
-    t: typeof projects | typeof issues | typeof comments,
+    t: typeof projects | typeof issues | typeof comments | typeof todos,
     id: string,
   ) => {
     const r = tx
@@ -768,6 +809,10 @@ function assertRestorable(
   } else if (type === "memory" || type === "document") {
     const k = row as typeof memories.$inferSelect;
     if (isDeleted(projects, k.projectId)) throw blocked("project", k.projectId);
+  } else if (type === "todo") {
+    const t = row as typeof todos.$inferSelect;
+    if (t.parentId && isDeleted(todos, t.parentId))
+      throw blocked("parent to-do", t.parentId);
   }
 }
 
@@ -819,6 +864,16 @@ function purgeRows(
       .set({ milestoneId: null })
       .where(eq(issues.milestoneId, id))
       .run();
+  }
+  if (sets.todoIds.length) {
+    tx.delete(todoReferences)
+      .where(inArray(todoReferences.todoId, sets.todoIds))
+      .run();
+    // Sub-to-dos first: `parent_id` points at the parent.
+    tx.delete(todos)
+      .where(and(inArray(todos.id, sets.todoIds), isNotNull(todos.parentId)))
+      .run();
+    tx.delete(todos).where(inArray(todos.id, sets.todoIds)).run();
   }
   if (sets.memoryIds.length)
     tx.delete(memories).where(inArray(memories.id, sets.memoryIds)).run();
@@ -981,6 +1036,9 @@ export function createTrashService(ctx: ServiceContext) {
           UNION ALL
           SELECT 'document', id, filename, deleted_at, deleted_batch, NULL, NULL, project_id, deleted_by
             FROM documents WHERE deleted_at IS NOT NULL
+          UNION ALL
+          SELECT 'todo', id, title, deleted_at, deleted_batch, NULL, parent_id, NULL, deleted_by
+            FROM todos WHERE deleted_at IS NOT NULL
         ) t LEFT JOIN projects p ON p.id = t.project_id
         WHERE ${q.type ? sql`t.type = ${q.type}` : sql`1`}
           AND ${after ? sql`(t.deleted_at < ${after.d} OR (t.deleted_at = ${after.d} AND t.id < ${after.i}))` : sql`1`}

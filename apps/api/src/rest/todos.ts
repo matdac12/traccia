@@ -1,5 +1,6 @@
 import {
   createTodoInputSchema,
+  deleteQuerySchema,
   listTodosQuerySchema,
   updateTodoInputSchema,
 } from "@traccia/shared";
@@ -11,7 +12,7 @@ import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 /** Personal Space To-dos: thin adapter over `services.todos` (ADR 0017: REST only). */
 export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
-  const { todos } = servicesFor(container);
+  const { todos, trash } = servicesFor(container);
   const withUrl = (t: TodoView) => ({
     ...t,
     url: todoUrl(container.config.baseUrl, t.id),
@@ -37,5 +38,18 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
     // The body field wins over the header when both are present.
     body.expectedUpdatedAt ??= ifMatch(c);
     return c.json(withUrl(todos.update(c.req.param("id"), body)));
+  });
+
+  // Soft delete (Sub-to-dos join the batch); `?purge=true` removes a deleted
+  // To-do for good, `you` only. Restore is `POST /v1/restore`.
+  v1.delete("/todos/:id", async (c) => {
+    const { purge } = validateQuery(c, deleteQuerySchema);
+    const result = await trash.delete(
+      c.get("actor"),
+      "todo",
+      c.req.param("id"),
+      { purge },
+    );
+    return c.json({ ...result, purged: purge === true });
   });
 }

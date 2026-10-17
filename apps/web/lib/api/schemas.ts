@@ -39,19 +39,19 @@ export const errorBodySchema = z.object({
   }),
 });
 
-export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment"] as const;
+export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment", "todo"] as const;
 export type TrashType = (typeof TRASH_TYPES)[number];
 
 export const trashItemSchema = z.object({
   type: z.enum(TRASH_TYPES),
   id: z.string(),
-  /** Project/milestone name, "KEY-1 title" for issues, comment excerpt, attachment filename. */
+  /** Project/milestone name, "KEY-1 title" for issues, comment excerpt, attachment filename, To-do title. */
   label: z.string(),
   deletedAt: z.string(),
   deletedBatch: z.string().nullable(),
   /** Owning issue (id) for comments and attachments. */
   issueId: z.string().nullable(),
-  /** Parent issue (id) for sub-issues. */
+  /** Parent issue (id) for sub-issues, parent To-do (id) for Sub-to-dos. */
   parentId: z.string().nullable(),
   /** Project (id and name) the item belongs to; a project is its own. */
   projectId: z.string().nullable(),
@@ -67,6 +67,7 @@ const countsSchema = z.object({
   issues: z.number().int(),
   comments: z.number().int(),
   attachments: z.number().int(),
+  todos: z.number().int(),
 });
 export type TrashCounts = z.infer<typeof countsSchema>;
 

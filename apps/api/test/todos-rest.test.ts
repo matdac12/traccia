@@ -1,5 +1,6 @@
-import { todoSchema } from "@traccia/shared";
+import { RESTORE_TYPES, REST_RESTORE_TYPES, todoSchema } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
+import { todoReferences } from "../src/db/schema.js";
 import { createServices } from "../src/service/index.js";
 import { createToken } from "../src/service/tokens.js";
 import { createTestApp } from "./helpers/test-app.js";
@@ -25,6 +26,12 @@ function setup() {
   const json = async (res: Response) => (await res.json()) as any;
   return { ...t, call, json, token: parla.token };
 }
+
+const makeProject = (db: ReturnType<typeof setup>["db"], key: string) =>
+  createServices({ db, defaultIssueKey: "MAT" }).projects.create("you", {
+    name: key,
+    key,
+  });
 
 describe("POST /v1/todos", () => {
   it("creates a To-do with the token as source and a dashboard url", async () => {
@@ -351,12 +358,6 @@ describe("PATCH /v1/todos/:id", () => {
 });
 
 describe("Project references", () => {
-  const makeProject = (db: ReturnType<typeof setup>["db"], key: string) =>
-    createServices({ db, defaultIssueKey: "MAT" }).projects.create("you", {
-      name: key,
-      key,
-    });
-
   it("resolves @crm to CRM and keeps the title; an unknown key is still 201", async () => {
     const { call, json, db } = setup();
     const crm = makeProject(db, "CRM");
@@ -391,6 +392,124 @@ describe("Project references", () => {
   });
 });
 
+describe("DELETE /v1/todos/:id, restore and purge", () => {
+  async function withSub() {
+    const s = setup();
+    const crm = makeProject(s.db, "CRM");
+    const parent = await s.json(
+      await s.call("POST", "/v1/todos", { title: "Plan @CRM" }),
+    );
+    const sub = await s.json(
+      await s.call("POST", "/v1/todos", { title: "Sub", parentId: parent.id }),
+    );
+    return { ...s, crm, parent, sub };
+  }
+
+  it("soft-deletes the To-do and its Sub-to-dos, and restore brings them back", async () => {
+    const { call, json, parent, sub } = await withSub();
+    const res = await call("DELETE", `/v1/todos/${parent.id}`);
+    expect(res.status).toBe(200);
+    expect(await json(res)).toMatchObject({
+      type: "todo",
+      id: parent.id,
+      title: "Plan @CRM",
+      counts: { todos: 2 },
+      purged: false,
+    });
+    expect(
+      (await json(await call("GET", "/v1/todos?state=open"))).items,
+    ).toEqual([]);
+    const withDeleted = await json(
+      await call("GET", "/v1/todos?state=open&includeDeleted=true"),
+    );
+    expect(withDeleted.items.map((t: any) => [t.id, t.deleted]).sort()).toEqual(
+      [parent.id, sub.id].map((id) => [id, true]).sort(),
+    );
+    expect(
+      (await json(await call("GET", `/v1/todos/${sub.id}`))).deleted,
+    ).toBe(true);
+    const trash = await json(await call("GET", "/v1/trash?type=todo"));
+    expect(trash.items.map((i: any) => i.id).sort()).toEqual(
+      [parent.id, sub.id].sort(),
+    );
+
+    const restored = await call("POST", "/v1/restore", {
+      type: "todo",
+      id: parent.id,
+    });
+    expect(restored.status).toBe(200);
+    expect(await json(restored)).toMatchObject({
+      type: "todo",
+      counts: { todos: 2 },
+    });
+    const open = await json(await call("GET", "/v1/todos?state=open"));
+    expect(open.items).toHaveLength(2);
+    expect(open.items.some((t: any) => "deleted" in t)).toBe(false);
+    expect(open.items.find((t: any) => t.id === parent.id).references).toEqual(
+      [{ key: "CRM", projectId: expect.any(String), projectDeleted: false }],
+    );
+  });
+
+  it("purges a deleted To-do for good, references included", async () => {
+    const { call, json, db, parent, sub } = await withSub();
+    const early = await call("DELETE", `/v1/todos/${parent.id}?purge=true`);
+    expect(early.status).toBe(409);
+    await call("DELETE", `/v1/todos/${parent.id}`);
+    const res = await call("DELETE", `/v1/todos/${parent.id}?purge=true`);
+    expect(res.status).toBe(200);
+    expect(await json(res)).toMatchObject({
+      type: "todo",
+      id: parent.id,
+      counts: { todos: 2 },
+      purged: true,
+    });
+    expect((await call("GET", `/v1/todos/${parent.id}`)).status).toBe(404);
+    expect((await call("GET", `/v1/todos/${sub.id}`)).status).toBe(404);
+    expect(db.select().from(todoReferences).all()).toEqual([]);
+    expect((await json(await call("GET", "/v1/trash"))).items).toEqual([]);
+  });
+
+  it("is not_found for an unknown or already deleted To-do", async () => {
+    const { call, parent } = await withSub();
+    expect((await call("DELETE", "/v1/todos/nope")).status).toBe(404);
+    await call("DELETE", `/v1/todos/${parent.id}`);
+    expect((await call("DELETE", `/v1/todos/${parent.id}`)).status).toBe(404);
+    expect(
+      (await call("POST", "/v1/restore", { type: "todo", id: "nope" })).status,
+    ).toBe(404);
+  });
+
+  it("refuses to restore a Sub-to-do while its parent is deleted", async () => {
+    const { call, parent, sub } = await withSub();
+    await call("DELETE", `/v1/todos/${parent.id}`);
+    const res = await call("POST", "/v1/restore", { type: "todo", id: sub.id });
+    expect(res.status).toBe(409);
+  });
+
+  it("does not let an agent purge, whoever deleted the To-do", async () => {
+    const s = setup();
+    const agent = createToken(s.db, { name: "bot", actor: "agent" });
+    const created = await s.json(
+      await s.call("POST", "/v1/todos", { title: "x" }),
+    );
+    const asAgent = (path: string) =>
+      s.app.request(path, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${agent.token}` },
+      });
+    expect((await asAgent(`/v1/todos/${created.id}`)).status).toBe(200);
+    expect(
+      (await asAgent(`/v1/todos/${created.id}?purge=true`)).status,
+    ).toBe(403);
+    expect((await s.call("GET", `/v1/todos/${created.id}`)).status).toBe(200);
+  });
+
+  it("keeps To-dos out of the MCP restore tool", () => {
+    expect(RESTORE_TYPES).not.toContain("todo");
+    expect(REST_RESTORE_TYPES).toContain("todo");
+  });
+});
+
 describe("auth", () => {
   it("requires a token on every To-do route", async () => {
     const { app } = setup();
@@ -399,6 +518,7 @@ describe("auth", () => {
       ["POST", "/v1/todos"],
       ["GET", "/v1/todos/x"],
       ["PATCH", "/v1/todos/x"],
+      ["DELETE", "/v1/todos/x"],
     ] as const) {
       expect(
         (await app.request(path, { method })).status,

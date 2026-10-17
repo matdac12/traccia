@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertDialog } from "radix-ui";
-import { FileImage, Flag, FolderKanban, Loader2, MessageSquare, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
+import { FileImage, Flag, FolderKanban, ListTodo, Loader2, MessageSquare, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { purgeAction, restoreAction } from "@/app/(app)/trash/actions";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import type { TrashItem, TrashType } from "@/lib/api/schemas";
 import { batchPeers, deletedByText, groupedRows, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL, togetherText } from "./trash-model";
 
-const ICON = { issue: SquareCheck, comment: MessageSquare, project: FolderKanban, milestone: Flag, attachment: FileImage } satisfies Record<TrashType, unknown>;
+const ICON = { issue: SquareCheck, comment: MessageSquare, project: FolderKanban, milestone: Flag, attachment: FileImage, todo: ListTodo } satisfies Record<TrashType, unknown>;
 
 type Notice = { kind: "ok" | "error"; text: string; href?: string | null };
 
@@ -75,7 +75,7 @@ export function TrashList({ items, all, group = true }: { items: TrashItem[]; al
         </div>
       ) : null}
       <ul>
-        {(group ? groupedRows(items, all) : items).map((t) => {
+        {groupedRows(items, all, group).map((t) => {
           const Icon = ICON[t.type];
           const together = batchPeers(t, all);
           return (
