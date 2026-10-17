@@ -24,6 +24,7 @@ Every route returns To-dos in this shape:
 - Both lists take `limit` (default 50, at most 250), `cursor` (the previous page's `nextCursor`) and `includeDeleted=true`, and return `{ items, nextCursor }`. `state` is required. A cursor only continues the list it came from.
 - `GET /v1/todos/:id` returns one To-do, a deleted one included.
 - `PATCH /v1/todos/:id` edits one To-do and returns it. See [Editing](#editing).
+- `DELETE /v1/todos/:id` deletes a To-do (`?purge=true` purges it). `POST /v1/restore` with `{ type: "todo", id }` restores it. See [Delete, restore and purge](#delete-restore-and-purge).
 
 ## Sub-to-dos
 
@@ -46,6 +47,14 @@ A Sub-to-do is a full To-do (own day, `details` and references) that hangs under
 ### Closing a parent
 
 A parent never closes on its own. Closing a To-do that has open Sub-to-dos (deleted ones don't count) without `closeSubTodos: true` is `409 conflict` with `details.openSubTodos: <n>`, and nothing is written. With `closeSubTodos: true` the open Sub-to-dos close the same way (done to done, dropped to dropped) with the same `closedAt`, in the same transaction. Sub-to-dos that are already done or dropped are left alone. The flag does nothing for a To-do without open Sub-to-dos. The `expectedUpdatedAt` check runs first.
+
+## Delete, restore and purge
+
+A To-do is deleted softly, restored by batch and purged in a second step, like every other item ([ADR 0004](adr/0004-soft-delete-batches-restricted-purge.md)). To-dos are a Trash type, `todo`: `GET /v1/trash?type=todo` lists them, with the title as `label` and `parentId` set on a Sub-to-do.
+
+- `DELETE /v1/todos/:id` hides the To-do and its live Sub-to-dos under one batch and returns `{ type: "todo", id, batch, counts, title, purged: false }`; `counts.todos` is how many it hid. Deleting a Sub-to-do hides only that Sub-to-do. A deleted To-do leaves `GET /v1/todos` lists unless `includeDeleted=true`, which shows it with `deleted: true`, and `PATCH` on it is `404 not_found`. An unknown or already deleted id is `404 not_found`.
+- `POST /v1/restore` with `{ "type": "todo", "id": "<id>" }` brings back the whole batch the To-do was deleted in. A Sub-to-do that was deleted on its own earlier stays in the Trash. Restoring a Sub-to-do while its parent is deleted is `409 conflict`: restore the parent. The `id` can be any member of the batch (a parent for its Sub-to-dos). Project references are kept across a delete and restore.
+- `DELETE /v1/todos/:id?purge=true` removes a To-do that is already deleted, together with its Sub-to-dos (those deleted earlier too) and all their Project references, and returns `{ type: "todo", id, counts, failedFiles: [], purged: true }`. A To-do that is not deleted is `409 conflict`. Purge follows the usual rule: an `agent` Token gets `403 forbidden` unless `ALLOW_AGENT_PURGE=true`. The types agents may always purge (memories and documents) do not include To-dos.
 
 ## Project references
 

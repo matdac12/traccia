@@ -109,6 +109,7 @@ export const trashQuerySchema = z.object({
       "attachment",
       "memory",
       "document",
+      "todo",
     ])
     .optional(),
   limit: limitText.optional(),

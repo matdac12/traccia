@@ -18,6 +18,22 @@ describe("groupedRows", () => {
   it("keeps a comment deleted on its own", () => {
     expect(groupedRows([lone], all)).toEqual([lone]);
   });
+  it("folds a Sub-to-do into its parent's row, even in a filtered list", () => {
+    const todo = (id: string, parentId: string | null, batch: string) => ({ ...item("todo", id, batch), parentId });
+    const parent = todo("t1", null, "bt");
+    const sub = todo("s1", "t1", "bt");
+    const early = todo("s2", "t1", "older");
+    const alone = todo("s3", "t9", "b9");
+    const rows = [parent, sub, early, alone];
+    expect(groupedRows(rows, rows).map((t) => t.id)).toEqual(["t1", "s2", "s3"]);
+    expect(groupedRows(rows, rows, false).map((t) => t.id)).toEqual(["t1", "s2", "s3"]);
+    expect(groupedRows([sub], rows)).toEqual([]);
+  });
+  it("describes the folded Sub-to-dos", () => {
+    const sub = (id: string) => ({ ...item("todo", id, "bt"), parentId: "t1" });
+    expect(togetherText([sub("a")])).toBe("with 1 sub-to-do");
+    expect(togetherText([sub("a"), sub("b")])).toBe("with 2 sub-to-dos");
+  });
   it("describes the folded children", () => {
     expect(togetherText([comment, attachment])).toBe("with 1 comment and 1 attachment");
   });

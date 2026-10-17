@@ -39,6 +39,7 @@ const PURGE_PATH: Record<TrashType, string> = {
   issue: "issues",
   comment: "comments",
   attachment: "attachments",
+  todo: "todos",
 };
 
 /** Permanently removes an item that is already in the trash (`you` actor only). */

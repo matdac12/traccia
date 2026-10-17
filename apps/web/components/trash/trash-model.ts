@@ -8,21 +8,27 @@ export const TYPE_LABEL: Record<TrashType, string> = {
   issue: "Issue",
   comment: "Comment",
   attachment: "Attachment",
+  todo: "To-do",
 };
 
-const PLURAL: Record<TrashType, [string, string]> = {
+/** What a trash summary counts: the Trash types, with Sub-to-dos told apart from To-dos. */
+type Counted = TrashType | "subtodo";
+
+const PLURAL: Record<Counted, [string, string]> = {
   project: ["project", "projects"],
   milestone: ["milestone", "milestones"],
   issue: ["issue", "issues"],
   comment: ["comment", "comments"],
   attachment: ["attachment", "attachments"],
+  todo: ["to-do", "to-dos"],
+  subtodo: ["sub-to-do", "sub-to-dos"],
 };
 
-export const pluralize = (type: TrashType, n: number) => `${n} ${PLURAL[type][n === 1 ? 0 : 1]}`;
+export const pluralize = (type: Counted, n: number) => `${n} ${PLURAL[type][n === 1 ? 0 : 1]}`;
 
 /** "2 comments and 1 attachment" */
-function describeCounts(byType: Partial<Record<TrashType, number>>): string {
-  const parts = (Object.keys(PLURAL) as TrashType[]).flatMap((t) => (byType[t] ? [pluralize(t, byType[t])] : []));
+function describeCounts(byType: Partial<Record<Counted, number>>): string {
+  const parts = (Object.keys(PLURAL) as Counted[]).flatMap((t) => (byType[t] ? [pluralize(t, byType[t])] : []));
   if (parts.length <= 1) return parts.join("");
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
 }
@@ -37,12 +43,20 @@ export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashIte
 }
 
 /**
- * The rows to list: comments and attachments deleted in the same batch as an issue are folded into that issue's
- * row (restoring the issue brings them back anyway), so one deletion is one row.
+ * The rows to list, so that one deletion is one row (restoring the parent brings the rest back anyway):
+ * a Sub-to-do deleted in the same batch as its parent folds into the parent's row, always. With `group`
+ * (the unfiltered list), comments and attachments deleted in the same batch as an issue fold into that
+ * issue's row too.
  */
-export function groupedRows(items: readonly TrashItem[], all: readonly TrashItem[]): TrashItem[] {
+export function groupedRows(items: readonly TrashItem[], all: readonly TrashItem[], group = true): TrashItem[] {
   const issueBatches = new Set(all.flatMap((o) => (o.type === "issue" && o.deletedBatch !== null ? [o.deletedBatch] : [])));
-  return items.filter((t) => !((t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)));
+  const withParent = (t: TrashItem) =>
+    t.type === "todo" && t.parentId !== null && all.some((o) => o.type === "todo" && o.id === t.parentId && o.deletedBatch === t.deletedBatch);
+  return items.filter(
+    (t) =>
+      !(group && (t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)) &&
+      !withParent(t),
+  );
 }
 
 /** Badge text for a row that was deleted together with other items: "with 1 comment and 1 attachment". */
@@ -53,7 +67,8 @@ export function togetherText(peers: readonly TrashItem[]): string {
 /**
  * Other trashed items that go away with `item` when it is purged, whatever batch they were deleted
  * in: a project takes everything that belongs to it; an issue its sub-issues and their comments and
- * attachments; a comment its replies and their attachments. A milestone or attachment goes alone.
+ * attachments; a comment its replies and their attachments; a To-do its Sub-to-dos. A milestone, attachment
+ * or Sub-to-do goes alone.
  */
 export function companions(item: TrashItem, all: readonly TrashItem[]): TrashItem[] {
   const others = all.filter((o) => !(o.type === item.type && o.id === item.id));
@@ -75,6 +90,8 @@ export function companions(item: TrashItem, all: readonly TrashItem[]): TrashIte
     }
     case "comment":
       return item.deletedBatch === null ? [] : others.filter((o) => o.deletedBatch === item.deletedBatch);
+    case "todo":
+      return item.parentId === null ? others.filter((o) => o.type === "todo" && o.parentId === item.id) : [];
     case "milestone":
     case "attachment":
       return [];
@@ -87,8 +104,11 @@ export function deletedByText(item: Pick<TrashItem, "deletedBy">): string {
 }
 
 export function summarize(items: readonly TrashItem[]): string {
-  const byType: Partial<Record<TrashType, number>> = {};
-  for (const i of items) byType[i.type] = (byType[i.type] ?? 0) + 1;
+  const byType: Partial<Record<Counted, number>> = {};
+  for (const i of items) {
+    const key: Counted = i.type === "todo" && i.parentId !== null ? "subtodo" : i.type;
+    byType[key] = (byType[key] ?? 0) + 1;
+  }
   return describeCounts(byType);
 }
 
@@ -106,12 +126,13 @@ export function purgeConfirmation(item: TrashItem, all: readonly TrashItem[]) {
 /** What a restore brought back, e.g. "Restored with 3 comments." */
 export function restoreSummary(result: RestoreResult): string {
   const { counts, type } = result;
-  const extra: Partial<Record<TrashType, number>> = {
+  const extra: Partial<Record<Counted, number>> = {
     project: counts.projects,
     milestone: counts.milestones,
     issue: counts.issues,
     comment: counts.comments,
     attachment: counts.attachments,
+    todo: counts.todos,
   };
   // Several items came back (the batch): list them all; a lone item just names its type.
   const total = Object.values(extra).reduce((a, b) => a + (b ?? 0), 0);
@@ -129,6 +150,7 @@ export function itemHref(item: Pick<TrashItem, "type" | "id" | "label" | "issueI
     case "attachment":
       return item.issueId ? `/issues/${encodeURIComponent(item.issueId)}` : null;
     case "milestone":
+    case "todo":
       return null;
   }
 }

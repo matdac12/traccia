@@ -40,4 +40,4 @@ The knowledge layer (ADR 0014) is project-scoped; the tool-level reference is [m
 
 ## Trash
 
-`GET /v1/trash?type=&limit=&cursor=`: deleted items of every type, newest deletion first. Generic `POST /v1/restore` belongs to TRC-31.
+`GET /v1/trash?type=&limit=&cursor=`: deleted items of every type, newest deletion first. Generic `POST /v1/restore` belongs to TRC-31. To-dos are a trash type too (`type=todo`); see [REST: To-dos](rest-todos.md#delete-restore-and-purge).
