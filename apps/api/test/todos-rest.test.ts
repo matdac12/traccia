@@ -1,5 +1,5 @@
 import { RESTORE_TYPES, REST_RESTORE_TYPES, todoSchema } from "@traccia/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { todoReferences } from "../src/db/schema.js";
 import { createServices } from "../src/service/index.js";
 import { createToken } from "../src/service/tokens.js";
@@ -623,6 +623,162 @@ describe("PATCH /v1/todos/:id/position", () => {
     );
     expect(ok.status).toBe(200);
     expect(await titles(t)).toEqual(["b", "a"]);
+  });
+});
+
+describe("Reminders", () => {
+  // Fixed clock: Saturday 12:00 in Rome.
+  const freeze = () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-17T10:00:00.000Z"));
+  };
+  afterEach(() => vi.useRealTimers());
+
+  it("POST turns remindAt into day and time, and returns the reminder", async () => {
+    freeze();
+    const { call, json } = setup();
+    const res = await call("POST", "/v1/todos", {
+      title: "Call the bank",
+      remindAt: "2026-10-18T15:00:00+02:00",
+    });
+    expect(res.status).toBe(201);
+    const todo = await json(res);
+    expect(todoSchema.parse(todo)).toEqual(todo);
+    expect(todo).toMatchObject({
+      day: "2026-10-18",
+      reminder: {
+        time: "15:00",
+        status: "pending",
+        failure: null,
+        sentAt: null,
+      },
+    });
+  });
+
+  it("POST takes time on a day, or on today", async () => {
+    freeze();
+    const { call, json } = setup();
+    const withDay = await json(
+      await call("POST", "/v1/todos", {
+        title: "a",
+        day: "2026-10-20",
+        time: "09:00",
+      }),
+    );
+    expect(withDay.reminder.time).toBe("09:00");
+    const today = await json(
+      await call("POST", "/v1/todos", { title: "b", time: "18:00" }),
+    );
+    expect(today).toMatchObject({
+      day: "2026-10-17",
+      reminder: { time: "18:00" },
+    });
+  });
+
+  it.each([
+    [
+      "time together with remindAt",
+      { time: "15:00", remindAt: "2026-10-18T15:00:00+02:00" },
+      "remindAt",
+    ],
+    [
+      "a remindAt without an offset",
+      { remindAt: "2026-10-18T15:00:00" },
+      "remindAt",
+    ],
+    ["a malformed time", { day: "2026-10-20", time: "9am" }, "time"],
+    ["a time with day null", { day: null, time: "09:00" }, "time"],
+    ["a past time today", { time: "09:00" }, "time"],
+    ["a past remindAt", { remindAt: "2026-10-17T11:00:00+02:00" }, "remindAt"],
+    [
+      "a day that disagrees with remindAt",
+      { day: "2026-10-19", remindAt: "2026-10-18T15:00:00+02:00" },
+      "day",
+    ],
+  ])("POST refuses %s with validation_error", async (_, body, field) => {
+    freeze();
+    const { call, json } = setup();
+    const res = await call("POST", "/v1/todos", { title: "x", ...body });
+    expect(res.status).toBe(400);
+    const { error } = await json(res);
+    expect(error.code).toBe("validation_error");
+    expect(error.details.fields).toHaveProperty(field);
+    const list = await json(await call("GET", "/v1/todos?state=open"));
+    expect(list.items).toEqual([]);
+  });
+
+  it("PATCH sets, moves and removes the Reminder", async () => {
+    freeze();
+    const { call, json } = setup();
+    const todo = await json(
+      await call("POST", "/v1/todos", {
+        title: "Pay rent",
+        day: "2026-10-20",
+        time: "09:00",
+      }),
+    );
+    const moved = await json(
+      await call("PATCH", `/v1/todos/${todo.id}`, { day: "2026-10-22" }),
+    );
+    expect(moved).toMatchObject({
+      day: "2026-10-22",
+      reminder: { time: "09:00", status: "pending" },
+    });
+    const retimed = await json(
+      await call("PATCH", `/v1/todos/${todo.id}`, { time: "10:30" }),
+    );
+    expect(retimed.reminder.time).toBe("10:30");
+    const removed = await json(
+      await call("PATCH", `/v1/todos/${todo.id}`, { time: null }),
+    );
+    expect(removed).toMatchObject({ day: "2026-10-22", reminder: null });
+    const again = await json(
+      await call("PATCH", `/v1/todos/${todo.id}`, { time: "08:00" }),
+    );
+    expect(again.reminder).toMatchObject({ time: "08:00", status: "pending" });
+    const anytime = await json(
+      await call("PATCH", `/v1/todos/${todo.id}`, { day: null }),
+    );
+    expect(anytime).toMatchObject({ day: null, reminder: null });
+  });
+
+  it.each([
+    ["a past time", { time: "09:00", day: "2026-10-17" }, "time"],
+    ["day: null together with time", { day: null, time: "09:00" }, "time"],
+    ["a malformed time", { time: "24:00" }, "time"],
+  ])("PATCH refuses %s with validation_error", async (_, body, field) => {
+    freeze();
+    const { call, json } = setup();
+    const todo = await json(
+      await call("POST", "/v1/todos", { title: "x", day: "2026-10-20" }),
+    );
+    const res = await call("PATCH", `/v1/todos/${todo.id}`, body);
+    expect(res.status).toBe(400);
+    const { error } = await json(res);
+    expect(error.code).toBe("validation_error");
+    expect(error.details.fields).toHaveProperty(field);
+  });
+
+  it("PATCH refuses to move a To-do with a Reminder to a day where it has passed", async () => {
+    freeze();
+    const { call, json } = setup();
+    const todo = await json(
+      await call("POST", "/v1/todos", {
+        title: "x",
+        day: "2026-10-20",
+        time: "09:00",
+      }),
+    );
+    const res = await call("PATCH", `/v1/todos/${todo.id}`, {
+      day: "2026-10-17",
+    });
+    expect(res.status).toBe(400);
+    expect((await json(res)).error.details.fields).toHaveProperty("day");
+    const same = await json(await call("GET", `/v1/todos/${todo.id}`));
+    expect(same).toMatchObject({
+      day: "2026-10-20",
+      reminder: { time: "09:00" },
+    });
   });
 });
 

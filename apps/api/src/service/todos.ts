@@ -24,6 +24,11 @@ import {
 } from "./context.js";
 import { POSITION_STEP, slotPosition } from "./issue-position.js";
 import {
+  newSchedule,
+  skippedOnReopen,
+  updatedSchedule,
+} from "./todo-reminder.js";
+import {
   deriveReferences,
   loadReferences,
   type TodoReference,
@@ -171,6 +176,91 @@ function closeOpenSubTodos(
     .run();
 }
 
+/** A live To-do, else `not_found` (a deleted one cannot be edited or moved). */
+function requireLiveTodo(db: DbHandle, id: string): TodoRecord {
+  const todo = findTodo(db, id);
+  if (todo.deletedAt !== null) {
+    throw new ServiceError("not_found", `To-do "${id}" not found`);
+  }
+  return todo;
+}
+
+/** A stale `expectedUpdatedAt` is a `conflict` that says the current one. */
+function requireFresh(todo: TodoRecord, expectedUpdatedAt?: string): void {
+  if (expectedUpdatedAt && expectedUpdatedAt !== todo.updatedAt) {
+    throw new ServiceError("conflict", "To-do was modified since it was read", {
+      currentUpdatedAt: todo.updatedAt,
+    });
+  }
+}
+
+type TodoChanges = Partial<typeof todos.$inferInsert>;
+
+/** Title and Details: the content, which never touches the Reminder. */
+function contentChanges(
+  todo: TodoRecord,
+  patch: Pick<UpdateTodoInput, "title" | "details">,
+): TodoChanges {
+  const set: TodoChanges = {};
+  if (patch.title !== undefined && patch.title !== todo.title) {
+    set.title = patch.title;
+  }
+  if (patch.details !== undefined) {
+    const details = patch.details || null;
+    if (details !== todo.details) set.details = details;
+  }
+  return set;
+}
+
+/**
+ * Planned day and Reminder: a new day sends the To-do to the bottom of that
+ * bucket, and a changed moment re-arms the Reminder (see `updatedSchedule`).
+ */
+function scheduleChanges(
+  tx: Tx,
+  todo: TodoRecord,
+  patch: Pick<UpdateTodoInput, "day" | "time">,
+  zone: string,
+  now: Date,
+): TodoChanges {
+  const { day, reminder } = updatedSchedule(todo, patch, zone, now);
+  const set: TodoChanges = { ...reminder };
+  if (day !== todo.day) {
+    set.day = day;
+    set.position = bottomOfBucket(tx, { day, parentId: todo.parentId });
+  }
+  return set;
+}
+
+/**
+ * Closing sets `closed_at` (and closes open Sub-to-dos, see
+ * `closeOpenSubTodos`); reopening clears it. A Reminder is untouched when
+ * closing; when reopening, `schedule` is the To-do as the patch leaves it,
+ * and a pending Reminder already past is skipped.
+ */
+function stateChanges(
+  tx: Tx,
+  todo: TodoRecord,
+  patch: Pick<UpdateTodoInput, "state" | "closeSubTodos">,
+  schedule: TodoChanges,
+  zone: string,
+  now: Date,
+): TodoChanges {
+  if (patch.state === undefined || patch.state === todo.state) return {};
+  if (patch.state !== "open") {
+    closeOpenSubTodos(
+      tx,
+      todo.id,
+      patch.state,
+      now.toISOString(),
+      patch.closeSubTodos,
+    );
+    return { state: patch.state, closedAt: now.toISOString() };
+  }
+  const skipped = skippedOnReopen({ ...todo, ...schedule }, zone, now);
+  return { state: "open", closedAt: null, ...skipped };
+}
+
 const invalidCursor = () =>
   new ServiceError("validation_error", "Invalid cursor", {
     fields: { cursor: ["Invalid cursor"] },
@@ -220,23 +310,25 @@ export function createTodosService(ctx: ServiceContext) {
     create(actor: Actor, tokenName: string, input: CreateTodoInput): TodoView {
       const data = parseInput(createTodoInputSchema, input);
       return ctx.write((tx) => {
-        const now = nowIso();
-        const day = data.day ?? null;
+        const now = new Date();
+        const stamp = now.toISOString();
         const parentId = data.parentId ?? null;
         if (parentId !== null) requireParent(tx, parentId);
+        const { day, reminder } = newSchedule(data, ctx.ownerTimezone, now);
         const row = tx
           .insert(todos)
           .values({
             id: newId(),
             title: data.title,
             day,
+            ...reminder,
             parentId,
             position: bottomOfBucket(tx, { day, parentId }),
             details: data.details || null,
             createdBy: actor,
             createdByToken: tokenName,
-            createdAt: now,
-            updatedAt: now,
+            createdAt: stamp,
+            updatedAt: stamp,
           })
           .returning()
           .get();
@@ -251,7 +343,9 @@ export function createTodosService(ctx: ServiceContext) {
      * `state` closes (`closed_at` is set) or reopens it (cleared). Closing a
      * To-do with open Sub-to-dos is a `conflict` carrying `openSubTodos`
      * unless `closeSubTodos` is true, which closes them the same way in the
-     * same write. A stale `expectedUpdatedAt` is a `conflict` too.
+     * same write. `time` sets or (null) removes the Reminder; `day: null`
+     * removes it too; a changed moment must be in the future and re-arms it.
+     * A stale `expectedUpdatedAt` is a `conflict` too.
      */
     update(id: string, input: UpdateTodoInput): TodoView {
       const { expectedUpdatedAt, closeSubTodos, ...patch } = parseInput(
@@ -262,48 +356,33 @@ export function createTodosService(ctx: ServiceContext) {
         throw new ServiceError("validation_error", "No fields to update");
       }
       return ctx.write((tx) => {
-        const todo = findTodo(tx, id);
-        if (todo.deletedAt !== null) {
-          throw new ServiceError("not_found", `To-do "${id}" not found`);
-        }
-        if (expectedUpdatedAt && expectedUpdatedAt !== todo.updatedAt) {
-          throw new ServiceError(
-            "conflict",
-            "To-do was modified since it was read",
-            { currentUpdatedAt: todo.updatedAt },
-          );
-        }
-        const now = nowIso();
-        const set: Partial<typeof todos.$inferInsert> = {};
-
-        if (patch.title !== undefined && patch.title !== todo.title) {
-          set.title = patch.title;
-        }
-        if (patch.details !== undefined) {
-          const details = patch.details || null;
-          if (details !== todo.details) set.details = details;
-        }
-        if (patch.day !== undefined && patch.day !== todo.day) {
-          set.day = patch.day;
-          set.position = bottomOfBucket(tx, {
-            day: patch.day,
-            parentId: todo.parentId,
-          });
-        }
-        if (patch.state !== undefined && patch.state !== todo.state) {
-          set.state = patch.state;
-          if (patch.state === "open") {
-            set.closedAt = null;
-          } else {
-            set.closedAt = now;
-            closeOpenSubTodos(tx, todo.id, patch.state, now, closeSubTodos);
-          }
-        }
+        const todo = requireLiveTodo(tx, id);
+        requireFresh(todo, expectedUpdatedAt);
+        const now = new Date();
+        const schedule = scheduleChanges(
+          tx,
+          todo,
+          patch,
+          ctx.ownerTimezone,
+          now,
+        );
+        const set: TodoChanges = {
+          ...contentChanges(todo, patch),
+          ...schedule,
+          ...stateChanges(
+            tx,
+            todo,
+            { state: patch.state, closeSubTodos },
+            schedule,
+            ctx.ownerTimezone,
+            now,
+          ),
+        };
 
         if (Object.keys(set).length === 0) return view(tx, todo);
         const row = tx
           .update(todos)
-          .set({ ...set, updatedAt: now })
+          .set({ ...set, updatedAt: now.toISOString() })
           .where(eq(todos.id, todo.id))
           .returning()
           .get();
@@ -324,20 +403,8 @@ export function createTodosService(ctx: ServiceContext) {
     move(id: string, input: MoveTodoPositionInput): TodoView {
       const data = parseInput(moveTodoPositionInputSchema, input);
       return ctx.write((tx) => {
-        const todo = findTodo(tx, id);
-        if (todo.deletedAt !== null) {
-          throw new ServiceError("not_found", `To-do "${id}" not found`);
-        }
-        if (
-          data.expectedUpdatedAt &&
-          data.expectedUpdatedAt !== todo.updatedAt
-        ) {
-          throw new ServiceError(
-            "conflict",
-            "To-do was modified since it was read",
-            { currentUpdatedAt: todo.updatedAt },
-          );
-        }
+        const todo = requireLiveTodo(tx, id);
+        requireFresh(todo, data.expectedUpdatedAt);
         const bucket = tx
           .select()
           .from(todos)

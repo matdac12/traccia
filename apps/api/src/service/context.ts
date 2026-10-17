@@ -36,6 +36,8 @@ export type ServiceContext = {
   defaultIssueKey: string;
   /** `ALLOW_AGENT_PURGE`: whether `agent` may purge (see `canPurge`). */
   allowAgentPurge: boolean;
+  /** `OWNER_TIMEZONE`: the zone of Planned days and Reminders (Owner timezone). */
+  ownerTimezone: string;
   /** Where purge deletes attachment files; absent in tests that don't need files. */
   storage?: AttachmentStorage;
   /**
@@ -51,6 +53,8 @@ export function createServiceContext(options: {
   db: Db;
   defaultIssueKey: string;
   allowAgentPurge?: boolean;
+  /** Defaults to `Europe/Rome`, like `OWNER_TIMEZONE`. */
+  ownerTimezone?: string;
   storage?: AttachmentStorage;
 }): ServiceContext {
   const { db, defaultIssueKey } = options;
@@ -58,6 +62,7 @@ export function createServiceContext(options: {
     db,
     defaultIssueKey,
     allowAgentPurge: options.allowAgentPurge ?? false,
+    ownerTimezone: options.ownerTimezone ?? "Europe/Rome",
     storage: options.storage,
     write: (fn) => db.transaction(fn, { behavior: "immediate" }),
   };

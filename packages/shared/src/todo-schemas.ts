@@ -70,32 +70,86 @@ export const todoSchema = z.object({
 });
 export type Todo = z.infer<typeof todoSchema>;
 
-/** `POST /v1/todos`. */
-export const createTodoInputSchema = z.object({
-  title: todoTitleSchema,
-  /** Omit or null for Anytime. */
-  day: dateOnlySchema.nullable().optional(),
-  /** Makes it a Sub-to-do: an open, top-level, live To-do. */
-  parentId: z.string().min(1).optional(),
-  /** Markdown. */
-  details: z.string().optional(),
+/** `HH:MM`, 00:00 to 23:59: the time of a Reminder on the Planned day. */
+export const reminderTimeSchema = z
+  .string()
+  .regex(
+    /^([01]\d|2[0-3]):[0-5]\d$/,
+    "must be formatted HH:MM (00:00 to 23:59)",
+  );
+
+/** An ISO 8601 moment that carries its UTC offset (or `Z`). */
+export const remindAtSchema = z.iso.datetime({
+  offset: true,
+  error:
+    "must be an ISO 8601 date and time with an offset, e.g. 2026-10-18T15:00:00+02:00",
 });
+
+/** `POST /v1/todos`. */
+export const createTodoInputSchema = z
+  .object({
+    title: todoTitleSchema,
+    /** Omit or null for Anytime. */
+    day: dateOnlySchema.nullable().optional(),
+    /**
+     * Sets a Reminder at this time on `day` (today when `day` is omitted), in
+     * the Owner timezone. Not together with `remindAt`.
+     */
+    time: reminderTimeSchema.optional(),
+    /**
+     * Sets the Reminder from one moment: it becomes `day` and `time` in the
+     * Owner timezone, seconds dropped. Not together with `time`.
+     */
+    remindAt: remindAtSchema.optional(),
+    /** Makes it a Sub-to-do: an open, top-level, live To-do. */
+    parentId: z.string().min(1).optional(),
+    /** Markdown. */
+    details: z.string().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.time !== undefined && input.remindAt !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["remindAt"],
+        message: "must not be sent together with time",
+      });
+    }
+    if (input.time !== undefined && input.day === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["time"],
+        message: "needs a day: omit day or send one",
+      });
+    }
+  });
 export type CreateTodoInput = z.input<typeof createTodoInputSchema>;
 
 /**
- * `PATCH /v1/todos/:id`: partial. `day: null` makes it Anytime; an empty
- * `details` clears it. `closeSubTodos` only matters when `state` closes a
- * To-do that has open Sub-to-dos. `time` joins with Reminders (a later step).
+ * `PATCH /v1/todos/:id`: partial. `day: null` makes it Anytime and removes the
+ * Reminder; `time` sets the Reminder (`null` removes it); an empty `details`
+ * clears it. `closeSubTodos` only matters when `state` closes a To-do that has
+ * open Sub-to-dos.
  */
-export const updateTodoInputSchema = z.object({
-  title: todoTitleSchema.optional(),
-  day: dateOnlySchema.nullable().optional(),
-  details: z.string().optional(),
-  state: z.enum(TODO_STATES).optional(),
-  closeSubTodos: z.boolean().optional(),
-  /** Optimistic concurrency: the `updatedAt` the caller last saw. */
-  expectedUpdatedAt: z.string().optional(),
-});
+export const updateTodoInputSchema = z
+  .object({
+    title: todoTitleSchema.optional(),
+    day: dateOnlySchema.nullable().optional(),
+    time: reminderTimeSchema.nullable().optional(),
+    details: z.string().optional(),
+    state: z.enum(TODO_STATES).optional(),
+    closeSubTodos: z.boolean().optional(),
+    /** Optimistic concurrency: the `updatedAt` the caller last saw. */
+    expectedUpdatedAt: z.string().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.day === null && typeof input.time === "string") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["time"],
+        message: "cannot be set while day is null: Anytime has no Reminder",
+      });
+    }
+  });
 export type UpdateTodoInput = z.input<typeof updateTodoInputSchema>;
 
 /**

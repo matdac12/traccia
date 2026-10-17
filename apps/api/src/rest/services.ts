@@ -22,6 +22,7 @@ export function servicesFor(container: AppContainer): Services {
       db,
       defaultIssueKey: config.defaultIssueKey,
       allowAgentPurge: config.allowAgentPurge,
+      ownerTimezone: config.ownerTimezone,
       storage: fileStorageFor(container),
     });
     cache.set(container, services);

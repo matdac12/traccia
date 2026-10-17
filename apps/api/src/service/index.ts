@@ -69,6 +69,7 @@ export function createServices(options: {
   db: Db;
   defaultIssueKey: string;
   allowAgentPurge?: boolean;
+  ownerTimezone?: string;
   storage?: AttachmentStorage;
 }) {
   const ctx = createServiceContext(options);
