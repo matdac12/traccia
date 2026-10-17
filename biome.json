@@ -8,6 +8,8 @@
       "!**/.next",
       "!**/data",
       "!**/__snapshots__",
+      "!**/src-tauri/target",
+      "!**/src-tauri/gen",
       "!.claude",
       "!prototypes",
       "!.agents",
