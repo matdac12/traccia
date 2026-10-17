@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { accessConfigFromEnv, parseLogins } from "./access";
+import { isTimeZone } from "./time-zone";
 
 /**
  * Server environment, validated once at startup (`instrumentation.ts`) and on first use.
@@ -11,12 +12,15 @@ const envSchema = z.object({
   TRACCIA_API_TOKEN: z.string().min(1, "must be a `you` token from `traccia token create`"),
   DASHBOARD_ALLOWED_LOGINS: z.string().default(""),
   DASHBOARD_DEV_LOGIN: z.string().optional(),
+  /** Same variable and default as the API: where a Planned day starts and ends in the Personal Space. */
+  OWNER_TIMEZONE: z.string().default("Europe/Rome").refine(isTimeZone, "must be an IANA time zone such as Europe/Rome"),
 });
 
 export type Env = {
   apiUrl: string;
   apiToken: string;
   access: ReturnType<typeof accessConfigFromEnv>;
+  ownerTimezone: string;
 };
 
 export class EnvError extends Error {
@@ -63,5 +67,6 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     apiUrl: e.TRACCIA_API_URL.replace(/\/+$/, ""),
     apiToken: e.TRACCIA_API_TOKEN,
     access: accessConfigFromEnv({ ...cleaned, NODE_ENV: e.NODE_ENV }),
+    ownerTimezone: e.OWNER_TIMEZONE,
   };
 }

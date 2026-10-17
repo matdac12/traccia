@@ -26,6 +26,7 @@ pnpm dev          # http://localhost:3000
 | `TRACCIA_API_TOKEN` | yes | A `you` token. Server only, never `NEXT_PUBLIC_`. |
 | `DASHBOARD_ALLOWED_LOGINS` | yes in production | Comma-separated Tailscale logins (case-insensitive). |
 | `DASHBOARD_DEV_LOGIN` | no | Local-development bypass of the access check. **Refused when `NODE_ENV=production`.** |
+| `OWNER_TIMEZONE` | no | IANA zone where a day starts and ends in the Personal Space (`/personal`), default `Europe/Rome`. Set it to the API's value; an unknown zone fails startup. |
 
 The env is validated with Zod at server start (`instrumentation.ts`, `lib/env.ts`): a bad env prints every problem
 and exits with code 1.
@@ -128,9 +129,10 @@ lib/access.ts          pure access decision
 lib/env.ts             Zod env schema, pure (server-env.ts: server-only cached read)
 lib/api/               server-only API client, response schemas, per-resource functions
 lib/session.ts         current login for display
-app/(app)/             shell layout + pages (issues, projects, trash)
+app/(app)/             shell layout + pages (issues, projects, trash, personal)
 components/ui/         shadcn primitives
 components/traccia/    app components
+components/personal/   Personal Space page (TRC-159); lib/personal/ holds its pure helpers
 components/issue-detail/  issue page (TRC-47); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
@@ -174,6 +176,25 @@ change" (patches are rebuilt against the fresh issue, and title/description are 
 Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search prefix-matches the last word (so `perch` finds `perché`); the blocker/parent picker also looks `MAT-12`-style input up directly.
+
+## Personal Space (`/personal`, TRC-159)
+
+Spec: `docs/personal-space.md` §7. The page is `app/(app)/personal/page.tsx`; its components live in
+`components/personal/` and the pure helpers in `lib/personal/` (`days.ts` for Planned days in the Owner timezone,
+`lists.ts` for what each list shows and the menu counts, `title.ts` for Project chips). "Personal" (lucide `Sun`) is
+the first sidebar item, above Issues.
+
+- **Data.** `loadPersonalSpace` (`lib/api/todos.ts`) dates today in `OWNER_TIMEZONE`, then reads every open To-do
+  (`GET /todos?state=open`, following `nextCursor`) and the Logbook only as far back as today
+  (`GET /todos?state=closed`, newest first). Two requests, plus one per extra page. The page renders it on the server;
+  the live refresh (TRC-52) polls the same function through `GET /api/todos`, so a page left open across midnight
+  rolls over to the new day on its next refresh.
+- **Sub-to-do counts.** The row's `n/m` comes from `withSubTodoCounts` (dropped ones are left out), which only sees
+  the Sub-to-dos the page loaded: those closed on an earlier day are missing until the API sends `subTodos` itself
+  (TRC-177).
+- **Lists.** The list menu (`list-menu.tsx`) is a column on a laptop and a scrolling strip below `md`; the chosen list
+  is page state, not in the URL. Today is built; Upcoming, Anytime, Logbook and By project are placeholders until
+  TRC-163. Rows are display only until TRC-161.
 
 ## Browser smoke tests (`pnpm test:e2e`, TRC-61)
 

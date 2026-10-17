@@ -4,6 +4,7 @@ import { filtersToApiQuery, visibleStatuses, type IssueFilters } from "../issue-
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
 import { ApiError, api } from "./client";
+import { listAll } from "./list-all";
 import { issueDetailSchema, issueGroupsSchema, issueRefSchema, issueSchema, labelSchema, milestoneSchema, pageOf, restoreResultSchema, searchHitSchema } from "./schemas";
 
 /** Issues per status group per request: the table never loads the whole list. */
@@ -76,17 +77,6 @@ export async function latestIssueChange(since?: string): Promise<string | null> 
     query: { updatedAfter: since, includeDeleted: true, orderBy: "updatedAt", order: "desc", limit: 1 },
   });
   return page.items[0]?.updatedAt ?? null;
-}
-
-async function listAll<T extends z.ZodType>(path: string, item: T, query: Record<string, string | undefined> = {}) {
-  const items: z.output<T>[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await api().request(path, { schema: pageOf(item), query: { ...query, limit: 250, cursor } });
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor);
-  return items;
 }
 
 /** Global labels; with `project`, also that project's own labels. */
