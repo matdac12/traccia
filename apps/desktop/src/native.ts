@@ -47,6 +47,13 @@ export function hideWindow(): Promise<void> {
   return isTauri() ? invoke("hide_window") : Promise.resolve();
 }
 
+/** Opens a To-do's `url` in the default browser (commands.rs `open_url`, http and https only). */
+export function openUrl(url: string): Promise<void> {
+  if (isTauri()) return invoke("open_url", { url });
+  window.open(url, "_blank", "noopener");
+  return Promise.resolve();
+}
+
 /** `api(method, path, body)` (commands.rs): the request with the saved API URL and Token. */
 export const sendApi: Transport = (method, path, body) =>
   isTauri()

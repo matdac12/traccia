@@ -1,24 +1,42 @@
-import { Bell, Check } from "lucide-react";
+import { Bell, Check, X } from "lucide-react";
+import type { MouseEvent } from "react";
 import type { Project, Todo } from "./api-client";
 import { dayLabel } from "./days";
 import { buildSections, headingOf } from "./list";
+import type { CascadeConfirm } from "./row-actions";
 import { titleSegments } from "./title";
 
+/** What a row can ask for (docs/desktop-app.md §4); the list itself holds no state. */
+export type RowHandlers = {
+  onSelect: (id: string) => void;
+  onToggle: (id: string) => void;
+  onDrop: (id: string) => void;
+  onOpen: (todo: Todo) => void;
+  onConfirmCascade: () => void;
+  onCancelCascade: () => void;
+};
+
 /**
- * The open To-dos of variant G (docs/desktop-app.md §3.2 and §3.3): one scrolling list with sticky section
- * headings. Checking, dropping and opening a row come with step 04.
+ * The To-dos of variant G (docs/desktop-app.md §3.2 and §3.3): one scrolling list with sticky section headings.
+ * Rows closed during this show stay, struck through.
  */
 export function TodoList({
   todos,
   projects,
   today,
   offline,
+  selectedId,
+  confirm,
+  handlers,
 }: {
   todos: Todo[];
   projects: Project[];
   today: string;
   /** Changes are off: the checks are disabled. */
   offline: boolean;
+  selectedId: string | null;
+  confirm: CascadeConfirm | null;
+  handlers: RowHandlers;
 }) {
   const byId = new Map(todos.map((t) => [t.id, t]));
   const names = new Map(projects.map((p) => [p.id, p.name]));
@@ -47,14 +65,20 @@ export function TodoList({
               </p>
             ) : (
               section.items.map((todo) => (
-                <Row
-                  key={todo.id}
-                  todo={todo}
-                  parent={todo.parentId ? byId.get(todo.parentId) : undefined}
-                  names={names}
-                  showDay={section.kind === "overdue"}
-                  offline={offline}
-                />
+                <div key={todo.id}>
+                  <Row
+                    todo={todo}
+                    parent={todo.parentId ? byId.get(todo.parentId) : undefined}
+                    names={names}
+                    showDay={section.kind === "overdue"}
+                    offline={offline}
+                    selected={todo.id === selectedId}
+                    handlers={handlers}
+                  />
+                  {confirm?.id === todo.id && (
+                    <CascadeLine confirm={confirm} handlers={handlers} />
+                  )}
+                </div>
               ))
             )}
           </section>
@@ -64,45 +88,85 @@ export function TodoList({
   );
 }
 
+const CHECK_TONE = {
+  open: "border-input hover:border-primary disabled:hover:border-input",
+  done: "border-primary bg-primary text-primary-foreground",
+  dropped: "border-muted-foreground text-muted-foreground",
+} as const;
+
 function Row({
   todo,
   parent,
   names,
   showDay,
   offline,
+  selected,
+  handlers,
 }: {
   todo: Todo;
   parent: Todo | undefined;
   names: Map<string, string>;
   showDay: boolean;
   offline: boolean;
+  selected: boolean;
+  handlers: RowHandlers;
 }) {
   const subs = todo.subTodos;
+  const open = todo.state === "open";
+  /** A click on a part of the row: selects the row too. */
+  const act = (run: () => void) => (event: MouseEvent) => {
+    event.stopPropagation();
+    handlers.onSelect(todo.id);
+    run();
+  };
   return (
+    // Clicking the row's empty area selects it; right-click drops it (§4). The list's keyboard selection (↑ ↓,
+    // Space, Del, Enter) is the keyboard way to do the same.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard selection lives on the list, not on each row.
+    // biome-ignore lint/a11y/noStaticElementInteractions: as above.
     <div
       data-todo={todo.id}
-      className="relative mx-1.5 flex min-h-[34px] items-center gap-2.5 rounded-md px-2.5 py-1 hover:bg-accent"
+      data-state={todo.state}
+      data-selected={selected || undefined}
+      onClick={() => handlers.onSelect(todo.id)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        act(() => handlers.onDrop(todo.id))(event);
+      }}
+      className={`relative mx-1.5 flex min-h-[34px] items-center gap-2.5 rounded-md px-2.5 py-1 hover:bg-accent ${selected ? "bg-accent shadow-[inset_2px_0_0_var(--primary)]" : ""}`}
     >
       <button
         type="button"
-        aria-label="Mark done"
+        aria-label={open ? "Mark done" : "Reopen"}
         disabled={offline}
-        className="group grid size-[18px] flex-none place-items-center rounded-full border-[1.5px] border-input hover:border-primary disabled:hover:border-input"
+        onClick={act(() => handlers.onToggle(todo.id))}
+        className={`grid size-[18px] flex-none place-items-center rounded-full border-[1.5px] ${CHECK_TONE[todo.state]}`}
       >
-        <Check
-          className="size-[11px] opacity-0"
-          strokeWidth={3.2}
-          aria-hidden="true"
-        />
+        {todo.state === "dropped" ? (
+          <X className="size-[11px]" strokeWidth={3} aria-hidden="true" />
+        ) : (
+          <Check
+            className={`size-[11px] ${open ? "opacity-0" : ""}`}
+            strokeWidth={3.2}
+            aria-hidden="true"
+          />
+        )}
       </button>
-      <span className="min-w-0 flex-1 leading-[1.35]">
-        <Title todo={todo} names={names} />
+      <button
+        type="button"
+        title="Open in the dashboard"
+        onClick={act(() => handlers.onOpen(todo))}
+        className="todo-title min-w-0 flex-1 cursor-pointer text-left leading-[1.35]"
+      >
+        <span className="todo-strike">
+          <Title todo={todo} names={names} />
+        </span>
         {parent && (
           <span className="mt-px block truncate text-[11px] text-muted-foreground opacity-80">
             ↳ <Title todo={parent} names={names} />
           </span>
         )}
-      </span>
+      </button>
       {subs && subs.total > 0 && (
         <span
           className="flex-none font-mono text-[10.5px] text-muted-foreground tabular-nums"
@@ -117,6 +181,44 @@ function Row({
           {dayLabel(todo.day, "weekday")}
         </span>
       )}
+    </div>
+  );
+}
+
+/** "Also mark 2 open Sub-to-dos done? [Yes ↵] [Cancel]" under the parent (§4). */
+function CascadeLine({
+  confirm,
+  handlers,
+}: {
+  confirm: CascadeConfirm;
+  handlers: RowHandlers;
+}) {
+  const subs = confirm.count === 1 ? "Sub-to-do" : "Sub-to-dos";
+  return (
+    <div
+      data-cascade={confirm.id}
+      className="mt-0.5 mr-4 mb-1.5 ml-11 flex items-center gap-2 rounded-md border bg-surface px-2.5 py-2 text-xs"
+    >
+      <span className="flex-1">
+        Also mark {confirm.count} open {subs} {confirm.state}?
+      </span>
+      <button
+        type="button"
+        onClick={handlers.onConfirmCascade}
+        className="inline-flex h-6 items-center gap-1 rounded-[5px] bg-primary px-[9px] font-medium text-primary-foreground"
+      >
+        Yes
+        <kbd className="rounded-[3px] border border-black/20 px-1 font-mono text-[10px] font-normal">
+          ↵
+        </kbd>
+      </button>
+      <button
+        type="button"
+        onClick={handlers.onCancelCascade}
+        className="h-6 rounded-[5px] border bg-card px-[9px]"
+      >
+        Cancel
+      </button>
     </div>
   );
 }

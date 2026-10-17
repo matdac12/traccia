@@ -4,7 +4,9 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
+import type { UpdateTodoInput } from "@traccia/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiMethod, ApiOutcome } from "../src/api-client";
 import type { SavedSettings, SettingsForm } from "../src/settings";
@@ -23,6 +25,7 @@ const fresh: SavedSettings = {
 
 const native = vi.hoisted(() => ({
   hideWindow: vi.fn(() => Promise.resolve()),
+  openUrl: vi.fn((_url: string) => Promise.resolve()),
   loadSettings: vi.fn<() => Promise<SavedSettings>>(),
   saveSettings: vi.fn<(form: SettingsForm) => Promise<SavedSettings>>(),
   testConnection:
@@ -68,14 +71,42 @@ const api = {
   offline: false,
 };
 
+/** `PATCH /v1/todos/:id` as the API does it, with the 409 for a parent's open Sub-to-dos. */
+function patchTodo(path: string, input: UpdateTodoInput): ApiOutcome {
+  const id = decodeURIComponent(path.replace("/v1/todos/", ""));
+  const found = api.todos.find((t) => t.id === id);
+  if (!found || !input.state)
+    return { kind: "response", status: 404, body: "" };
+  const subs = api.todos.filter((t) => t.parentId === id && t.state === "open");
+  if (input.state !== "open" && subs.length > 0 && !input.closeSubTodos) {
+    return {
+      kind: "response",
+      status: 409,
+      body: JSON.stringify({
+        error: {
+          code: "conflict",
+          message: `To-do has ${subs.length} open Sub-to-dos`,
+          details: { openSubTodos: subs.length },
+        },
+      }),
+    };
+  }
+  for (const t of input.state === "open" ? [found] : [found, ...subs])
+    t.state = input.state;
+  return { kind: "response", status: 200, body: JSON.stringify(found) };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   api.todos = [];
   api.projects = [];
   api.offline = false;
-  native.sendApi.mockImplementation(async (_method, path) => {
+  native.sendApi.mockImplementation(async (method, path, body) => {
     if (api.offline) return { kind: "offline", reason: "could not connect" };
-    const items = path.startsWith("/v1/projects") ? api.projects : api.todos;
+    if (method === "PATCH") return patchTodo(path, body as UpdateTodoInput);
+    const items = path.startsWith("/v1/projects")
+      ? api.projects
+      : api.todos.filter((t) => t.state === "open");
     return {
       kind: "response",
       status: 200,
@@ -406,5 +437,183 @@ describe("the list", () => {
       }),
     );
     expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
+  });
+});
+
+describe("actions on rows", () => {
+  const patches = () =>
+    native.sendApi.mock.calls
+      .filter(([method]) => method === "PATCH")
+      .map(([, path, body]) => [path, body]);
+  /** The row titled `title`, not a Sub-to-do's "↳ title" line. */
+  const row = (title: string) =>
+    screen
+      .getAllByText(title)
+      .find((el) => el.closest(".todo-strike"))
+      ?.closest("[data-todo]") as HTMLElement;
+  const key = (key: string, init: KeyboardEventInit = {}) =>
+    fireEvent.keyDown(document.body, { key, ...init });
+
+  async function showList(...todos: ReturnType<typeof todo>[]) {
+    api.todos = todos;
+    await renderApp(configured);
+    await screen.findAllByText(todos[0]?.title as string);
+  }
+
+  it("marks done from the check, struck through until the window hides", async () => {
+    await showList(todo({ id: "td_gym", title: "Gym" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark done" }));
+    expect(row("Gym").dataset.state).toBe("done");
+    await act(async () => {});
+    expect(patches()).toEqual([["/v1/todos/td_gym", { state: "done" }]]);
+    expect(screen.getByRole("button", { name: "Reopen" })).toBeTruthy();
+
+    act(() => native.setShown?.(false));
+    act(() => native.setShown?.(true));
+    await act(async () => {});
+    expect(screen.queryByText("Gym")).toBeNull();
+  });
+
+  it("asks before closing a parent with open Sub-to-dos; Enter closes all three", async () => {
+    const trip = todo({ id: "td_trip", title: "Trip" });
+    await showList(
+      trip,
+      todo({ title: "Pack", parentId: trip.id }),
+      todo({ title: "Book", parentId: trip.id }),
+    );
+    fireEvent.click(
+      within(row("Trip")).getByRole("button", { name: "Mark done" }),
+    );
+    await act(async () => {});
+    expect(screen.getByText("Also mark 2 open Sub-to-dos done?")).toBeTruthy();
+
+    key("Enter");
+    await act(async () => {});
+    expect(patches().at(-1)).toEqual([
+      "/v1/todos/td_trip",
+      { state: "done", closeSubTodos: true },
+    ]);
+    expect(api.todos.map((t) => t.state)).toEqual(["done", "done", "done"]);
+    expect(screen.queryByText(/Also mark/)).toBeNull();
+    expect(["Trip", "Pack", "Book"].map((t) => row(t).dataset.state)).toEqual([
+      "done",
+      "done",
+      "done",
+    ]);
+  });
+
+  it("Esc cancels the confirm without hiding the window", async () => {
+    const trip = todo({ id: "td_trip", title: "Trip" });
+    await showList(trip, todo({ title: "Pack", parentId: trip.id }));
+    fireEvent.contextMenu(row("Trip"));
+    await act(async () => {});
+    expect(
+      screen.getByText("Also mark 1 open Sub-to-do dropped?"),
+    ).toBeTruthy();
+    key("Escape");
+    expect(screen.queryByText(/Also mark/)).toBeNull();
+    expect(native.hideWindow).not.toHaveBeenCalled();
+    expect(api.todos.map((t) => t.state)).toEqual(["open", "open"]);
+  });
+
+  it("selects with ↑ ↓; Space marks done, Del drops and Ctrl+Z reopens", async () => {
+    await showList(todo({ title: "Gym" }), todo({ title: "Shop" }));
+    key("ArrowDown");
+    expect(row("Gym").dataset.selected).toBe("true");
+    key("ArrowDown");
+    expect(row("Shop").dataset.selected).toBe("true");
+    expect(row("Gym").dataset.selected).toBeUndefined();
+
+    key(" ");
+    await act(async () => {});
+    expect(row("Shop").dataset.state).toBe("done");
+
+    key("ArrowUp");
+    key("Delete");
+    await act(async () => {});
+    expect(row("Gym").dataset.state).toBe("dropped");
+    expect(screen.getByRole("status").textContent).toBe("Dropped “Gym”Undo");
+
+    key("z", { ctrlKey: true });
+    await act(async () => {});
+    expect(row("Gym").dataset.state).toBe("open");
+    expect(api.todos.map((t) => t.state)).toEqual(["open", "done"]);
+    expect(screen.queryByText(/Dropped/)).toBeNull();
+  });
+
+  it("opens the selected To-do's url on Enter, and a title's on click", async () => {
+    const gym = todo({ title: "Gym" });
+    const shop = todo({ title: "Shop" });
+    await showList(gym, shop);
+    key("ArrowDown");
+    key("Enter");
+    expect(native.openUrl).toHaveBeenLastCalledWith(gym.url);
+    fireEvent.click(screen.getByText("Shop"));
+    expect(native.openUrl).toHaveBeenLastCalledWith(shop.url);
+    expect(row("Shop").dataset.selected).toBe("true");
+    expect(patches()).toEqual([]);
+  });
+
+  it("acts on the selection even with the focus left on a clicked check", async () => {
+    await showList(todo({ title: "Gym" }), todo({ title: "Shop" }));
+    const check = within(row("Gym")).getByRole("button", { name: "Mark done" });
+    fireEvent.click(check);
+    await act(async () => {});
+    key("ArrowDown");
+    expect(row("Shop").dataset.selected).toBe("true");
+    const spaceOnCheck = fireEvent.keyDown(check, { key: " " });
+    await act(async () => {});
+    // Taken by the list: the focused check's own click doesn't happen.
+    expect(spaceOnCheck).toBe(false);
+    expect(row("Shop").dataset.state).toBe("done");
+    expect(row("Gym").dataset.state).toBe("done");
+  });
+
+  it("says so when a link won't open", async () => {
+    await showList(todo({ title: "Gym" }));
+    native.openUrl.mockRejectedValueOnce("The To-do's link is not a web address");
+    fireEvent.click(screen.getByText("Gym"));
+    await act(async () => {});
+    expect(screen.getByRole("status").textContent).toBe(
+      "Couldn't open it. The To-do's link is not a web address",
+    );
+  });
+
+  it("selects a row from a click on its empty area", async () => {
+    await showList(todo({ title: "Gym" }));
+    fireEvent.click(row("Gym"));
+    expect(row("Gym").dataset.selected).toBe("true");
+    expect(native.openUrl).not.toHaveBeenCalled();
+  });
+
+  it("puts a refused write back, with a toast", async () => {
+    await showList(todo({ title: "Gym" }));
+    native.sendApi.mockResolvedValueOnce({
+      kind: "response",
+      status: 500,
+      body: JSON.stringify({
+        error: { code: "internal", message: "Something broke" },
+      }),
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mark done" }));
+    await act(async () => {});
+    expect(row("Gym").dataset.state).toBe("open");
+    expect(screen.getByRole("status").textContent).toBe(
+      "Not saved. Something broke",
+    );
+  });
+
+  it("changes nothing while offline", async () => {
+    await showList(todo({ title: "Gym" }));
+    api.offline = true;
+    act(() => native.setShown?.(false));
+    act(() => native.setShown?.(true));
+    await act(async () => {});
+    const check = screen.getByRole("button", { name: "Mark done" });
+    expect((check as HTMLButtonElement).disabled).toBe(true);
+    key("ArrowDown");
+    key("Delete");
+    expect(patches()).toEqual([]);
+    expect(screen.getByText(/changes are off until/)).toBeTruthy();
   });
 });
