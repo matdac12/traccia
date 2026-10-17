@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const request = vi.fn();
-vi.mock("../lib/api/client", () => ({ api: () => ({ request }) }));
+vi.mock("../lib/api/client", async (original) => ({ ...(await original<typeof import("../lib/api/client")>()), api: () => ({ request }) }));
 vi.mock("../lib/server-env", () => ({ serverEnv: () => ({ ownerTimezone: "Europe/Rome" }) }));
 const { listOpenTodos, listTodosClosedOn, loadPersonalSpace } = await import("../lib/api/todos");
+const { ApiError: ApiErrorClass } = await import("../lib/api/client");
 
 const item = (id: string, closedAt: string | null = null) => ({ id, closedAt });
 
-beforeEach(() => request.mockReset());
+beforeEach(() => {
+  request.mockReset();
+});
 
 describe("listOpenTodos", () => {
   it("follows nextCursor until the last page", async () => {
@@ -53,5 +56,52 @@ describe("loadPersonalSpace", () => {
     expect(out.today).toBe("2026-10-18");
     expect(request.mock.calls.map((c) => c[1].query.state)).toEqual(["open", "closed"]);
     expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 2, total: 3 }], ["k", null]]);
+  });
+});
+
+describe("loadPersonalSpace with a selected To-do (?todo=)", () => {
+  const todo = (id: string, over: Record<string, unknown> = {}) => ({ id, parentId: null, state: "open", closedAt: null, ...over });
+  /** The API by path, so the order of parallel requests doesn't matter. */
+  function serve(routes: Record<string, unknown>, lists: { open?: unknown[]; closed?: unknown[] } = {}) {
+    request.mockImplementation(async (path: string, options: { query?: { state?: string } }) => {
+      if (path === "/todos") return { items: (options.query?.state === "open" ? lists.open : lists.closed) ?? [], nextCursor: null };
+      if (!(path in routes)) throw new ApiErrorClass(404, "not_found", "Not found");
+      return routes[path];
+    });
+  }
+  const NOW = new Date("2026-10-17T13:00:00Z");
+
+  it("adds what the lists don't load: the To-do closed on an earlier day and its Sub-to-dos closed earlier", async () => {
+    const parent = todo("p", { state: "done", closedAt: "2026-10-10T08:00:00Z" });
+    const open = todo("s1", { parentId: "p" });
+    const old = todo("s2", { parentId: "p", state: "done", closedAt: "2026-10-10T08:00:00Z" });
+    serve({ "/todos/p": parent, "/todos/p/sub-todos": { items: [open, old] } }, { open: [open] });
+    const out = await loadPersonalSpace(NOW, "p");
+    expect(out.todos.map((t) => t.id)).toEqual(["s1"]);
+    expect(out.selected).toEqual({ id: "p", extra: [parent, old] });
+  });
+
+  it("adds a Sub-to-do's parent when the lists don't load it", async () => {
+    const parent = todo("p", { state: "done", closedAt: "2026-10-10T08:00:00Z" });
+    const sub = todo("s", { parentId: "p" });
+    serve({ "/todos/s": sub, "/todos/s/sub-todos": { items: [] }, "/todos/p": parent }, { open: [sub] });
+    expect((await loadPersonalSpace(NOW, "s")).selected).toEqual({ id: "s", extra: [parent] });
+  });
+
+  it("says an unknown, deleted or malformed id no longer exists", async () => {
+    serve({ "/todos/gone": todo("gone", { deleted: true }), "/todos/gone/sub-todos": { items: [] } });
+    expect((await loadPersonalSpace(NOW, "nope")).selected).toEqual({ id: "nope", extra: [] });
+    expect((await loadPersonalSpace(NOW, "gone")).selected).toEqual({ id: "gone", extra: [] });
+    request.mockClear();
+    expect((await loadPersonalSpace(NOW, "../etc")).selected).toEqual({ id: "../etc", extra: [] });
+    expect(request.mock.calls.map((c) => c[0])).toEqual(["/todos", "/todos"]);
+  });
+
+  it("fails the load when the API fails another way", async () => {
+    request.mockImplementation(async (path: string) => {
+      if (path === "/todos") return { items: [], nextCursor: null };
+      throw new ApiErrorClass(0, "unreachable", "Could not reach the API");
+    });
+    await expect(loadPersonalSpace(NOW, "p")).rejects.toThrow("Could not reach the API");
   });
 });

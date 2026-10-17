@@ -14,9 +14,22 @@ import { TodoTitle } from "./todo-title";
 /**
  * Quick add (docs/personal-space.md §7.5): one line with `@` autocomplete, a day word and a time. A read-back line
  * shows what it understood (Reminder time, title with chips, day) before Enter. A line with no day word goes to
- * `defaultDay` (null for Anytime); a time alone means today.
+ * `defaultDay` (null for Anytime); a time alone means today. With a `parentId` it adds a Sub-to-do of that To-do (the
+ * details panel's "Add a Sub-to-do").
  */
-export function QuickAdd({ today, defaultDay, className }: { today: string; defaultDay: string | null; className?: string }) {
+export function QuickAdd({
+  today,
+  defaultDay,
+  parentId,
+  placeholder = "Add a To-do. Type @ for a Project, or: call Luca tomorrow 15:00",
+  className,
+}: {
+  today: string;
+  defaultDay: string | null;
+  parentId?: string;
+  placeholder?: string;
+  className?: string;
+}) {
   const projects = useProjectOptions();
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +47,7 @@ export function QuickAdd({ today, defaultDay, className }: { today: string; defa
     e.preventDefault();
     if (!parsed.title || pending) return;
     startTransition(async () => {
-      const result = await createTodoAction({ title: parsed.title, day, time: parsed.time });
+      const result = await createTodoAction({ title: parsed.title, day, time: parsed.time, parentId });
       if (result.ok) {
         setValue("");
         setError(null);
@@ -50,7 +63,7 @@ export function QuickAdd({ today, defaultDay, className }: { today: string; defa
       <div className="flex h-10 items-center gap-2 px-3">
         <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <label htmlFor={inputId} className="sr-only">
-          New To-do
+          {parentId ? "Add a Sub-to-do" : "New To-do"}
         </label>
         <MentionInput
           id={inputId}
@@ -59,7 +72,7 @@ export function QuickAdd({ today, defaultDay, className }: { today: string; defa
             setValue(next);
             setError(null);
           }}
-          placeholder="Add a To-do. Type @ for a Project, or: call Luca tomorrow 15:00"
+          placeholder={placeholder}
           aria-invalid={error ? true : undefined}
           aria-describedby={[parsed.title && readBackId, error && errorId].filter(Boolean).join(" ") || undefined}
           className="min-w-0 flex-1"

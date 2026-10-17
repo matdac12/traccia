@@ -113,6 +113,20 @@ describe("usePoll", () => {
     await act(async () => release());
   });
 
+  it("runs a refresh asked for mid-poll once that poll ends, instead of dropping it", async () => {
+    let release!: () => void;
+    const tick = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const { result } = renderHook(() => usePoll(tick));
+    await advance(POLL_INTERVAL_MS);
+    act(() => { result.current.refresh(); result.current.refresh(); });
+    expect(tick).toHaveBeenCalledTimes(1);
+    await act(async () => release());
+    await advance(0);
+    // Once, however many came in.
+    expect(tick).toHaveBeenCalledTimes(2);
+    await act(async () => release());
+  });
+
   it("does nothing when disabled and stops on unmount", async () => {
     const tick = vi.fn().mockResolvedValue(undefined);
     const off = renderHook(() => usePoll(tick, { enabled: false }));

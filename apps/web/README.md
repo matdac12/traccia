@@ -218,6 +218,24 @@ parser, `project-autocomplete.ts` for `@` matching, `todo-changes.ts` for the op
   - The Reminder picker reads "now" in the Owner timezone (`PersonalSpaceData.timeZone`) when it opens, and disables
     the moments already past. The "…" menu (`todo-menu.tsx`) offers Move to, Reminder, Mark done, Drop, Reopen and
     Delete, as the single-pointer alternative to drag.
+- **Details panel (TRC-162).** The selected To-do lives in the URL, `/personal?todo=<id>` (the link in every Telegram
+  Reminder and the API's `url`). `selection.tsx` reads it with `useSearchParams` and selects with `history.pushState`,
+  which Next's router follows with no server round trip, so back and forward move between selections.
+  - A row selects itself through an "Open" button stretched under it; the check, the Reminder time, the day, the "…"
+    menu and the chips sit above it (`relative z-[1]`), so a click on them never selects.
+  - `loadPersonalSpace(now, todoId)` (the page, and the poll as `GET /api/todos?todo=<id>`) adds `selected`: the
+    To-dos the panel needs that the lists don't load (it, its Sub-to-dos from `GET /todos/:id/sub-todos`, or its
+    parent, when closed on an earlier day). A To-do `GET /todos/:id` doesn't find, or finds deleted, is in neither,
+    and the panel says it no longer exists. `personal-space.tsx` merges those into the one `useTodoWrites` set and
+    keeps them out of the lists. The poll asks for `?todo=` only while the lists alone leave the panel short, and such
+    a selection is read at once rather than at the next poll (`usePoll` runs a `refresh()` that lands mid-poll as
+    soon as that poll ends).
+  - `details-panel.tsx` is a 340 px column from 1180 px and a dialog below; `todo-details.tsx` is its body (title
+    with `MentionInput`, the row's day and Reminder pickers, Details saved on blur, Sub-to-do rows and "Add a
+    Sub-to-do", which is `QuickAdd` with a `parentId`). Title and Details edits are local state, so the poll and the
+    revalidation after a write never reset them.
+  - `listOf` (`lib/personal/lists.ts`) is the list a deep link opens over. Only Today exists until TRC-163, which
+    fills the rule in.
 - **Lists.** The list menu (`list-menu.tsx`) is a column on a laptop and a scrolling strip below `md`; the chosen list
   is page state, not in the URL. Today is built; Upcoming, Anytime, Logbook and By project are placeholders until
   TRC-163.

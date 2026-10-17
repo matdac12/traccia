@@ -1,7 +1,27 @@
 import type { Todo } from "@traccia/shared";
 
-/** The Personal Space page's data: today in the Owner timezone (and the zone), the open To-dos and those closed today. */
-export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[] };
+/** The Personal Space lists (docs/personal-space.md §7.3). */
+export type PersonalList = "today" | "upcoming" | "anytime" | "logbook" | `project:${string}`;
+
+/**
+ * The list a To-do opens over when a link selects it (docs/personal-space.md §7.6): Today for today and Overdue,
+ * Upcoming for a later day, Anytime, or the Logbook once closed. Only Today is built until TRC-163, so for now every
+ * To-do opens over Today: TRC-163 fills the rule in here.
+ */
+export const listOf = (_todo: Todo, _today: string): PersonalList => "today";
+
+/**
+ * The To-do the URL selects (`/personal?todo=<id>`), read for the details panel: the To-dos it shows that the lists
+ * don't load (it, its Sub-to-dos or its parent, when closed on an earlier day). A To-do that no longer exists is in
+ * neither.
+ */
+export type SelectedTodo = { id: string; extra: Todo[] };
+
+/**
+ * The Personal Space page's data: today in the Owner timezone (and the zone), the open To-dos and those closed today,
+ * plus the selected To-do when the URL names one.
+ */
+export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[]; selected?: SelectedTodo };
 
 /** A To-do that gets its own row in the day lists: top level, or a Sub-to-do with its own Planned day. */
 const ownRow = (t: Todo) => t.parentId === null || t.day !== null;

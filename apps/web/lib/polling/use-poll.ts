@@ -24,7 +24,8 @@ export function nextDelay(failures: number, intervalMs: number, maxBackoffMs: nu
 /**
  * Runs `tick` every interval while the tab is visible. Hidden tab: no timer, no requests. Back to
  * visible, window focus and network reconnect: poll now (rate-limited by `minGapMs`; reconnect also
- * forgets the backoff). A rejected `tick` backs the interval off; one success resets it. Polls never overlap.
+ * forgets the backoff). A rejected `tick` backs the interval off; one success resets it. Polls never overlap: a
+ * `refresh()` asked for while one runs polls again as soon as it ends.
  */
 export function usePoll(tick: () => Promise<void>, { intervalMs = POLL_INTERVAL_MS, maxBackoffMs = POLL_MAX_BACKOFF_MS, minGapMs = POLL_MIN_GAP_MS, enabled = true }: PollOptions = {}) {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -39,6 +40,8 @@ export function usePoll(tick: () => Promise<void>, { intervalMs = POLL_INTERVAL_
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     let running = false;
+    // A refresh asked for while a poll ran: that poll may have read the state from before the reason for it.
+    let again = false;
     let failed = 0;
     let lastRun = -Infinity;
 
@@ -62,7 +65,10 @@ export function usePoll(tick: () => Promise<void>, { intervalMs = POLL_INTERVAL_
         running = false;
         if (!stopped) {
           setFailures(failed);
-          schedule();
+          if (again) {
+            again = false;
+            void run();
+          } else schedule();
         }
       }
     };
@@ -76,7 +82,10 @@ export function usePoll(tick: () => Promise<void>, { intervalMs = POLL_INTERVAL_
       failed = 0;
       revalidate();
     };
-    refreshRef.current = () => void run();
+    refreshRef.current = () => {
+      if (running) again = true;
+      else void run();
+    };
 
     document.addEventListener("visibilitychange", revalidate);
     window.addEventListener("focus", revalidate);

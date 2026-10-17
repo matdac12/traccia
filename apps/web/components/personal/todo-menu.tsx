@@ -18,9 +18,9 @@ import type { TodoPatch } from "@/lib/personal/todo-changes";
 import { REMINDER_PRESETS } from "./reminder-picker";
 import { useTodoActions } from "./todo-actions";
 
-/** Revealed on row hover or focus from `md` up; always shown on touch widths. */
+/** Revealed on row hover or focus from `md` up; always shown on touch widths. Above the row's "Open" button. */
 export const ROW_ICON_BUTTON =
-  "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover/row:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100";
+  "relative z-[1] grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover/row:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100";
 
 /**
  * The row's "…" menu (docs/personal-space.md §7.5): Move to (the next 7 days, or Anytime), Reminder, Mark done, Drop
