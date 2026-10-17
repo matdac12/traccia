@@ -425,9 +425,9 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
     expect(withDeleted.items.map((t: any) => [t.id, t.deleted]).sort()).toEqual(
       [parent.id, sub.id].map((id) => [id, true]).sort(),
     );
-    expect(
-      (await json(await call("GET", `/v1/todos/${sub.id}`))).deleted,
-    ).toBe(true);
+    expect((await json(await call("GET", `/v1/todos/${sub.id}`))).deleted).toBe(
+      true,
+    );
     const trash = await json(await call("GET", "/v1/trash?type=todo"));
     expect(trash.items.map((i: any) => i.id).sort()).toEqual(
       [parent.id, sub.id].sort(),
@@ -445,9 +445,9 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
     const open = await json(await call("GET", "/v1/todos?state=open"));
     expect(open.items).toHaveLength(2);
     expect(open.items.some((t: any) => "deleted" in t)).toBe(false);
-    expect(open.items.find((t: any) => t.id === parent.id).references).toEqual(
-      [{ key: "CRM", projectId: expect.any(String), projectDeleted: false }],
-    );
+    expect(open.items.find((t: any) => t.id === parent.id).references).toEqual([
+      { key: "CRM", projectId: expect.any(String), projectDeleted: false },
+    ]);
   });
 
   it("purges a deleted To-do for good, references included", async () => {
@@ -498,15 +498,131 @@ describe("DELETE /v1/todos/:id, restore and purge", () => {
         headers: { Authorization: `Bearer ${agent.token}` },
       });
     expect((await asAgent(`/v1/todos/${created.id}`)).status).toBe(200);
-    expect(
-      (await asAgent(`/v1/todos/${created.id}?purge=true`)).status,
-    ).toBe(403);
+    expect((await asAgent(`/v1/todos/${created.id}?purge=true`)).status).toBe(
+      403,
+    );
     expect((await s.call("GET", `/v1/todos/${created.id}`)).status).toBe(200);
   });
 
   it("keeps To-dos out of the MCP restore tool", () => {
     expect(RESTORE_TYPES).not.toContain("todo");
     expect(REST_RESTORE_TYPES).toContain("todo");
+  });
+});
+
+describe("PATCH /v1/todos/:id/position", () => {
+  const make = async (
+    t: ReturnType<typeof setup>,
+    title: string,
+    extra: Record<string, unknown> = {},
+  ) =>
+    t.json(
+      await t.call("POST", "/v1/todos", { title, day: "2026-10-20", ...extra }),
+    );
+  const titles = async (t: ReturnType<typeof setup>) =>
+    (await t.json(await t.call("GET", "/v1/todos?state=open"))).items.map(
+      (i: any) => i.title,
+    );
+
+  it("moves a To-do between two others in GET ?state=open order", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    const b = await make(t, "b");
+    const c = await make(t, "c");
+    const res = await t.call("PATCH", `/v1/todos/${c.id}/position`, {
+      afterId: a.id,
+      beforeId: b.id,
+    });
+    expect(res.status).toBe(200);
+    const moved = await t.json(res);
+    expect(todoSchema.parse(moved)).toEqual(moved);
+    expect(moved).toMatchObject({ id: c.id, url: c.url });
+    expect(await titles(t)).toEqual(["a", "c", "b"]);
+  });
+
+  it("sends a To-do with no neighbour to the bottom of its bucket", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    await make(t, "b");
+    await t.call("PATCH", `/v1/todos/${a.id}/position`, {});
+    expect(await titles(t)).toEqual(["b", "a"]);
+  });
+
+  it("is 400 for a neighbour on another day or under another parent", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    const otherDay = await make(t, "x", { day: "2026-10-21" });
+    const parent = await make(t, "p");
+    const sub = await make(t, "s", { parentId: parent.id });
+    const before = await titles(t);
+    for (const [id, body] of [
+      [a.id, { beforeId: otherDay.id }],
+      [a.id, { afterId: sub.id }],
+      [sub.id, { beforeId: a.id }],
+    ] as const) {
+      const res = await t.call("PATCH", `/v1/todos/${id}/position`, body);
+      expect(res.status).toBe(400);
+      expect((await t.json(res)).error.code).toBe("validation_error");
+    }
+    expect(await titles(t)).toEqual(before);
+  });
+
+  it("is 400 for a deleted neighbour and 404 for an unknown or deleted To-do", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    const b = await make(t, "b");
+    await t.call("DELETE", `/v1/todos/${b.id}`);
+    expect(
+      (await t.call("PATCH", `/v1/todos/${a.id}/position`, { afterId: b.id }))
+        .status,
+    ).toBe(400);
+    expect((await t.call("PATCH", `/v1/todos/nope/position`, {})).status).toBe(
+      404,
+    );
+    expect(
+      (await t.call("PATCH", `/v1/todos/${b.id}/position`, {})).status,
+    ).toBe(404);
+  });
+
+  it("is 400 for a body that is not an object of strings", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    const res = await t.call("PATCH", `/v1/todos/${a.id}/position`, {
+      beforeId: 5,
+    });
+    expect(res.status).toBe(400);
+    expect((await t.json(res)).error.details.fields).toHaveProperty("beforeId");
+  });
+
+  it("is 409 conflict for a stale expectedUpdatedAt or If-Match, and moves when fresh", async () => {
+    const t = setup();
+    const a = await make(t, "a");
+    const b = await make(t, "b");
+    const stale = "1999-01-01T00:00:00.000Z";
+    for (const [body, headers] of [
+      [{ beforeId: a.id, expectedUpdatedAt: stale }, {}],
+      [{ beforeId: a.id }, { "If-Match": `"${stale}"` }],
+    ] as const) {
+      const res = await t.call(
+        "PATCH",
+        `/v1/todos/${b.id}/position`,
+        body,
+        headers,
+      );
+      expect(res.status).toBe(409);
+      expect((await t.json(res)).error.details.currentUpdatedAt).toBe(
+        b.updatedAt,
+      );
+    }
+    expect(await titles(t)).toEqual(["a", "b"]);
+    const ok = await t.call(
+      "PATCH",
+      `/v1/todos/${b.id}/position`,
+      { beforeId: a.id },
+      { "If-Match": `"${b.updatedAt}"` },
+    );
+    expect(ok.status).toBe(200);
+    expect(await titles(t)).toEqual(["b", "a"]);
   });
 });
 
@@ -518,6 +634,7 @@ describe("auth", () => {
       ["POST", "/v1/todos"],
       ["GET", "/v1/todos/x"],
       ["PATCH", "/v1/todos/x"],
+      ["PATCH", "/v1/todos/x/position"],
       ["DELETE", "/v1/todos/x"],
     ] as const) {
       expect(
