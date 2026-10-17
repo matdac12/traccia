@@ -1,7 +1,8 @@
 import "server-only";
-import type { CreateTodoInput } from "@traccia/shared";
+import type { CreateTodoInput, UpdateTodoInput } from "@traccia/shared";
+import { z } from "zod";
 import { dayInZone } from "../personal/days";
-import { type PersonalSpaceData, withSubTodoCounts } from "../personal/lists";
+import type { PersonalSpaceData } from "../personal/lists";
 import { serverEnv } from "../server-env";
 import { api } from "./client";
 import { listAll } from "./list-all";
@@ -39,9 +40,21 @@ export async function loadPersonalSpace(now = new Date()): Promise<PersonalSpace
   const timeZone = serverEnv().ownerTimezone;
   const today = dayInZone(now, timeZone);
   const [open, closed] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone)]);
-  return { today, todos: withSubTodoCounts([...open, ...closed]) };
+  return { today, timeZone, todos: [...open, ...closed] };
 }
 
 export function createTodo(body: CreateTodoInput) {
   return api().request("/todos", { schema: todoSchema, method: "POST", body });
+}
+
+/** `PATCH /v1/todos/:id`. Closing a parent with open Sub-to-dos is a 409 with `details.openSubTodos`. */
+export function updateTodo(id: string, body: UpdateTodoInput) {
+  return api().request(`/todos/${encodeURIComponent(id)}`, { schema: todoSchema, method: "PATCH", body });
+}
+
+const deletedSchema = z.object({ type: z.literal("todo"), id: z.string() }).loose();
+
+/** Soft delete: the To-do and its Sub-to-dos go to the Trash as one batch. */
+export function deleteTodo(id: string) {
+  return api().request(`/todos/${encodeURIComponent(id)}`, { schema: deletedSchema, method: "DELETE" });
 }

@@ -182,7 +182,7 @@ The API's search prefix-matches the last word (so `perch` finds `perché`); the 
 Spec: `docs/personal-space.md` §7. The page is `app/(app)/personal/page.tsx`; its components live in
 `components/personal/` and the pure helpers in `lib/personal/` (`days.ts` for Planned days in the Owner timezone,
 `lists.ts` for what each list shows and the menu counts, `title.ts` for Project chips, `quick-add.ts` for the quick-add
-parser, `project-autocomplete.ts` for `@` matching). "Personal" (lucide `Sun`) is the first sidebar item, above Issues.
+parser, `project-autocomplete.ts` for `@` matching, `todo-changes.ts` for the optimistic copy of a write). "Personal" (lucide `Sun`) is the first sidebar item, above Issues.
 
 - **Data.** `loadPersonalSpace` (`lib/api/todos.ts`) dates today in `OWNER_TIMEZONE`, then reads every open To-do
   (`GET /todos?state=open`, following `nextCursor`) and the Logbook only as far back as today
@@ -199,12 +199,28 @@ parser, `project-autocomplete.ts` for `@` matching). "Personal" (lucide `Sun`) i
 - **Project chips.** A chip links to `/projects/:id` with an "Open <name>" tooltip and stops the click, so it never
   selects the row; a chip whose Project is deleted is greyed and not a link. A key that names several Projects links
   to the first one the API lists.
-- **Sub-to-do counts.** The row's `n/m` comes from `withSubTodoCounts` (dropped ones are left out), which only sees
-  the Sub-to-dos the page loaded: those closed on an earlier day are missing until the API sends `subTodos` itself
-  (TRC-177).
+- **Sub-to-do counts.** The row's `n/m` is the API's `subTodos` (TRC-177): `done` of `total`, dropped ones left out
+  of both, `null` on a Sub-to-do. A parent without live Sub-to-dos (`{0,0}`) shows no count.
+- **Row actions (TRC-161).** Every write goes through `useTodoWrites` (`todo-actions.tsx`), which `personal-space.tsx`
+  provides to the rows as `useTodoActions()`: `update(todo, patch)` and `deleteTodo(todo)`.
+  - It shows the write at once with React's `useOptimistic` and `applyTodoChange`, the API's update rules applied
+    locally. It sends the row's `updatedAt` as `expectedUpdatedAt`. A refusal (a 409 `conflict` included) rolls the
+    row back, with the error under it.
+  - It asks before two writes. Moving a To-do with a Reminder to Anytime asks first. Closing a parent asks on the
+    API's 409 `openSubTodos` and retries with `closeSubTodos: true`. A parent the counts show has open Sub-to-dos isn't
+    closed optimistically, so cancelling leaves it open.
+  - The server actions are `updateTodoAction` and `deleteTodoAction` (`app/(app)/personal/actions.ts`). Both
+    revalidate `/personal`. Delete goes to the Trash with no confirm.
+  - The row's check waits about 300 ms for the strike to draw before it writes (no wait under reduced motion).
+  - `DayPicker` (`day-picker.tsx`) and `ReminderPicker` (`reminder-picker.tsx`) are Radix Popovers. They take any
+    trigger and only report the choice, so the details panel (TRC-162) can reuse them. Their bodies mount only while
+    open.
+  - The Reminder picker reads "now" in the Owner timezone (`PersonalSpaceData.timeZone`) when it opens, and disables
+    the moments already past. The "…" menu (`todo-menu.tsx`) offers Move to, Reminder, Mark done, Drop, Reopen and
+    Delete, as the single-pointer alternative to drag.
 - **Lists.** The list menu (`list-menu.tsx`) is a column on a laptop and a scrolling strip below `md`; the chosen list
   is page state, not in the URL. Today is built; Upcoming, Anytime, Logbook and By project are placeholders until
-  TRC-163. Rows are display only until TRC-161.
+  TRC-163.
 
 ## Browser smoke tests (`pnpm test:e2e`, TRC-61)
 

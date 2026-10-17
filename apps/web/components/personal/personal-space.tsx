@@ -10,6 +10,7 @@ import { ListMenu, type PersonalList } from "./list-menu";
 import { ListPlaceholder } from "./list-placeholder";
 import { ProjectOptionsProvider } from "./projects-context";
 import { TodayList } from "./today-list";
+import { TodoActionsProvider, useTodoWrites } from "./todo-actions";
 
 /**
  * The Personal Space page (docs/personal-space.md §7): the list menu and one list. The server renders the first
@@ -29,21 +30,26 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
     // An unchanged answer keeps the same object, so nothing re-renders.
     setData((current) => (JSON.stringify(current) === JSON.stringify(remote) ? current : remote));
   });
-  const { today, todos } = data;
+  const { today, timeZone } = data;
+  // What the lists show: the data with the writes still on their way applied.
+  const { todos, actions, dialog } = useTodoWrites(data.todos, today, timeZone);
 
   return (
     <ProjectOptionsProvider value={projects}>
-      <PageHeader title="Personal">
-        <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
-      </PageHeader>
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={setList} />
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-[680px] px-4 pb-24 pt-6 md:px-8 md:pt-10">
-            {list === "today" ? <TodayList todos={todos} today={today} /> : <ListPlaceholder list={list} />}
+      <TodoActionsProvider value={actions}>
+        <PageHeader title="Personal">
+          <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
+        </PageHeader>
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={setList} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-[680px] px-4 pb-24 pt-6 md:px-8 md:pt-10">
+              {list === "today" ? <TodayList todos={todos} today={today} /> : <ListPlaceholder list={list} />}
+            </div>
           </div>
         </div>
-      </div>
+        {dialog}
+      </TodoActionsProvider>
     </ProjectOptionsProvider>
   );
 }

@@ -1,6 +1,6 @@
 import type { Todo } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
-import { listMenuCounts, todayList, withSubTodoCounts } from "../lib/personal/lists";
+import { listMenuCounts, todayList } from "../lib/personal/lists";
 
 const TODAY = "2026-10-17";
 
@@ -16,6 +16,7 @@ function todo(over: Partial<Todo> = {}): Todo {
     state: "open",
     closedAt: null,
     parentId: null,
+    subTodos: null,
     position: n * 1024,
     details: null,
     source: "dashboard",
@@ -29,30 +30,6 @@ const ids = (todos: { id: string }[]) => todos.map((t) => t.id);
 const reminder = (status: "pending" | "sent" | "failed" | "skipped", time = "15:00") => ({ time, status, failure: null, sentAt: null });
 const ref = (key: string, projectDeleted = false) => ({ key, projectId: `p_${key}`, projectDeleted });
 
-describe("withSubTodoCounts (interim, until the API sends subTodos: TRC-177)", () => {
-  it("counts a parent's live Sub-to-dos from what the page loaded; dropped ones are left out of the total", () => {
-    const parent = todo();
-    const kids = [
-      todo({ parentId: parent.id }),
-      todo({ parentId: parent.id, day: null }),
-      todo({ parentId: parent.id, state: "done", closedAt: "2026-10-17T09:00:00Z" }),
-      todo({ parentId: parent.id, state: "dropped", closedAt: "2026-10-17T09:00:00Z" }),
-    ];
-    const out = withSubTodoCounts([parent, ...kids]);
-    expect(out[0].subTodos).toEqual({ done: 1, total: 3 });
-    // Like the API: null on a Sub-to-do, zeros on a top-level To-do without any.
-    expect(out[1].subTodos).toBeNull();
-    expect(withSubTodoCounts([todo()])[0].subTodos).toEqual({ done: 0, total: 0 });
-  });
-
-  it("only sees Sub-to-dos closed today: earlier ones are not loaded yet (known gap, TRC-177)", () => {
-    const parent = todo();
-    // A Sub-to-do done yesterday is not in the page's data, so 1/1 shows where the API will say 2/2.
-    const out = withSubTodoCounts([parent, todo({ parentId: parent.id, state: "done", closedAt: "2026-10-17T07:00:00Z" })]);
-    expect(out[0].subTodos).toEqual({ done: 1, total: 1 });
-  });
-});
-
 describe("todayList", () => {
   it("splits Overdue, Today and today's closed To-dos; Today follows Position", () => {
     const late2 = todo({ day: "2026-10-15", position: 1 });
@@ -65,7 +42,7 @@ describe("todayList", () => {
     const dropped = todo({ state: "dropped", day: null, closedAt: "2026-10-17T07:00:00Z" });
     const tomorrow = todo({ day: "2026-10-18" });
     const anytime = todo({ day: null });
-    const list = todayList(withSubTodoCounts([late2, late1, late0, b, a, c, done, dropped, tomorrow, anytime]), TODAY);
+    const list = todayList([late2, late1, late0, b, a, c, done, dropped, tomorrow, anytime], TODAY);
     expect(ids(list.overdue)).toEqual([late2.id, late0.id, late1.id]);
     expect(ids(list.today)).toEqual([a.id, c.id, b.id]);
     // Closed in the order they were closed.
@@ -77,21 +54,21 @@ describe("todayList", () => {
     const dated = todo({ parentId: parent.id });
     const undated = todo({ parentId: parent.id, day: null });
     const undatedDone = todo({ parentId: parent.id, day: null, state: "done", closedAt: "2026-10-17T09:00:00Z" });
-    const list = todayList(withSubTodoCounts([parent, dated, undated, undatedDone]), TODAY);
+    const list = todayList([parent, dated, undated, undatedDone], TODAY);
     expect(ids(list.today)).toEqual([dated.id]);
     expect(list.closed).toEqual([]);
   });
 
   it("counts the Reminders still to come: pending ones on today's open To-dos", () => {
     const list = todayList(
-      withSubTodoCounts([
+      [
         todo({ reminder: reminder("pending") }),
         todo({ reminder: reminder("pending", "18:30") }),
         todo({ reminder: reminder("sent", "09:00") }),
         todo({ reminder: reminder("failed") }),
         todo({ day: "2026-10-16", reminder: reminder("skipped") }),
         todo({ state: "done", closedAt: "2026-10-17T09:00:00Z", reminder: reminder("pending") }),
-      ]),
+      ],
       TODAY,
     );
     expect(list.remindersToCome).toBe(2);

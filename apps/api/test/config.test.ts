@@ -131,4 +131,62 @@ describe("loadConfig", () => {
       );
     },
   );
+
+  describe("Telegram", () => {
+    const token = "123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw";
+
+    it("is off when both variables are unset or empty", () => {
+      expect(loadConfig(valid).telegram).toBeUndefined();
+      expect(
+        loadConfig({ ...valid, TELEGRAM_BOT_TOKEN: "", TELEGRAM_CHAT_ID: "" })
+          .telegram,
+      ).toBeUndefined();
+    });
+
+    it("takes the bot token and chat id together", () => {
+      expect(
+        loadConfig({
+          ...valid,
+          TELEGRAM_BOT_TOKEN: token,
+          TELEGRAM_CHAT_ID: "-1001234567890",
+        }).telegram,
+      ).toEqual({ botToken: token, chatId: "-1001234567890" });
+    });
+
+    it.each([
+      ["TELEGRAM_BOT_TOKEN", { TELEGRAM_BOT_TOKEN: token }],
+      ["TELEGRAM_CHAT_ID", { TELEGRAM_CHAT_ID: "42" }],
+    ])("fails when only %s is set", (_name, env) => {
+      const load = () => loadConfig({ ...valid, ...env });
+      expect(load).toThrow(ConfigError);
+      expect(load).toThrow(/TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID/);
+    });
+
+    it("fails on a malformed token without printing it", () => {
+      const secret = "not-a-token-but-secret";
+      let message = "";
+      try {
+        loadConfig({
+          ...valid,
+          TELEGRAM_BOT_TOKEN: secret,
+          TELEGRAM_CHAT_ID: "42",
+        });
+      } catch (e) {
+        expect(e).toBeInstanceOf(ConfigError);
+        message = (e as Error).message;
+      }
+      expect(message).toMatch(/TELEGRAM_BOT_TOKEN/);
+      expect(message).not.toContain(secret);
+    });
+
+    it("fails on a chat id that is not a number", () => {
+      expect(() =>
+        loadConfig({
+          ...valid,
+          TELEGRAM_BOT_TOKEN: token,
+          TELEGRAM_CHAT_ID: "@me",
+        }),
+      ).toThrow(/TELEGRAM_CHAT_ID/);
+    });
+  });
 });
