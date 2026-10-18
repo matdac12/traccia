@@ -190,16 +190,32 @@ function ListView({
       const take = () => event.preventDefault();
       // While the composer is open, its keys are its own and none acts on the list. Esc closes it, unless the `@`
       // list took that Esc; the next Esc hides the window.
+      const typed = typedCharacter(event);
+      const inField = !!target?.closest?.("input, textarea, select");
       if (composer.open) {
         if (event.key === "Escape" && !event.defaultPrevented) {
           take();
           composer.close();
+        } else if (
+          typed !== null &&
+          !inField &&
+          !event.defaultPrevented &&
+          !(typed === " " && target?.closest?.("button"))
+        ) {
+          // Typing with the focus outside the title (Tab went past the fields, or the card was clicked) still
+          // types into it, at the end.
+          take();
+          composer.setText(composer.text + typed);
+          // React's value update then leaves the caret at the end.
+          document
+            .querySelector<HTMLInputElement>(
+              "[data-composer] input[role=combobox]",
+            )
+            ?.focus();
         }
         return;
       }
       // Typing opens the composer with that character (§5.1); Space does too while no row is selected.
-      const typed = typedCharacter(event);
-      const inField = !!target?.closest?.("input, textarea, select");
       if (
         typed !== null &&
         !inField &&

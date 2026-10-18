@@ -697,6 +697,21 @@ describe("the composer", () => {
     expect(list.hasAttribute("inert")).toBe(false);
   });
 
+  it("types into the title even when the focus has left it, but a focused button keeps its Space", async () => {
+    await showList(todo({ title: "Gym", day: "2026-10-17" }));
+    fireEvent.keyDown(document.body, { key: "C" });
+    type("Call");
+    title().blur();
+    const taken = !fireEvent.keyDown(document.body, { key: "x" });
+    expect(taken).toBe(true);
+    expect(title().value).toBe("Callx");
+    await waitFor(() => expect(document.activeElement).toBe(title()));
+    const add = screen.getByRole("button", { name: "Add a To-do" });
+    add.focus();
+    expect(fireEvent.keyDown(add, { key: " " })).toBe(true);
+    expect(title().value).toBe("Callx");
+  });
+
   it("doesn't open on shortcuts or named keys", async () => {
     await showList(todo({ title: "Gym" }));
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
