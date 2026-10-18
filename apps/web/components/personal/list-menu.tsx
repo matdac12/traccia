@@ -1,11 +1,9 @@
 import { BookCheck, CalendarRange, Inbox, type LucideIcon, Sun } from "lucide-react";
 import type { ReactNode } from "react";
-import type { listMenuCounts } from "@/lib/personal/lists";
+import type { listMenuCounts, PersonalList } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { ProjectChip } from "./todo-title";
 
-/** The Personal Space lists (docs/personal-space.md §7.3). */
-export type PersonalList = "today" | "upcoming" | "anytime" | "logbook" | `project:${string}`;
 type NamedList = Exclude<PersonalList, `project:${string}`>;
 
 export const projectList = (key: string): PersonalList => `project:${key}`;

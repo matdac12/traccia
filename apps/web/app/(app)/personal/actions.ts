@@ -12,11 +12,12 @@ import type { TodoPatch } from "@/lib/personal/todo-changes";
 const idSchema = z.string().regex(REF);
 
 /**
- * Quick add's write. The API checks the rest (a Reminder moment already past is a field error on `time`). The
- * revalidation re-renders `/personal` in the same round trip, so the new To-do shows without waiting for the poll.
+ * Quick add's write, and the details panel's "Add a Sub-to-do" (with `parentId`). The API checks the rest (a Reminder
+ * moment already past is a field error on `time`, a closed parent one on `parentId`). The revalidation re-renders
+ * `/personal` in the same round trip, so the new To-do shows without waiting for the poll.
  */
-export async function createTodoAction(values: QuickAddParse): Promise<ActionResult<{ id: string }>> {
-  const parsed = createTodoInputSchema.safeParse({ title: values.title, day: values.day, time: values.time ?? undefined });
+export async function createTodoAction(values: QuickAddParse & { parentId?: string }): Promise<ActionResult<{ id: string }>> {
+  const parsed = createTodoInputSchema.safeParse({ title: values.title, day: values.day, time: values.time ?? undefined, parentId: values.parentId });
   if (!parsed.success) return failure("Fix the highlighted fields.", zodFieldErrors(parsed.error.issues));
   try {
     const todo = await createTodo(parsed.data);

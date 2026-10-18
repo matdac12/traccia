@@ -1,6 +1,7 @@
 import { Construction } from "lucide-react";
 import { EmptyState } from "@/components/traccia/empty-state";
-import { LISTS, type PersonalList, projectKeyOf } from "./list-menu";
+import type { PersonalList } from "@/lib/personal/lists";
+import { LISTS, projectKeyOf } from "./list-menu";
 import { ListHeading } from "./list-heading";
 import { ProjectChip } from "./todo-title";
 

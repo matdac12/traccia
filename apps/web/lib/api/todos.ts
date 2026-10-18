@@ -1,10 +1,11 @@
 import "server-only";
-import type { CreateTodoInput, UpdateTodoInput } from "@traccia/shared";
+import { type CreateTodoInput, subTodosResponseSchema, type Todo, type UpdateTodoInput } from "@traccia/shared";
 import { z } from "zod";
+import { REF } from "../documentation";
 import { dayInZone } from "../personal/days";
-import type { PersonalSpaceData } from "../personal/lists";
+import type { PersonalSpaceData, SelectedTodo } from "../personal/lists";
 import { serverEnv } from "../server-env";
-import { api } from "./client";
+import { ApiError, api } from "./client";
 import { listAll } from "./list-all";
 import { pageOf, todoSchema } from "./schemas";
 
@@ -31,16 +32,43 @@ export async function listTodosClosedOn(day: string, timeZone: string) {
   return todos;
 }
 
+/** `GET /v1/todos/:id`, a deleted To-do included. */
+export const getTodo = (id: string) => api().request(`/todos/${encodeURIComponent(id)}`, { schema: todoSchema });
+
+/** `GET /v1/todos/:id/sub-todos`: every live Sub-to-do, open or closed, by Position. */
+export const listSubTodos = (id: string) => api().request(`/todos/${encodeURIComponent(id)}/sub-todos`, { schema: subTodosResponseSchema });
+
+/** A live To-do, or null when the API says it is unknown or deleted. */
+async function liveTodo(id: string): Promise<Todo | null> {
+  const todo = await orNotFound(getTodo(id));
+  return todo && !todo.deleted ? todo : null;
+}
+const orNotFound = <T>(read: Promise<T>) => read.catch((err) => (err instanceof ApiError && err.code === "not_found" ? null : Promise.reject(err)));
+
+/** The selected To-do with its Sub-to-dos and its parent: what the details panel can show, or nothing when it is gone. */
+async function readSelected(id: string): Promise<Todo[]> {
+  if (!REF.test(id)) return [];
+  const [todo, subTodos] = await Promise.all([liveTodo(id), orNotFound(listSubTodos(id))]);
+  if (!todo || !subTodos) return [];
+  const parent = todo.parentId ? await liveTodo(todo.parentId) : null;
+  return [...(parent ? [parent] : []), todo, ...subTodos.items];
+}
+
 /**
- * What `/personal` shows: today in the Owner timezone, every open To-do and the ones closed today. The page and its
- * poll (`GET /api/todos`) both call this, so a page left open across midnight rolls over on the next refresh.
- * Two requests, plus one per extra page.
+ * What `/personal` shows: today in the Owner timezone, every open To-do and the ones closed today, and the To-do the
+ * URL selects (`todoId`), if any. The page and its poll (`GET /api/todos`) both call this, so a page left open across
+ * midnight rolls over on the next refresh. Two requests, plus one per extra page; a selected To-do adds two (three for
+ * a Sub-to-do, whose parent comes too).
  */
-export async function loadPersonalSpace(now = new Date()): Promise<PersonalSpaceData> {
+export async function loadPersonalSpace(now = new Date(), todoId?: string | null): Promise<PersonalSpaceData> {
   const timeZone = serverEnv().ownerTimezone;
   const today = dayInZone(now, timeZone);
-  const [open, closed] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone)]);
-  return { today, timeZone, todos: [...open, ...closed] };
+  const [open, closed, selected] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone), todoId ? readSelected(todoId) : []]);
+  const todos = [...open, ...closed];
+  if (!todoId) return { today, timeZone, todos };
+  const loaded = new Set(todos.map((t) => t.id));
+  const read: SelectedTodo = { id: todoId, extra: selected.filter((t) => !loaded.has(t.id)) };
+  return { today, timeZone, todos, selected: read };
 }
 
 export function createTodo(body: CreateTodoInput) {

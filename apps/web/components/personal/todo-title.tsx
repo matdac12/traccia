@@ -29,7 +29,7 @@ export function ProjectChip({ projectKey, projectId, deleted = false }: { projec
         <Link
           href={`/projects/${projectId}`}
           onClick={(e) => e.stopPropagation()}
-          className={cn(CHIP, "transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+          className={cn(CHIP, "relative z-[1] transition-colors hover:border-primary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
         >
           {projectKey}
         </Link>

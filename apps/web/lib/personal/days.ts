@@ -81,10 +81,13 @@ export const weekdayName = (day: string) => format(day, { weekday: "long" });
 /** "17 October". */
 export const longDate = (day: string) => format(day, { day: "numeric", month: "long" });
 
+/** "Thu 15 Oct". */
+export const shortDate = (day: string) => format(day, { weekday: "short", day: "numeric", month: "short" });
+
 /** "Today", "Tomorrow", "Yesterday", else "Thu 15 Oct". */
 export function dayLabel(day: string, today: string): string {
   if (day === today) return "Today";
   if (day === addDays(today, 1)) return "Tomorrow";
   if (day === addDays(today, -1)) return "Yesterday";
-  return format(day, { weekday: "short", day: "numeric", month: "short" });
+  return shortDate(day);
 }
