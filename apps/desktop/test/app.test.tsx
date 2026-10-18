@@ -906,3 +906,305 @@ describe("the composer", () => {
     ).toBe("Offline: changes are off until Traccia is reachable.");
   });
 });
+
+describe("the Day and Reminder pickers", () => {
+  // Sat 17 Oct 2026, 14:32 in Rome (CEST).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(new Date("2026-10-17T12:32:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const title = () =>
+    screen.getByRole("combobox", { name: "New To-do" }) as HTMLInputElement;
+  const composerShown = () =>
+    screen.queryByRole("dialog", { name: "Add a To-do" }) !== null;
+  const type = (value: string) =>
+    fireEvent.change(title(), { target: { value } });
+  const press = (key: string, init: KeyboardEventInit = {}) =>
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key,
+      ...init,
+    });
+  const posts = () =>
+    native.sendApi.mock.calls
+      .filter(([method]) => method === "POST")
+      .map(([, path, body]) => [path, body]);
+  const fieldButton = (name: string) =>
+    document.querySelector(`[data-field="${name}"]`) as HTMLButtonElement;
+  const fieldText = (name: string) => fieldButton(name).textContent;
+  /** Tab from the title reaches the fields; Enter or Space on one is the button's own click. */
+  const openField = (name: string) => {
+    const dialog = screen.getByRole("dialog", { name: "Add a To-do" });
+    const tabbable = [
+      ...dialog.querySelectorAll<HTMLElement>("input, button"),
+    ].filter((el) => el.tabIndex >= 0);
+    expect(tabbable.slice(0, 3)).toEqual([
+      title(),
+      fieldButton("Day"),
+      fieldButton("Reminder"),
+    ]);
+    fieldButton(name).focus();
+    fireEvent.click(fieldButton(name));
+  };
+  const focusedLabel = () =>
+    (document.activeElement as HTMLElement | null)?.getAttribute("aria-label");
+  const timeField = () =>
+    screen.getByRole("combobox", { name: "Reminder time" }) as HTMLInputElement;
+  const activeOption = () =>
+    document.getElementById(
+      timeField().getAttribute("aria-activedescendant") ?? "",
+    );
+
+  async function openComposer(text: string) {
+    api.todos = [todo({ title: "Shop" })];
+    await renderApp(configured);
+    await screen.findByText("Shop");
+    fireEvent.keyDown(document.body, { key: text[0] as string });
+    type(text);
+  }
+
+  it("Pay rent fri, then Tue in next month's grid with the keyboard only: sends that day, the title just Pay rent", async () => {
+    await openComposer("Pay rent fri");
+    expect(fieldText("Day")).toBe("Fri 23 Octtyped");
+    openField("Day");
+    expect(fieldButton("Day").getAttribute("aria-expanded")).toBe("true");
+    const picker = screen.getByRole("group", { name: "Day" });
+    expect(within(picker).getByText("October 2026")).toBeTruthy();
+    // The highlighted day starts on the typed one, and has the focus.
+    expect(focusedLabel()).toBe("Fri 23 Oct");
+    press("PageDown");
+    expect(within(picker).getByText("November 2026")).toBeTruthy();
+    expect(focusedLabel()).toBe("Mon 23 Nov");
+    press("ArrowRight");
+    expect(focusedLabel()).toBe("Tue 24 Nov");
+    press("Enter");
+
+    expect(screen.queryByRole("group", { name: "Day" })).toBeNull();
+    expect(title().value).toBe("Pay rent");
+    expect(fieldText("Day")).toBe("Tue 24 Nov");
+    expect(document.activeElement).toBe(title());
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([
+      ["/v1/todos", { title: "Pay rent", day: "2026-11-24" }],
+    ]);
+    expect(screen.getByRole("status").textContent).toBe("Added to Tue 24 Nov");
+    // Empty for the next one, the pick gone too.
+    expect(fieldText("Day")).toBe("Today");
+  });
+
+  it("shows the month with past days disabled, today marked, and no paging before it", async () => {
+    await openComposer("Gym");
+    openField("Day");
+    const picker = screen.getByRole("group", { name: "Day" });
+    const button = (name: string) =>
+      within(picker).getByRole("button", { name }) as HTMLButtonElement;
+    expect(button("Fri 16 Oct").disabled).toBe(true);
+    expect(button("Sat 17 Oct").getAttribute("aria-current")).toBe("date");
+    expect(button("Sat 17 Oct").getAttribute("aria-pressed")).toBe("true");
+    expect(button("Previous month").disabled).toBe(true);
+    press("PageUp");
+    expect(within(picker).getByText("October 2026")).toBeTruthy();
+    press("ArrowLeft");
+    expect(focusedLabel()).toBe("Sat 17 Oct");
+    fireEvent.click(button("Next month"));
+    expect(within(picker).getByText("November 2026")).toBeTruthy();
+    press("Home");
+    expect(within(picker).getByText("October 2026")).toBeTruthy();
+    expect(focusedLabel()).toBe("Sat 17 Oct");
+    expect(
+      ["Today", "Tomorrow", "Next Mon", "Anytime"].map(
+        (name) => button(name).getAttribute("aria-pressed") === "true",
+      ),
+    ).toEqual([true, false, false, false]);
+    fireEvent.click(button("Next Mon"));
+    expect(fieldText("Day")).toBe("Mon 19 Oct");
+    expect(document.activeElement).toBe(title());
+  });
+
+  it("at 14:32, typing 9 in the Reminder field and pressing Enter sets 21:00", async () => {
+    await openComposer("Call Marco");
+    openField("Reminder");
+    expect(document.activeElement).toBe(timeField());
+    fireEvent.change(timeField(), { target: { value: "9" } });
+    expect(activeOption()?.textContent).toBe("21:00in 6 h 28 min");
+    press("Enter");
+    expect(screen.queryByRole("group", { name: "Reminder" })).toBeNull();
+    expect(fieldText("Reminder")).toBe("21:00");
+    expect(document.activeElement).toBe(title());
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([
+      ["/v1/todos", { title: "Call Marco", day: "2026-10-17", time: "21:00" }],
+    ]);
+  });
+
+  it("offers today's chips and only the times still ahead, ↑ ↓ skipping past ones", async () => {
+    await openComposer("Gym");
+    openField("Reminder");
+    const picker = screen.getByRole("group", { name: "Reminder" });
+    expect(
+      within(picker)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual([
+      "in 30 min 15:02",
+      "in 1 h 15:32",
+      "in 2 h 16:32",
+      "Tonight 21:00",
+    ]);
+    const options = within(picker).getAllByRole("option");
+    expect(options[0]?.textContent).toBe("14:45in 13 min");
+    expect(activeOption()).toBe(options[0]);
+
+    fireEvent.change(timeField(), { target: { value: "14" } });
+    // 14:00, 14:15 and 14:30 have passed: nothing is highlighted, so Enter picks nothing.
+    expect(screen.getByText("That time has already passed.")).toBeTruthy();
+    expect(activeOption()).toBeNull();
+    press("Enter");
+    expect(fieldText("Reminder")).toBe("Reminder");
+    press("ArrowDown");
+    expect(activeOption()?.textContent).toBe("14:45in 13 min");
+    press("ArrowUp");
+    expect(activeOption()?.textContent).toBe("14:45in 13 min");
+    press("Enter");
+    expect(fieldText("Reminder")).toBe("14:45");
+  });
+
+  it("offers Morning to Evening on other days, the list from 09:00, and Remove Reminder once set", async () => {
+    await openComposer("Gym tomorrow");
+    openField("Reminder");
+    const picker = screen.getByRole("group", { name: "Reminder" });
+    expect(
+      within(picker)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual([
+      "Morning 09:00",
+      "Lunch 12:30",
+      "Afternoon 15:00",
+      "Evening 18:00",
+    ]);
+    expect(within(picker).getAllByRole("option")).toHaveLength(96);
+    expect(activeOption()?.textContent).toBe("09:00");
+    expect(
+      screen.queryByRole("button", { name: "Remove Reminder" }),
+    ).toBeNull();
+    fireEvent.change(timeField(), { target: { value: "2:15p" } });
+    press("Enter");
+    expect(fieldText("Reminder")).toBe("14:15");
+
+    openField("Reminder");
+    fireEvent.click(screen.getByRole("button", { name: "Remove Reminder" }));
+    expect(fieldText("Reminder")).toBe("Reminder");
+    expect(fieldText("Day")).toBe("Tomorrowtyped");
+  });
+
+  it("picking Anytime after setting 18:00 clears the Reminder", async () => {
+    await openComposer("Call Marco");
+    openField("Reminder");
+    fireEvent.change(timeField(), { target: { value: "18:00" } });
+    press("Enter");
+    expect(fieldText("Reminder")).toBe("18:00");
+    openField("Day");
+    expect(screen.getByText(/Anytime removes the Reminder/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Anytime" }));
+    expect(fieldText("Day")).toBe("Anytime");
+    expect(fieldText("Reminder")).toBe("Reminder");
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([["/v1/todos", { title: "Call Marco" }]]);
+  });
+
+  it("a time on Anytime moves the day to Today, and picking takes the typed words out", async () => {
+    await openComposer("Read anytime");
+    expect(fieldText("Day")).toBe("Anytimetyped");
+    openField("Reminder");
+    expect(screen.getByText(/a time moves it to Today/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Tonight 21:00" }));
+    expect(title().value).toBe("Read");
+    expect(fieldText("Day")).toBe("Today");
+    expect(fieldText("Reminder")).toBe("21:00");
+
+    type("Read 19:00");
+    expect(fieldText("Reminder")).toBe("19:00typed");
+    openField("Reminder");
+    fireEvent.click(screen.getByRole("button", { name: "in 1 h 15:32" }));
+    expect(title().value).toBe("Read");
+    expect(fieldText("Reminder")).toBe("15:32");
+  });
+
+  it("closes the picker on Esc before the composer, then the composer, then the window", async () => {
+    await openComposer("Gym");
+    openField("Day");
+    press("Escape");
+    expect(screen.queryByRole("group", { name: "Day" })).toBeNull();
+    expect(composerShown()).toBe(true);
+    expect(document.activeElement).toBe(title());
+    openField("Reminder");
+    press("Escape");
+    expect(screen.queryByRole("group", { name: "Reminder" })).toBeNull();
+    expect(composerShown()).toBe(true);
+    press("Escape");
+    expect(composerShown()).toBe(false);
+    expect(native.hideWindow).not.toHaveBeenCalled();
+    press("Escape");
+    expect(native.hideWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the @ list closed after a pick, so Enter adds even with the caret after an @KEY", async () => {
+    api.projects = [
+      { id: "pr_crm", key: "CRM", name: "CRM rollout", status: "active" },
+    ];
+    await openComposer("Call @CRM 18:00");
+    openField("Reminder");
+    fireEvent.click(screen.getByRole("button", { name: "Tonight 21:00" }));
+    expect(title().value).toBe("Call @CRM");
+    expect(document.activeElement).toBe(title());
+    fireEvent.select(title());
+    expect(screen.queryByRole("listbox", { name: "Projects" })).toBeNull();
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([
+      ["/v1/todos", { title: "Call @CRM", day: "2026-10-17", time: "21:00" }],
+    ]);
+    // Typing opens it again.
+    type("Call @C");
+    expect(screen.getByRole("listbox", { name: "Projects" })).toBeTruthy();
+  });
+
+  it("closes the picker when its field is pressed again", async () => {
+    await openComposer("Gym");
+    openField("Day");
+    fireEvent.click(fieldButton("Day"));
+    expect(screen.queryByRole("group", { name: "Day" })).toBeNull();
+    expect(document.activeElement).toBe(title());
+  });
+});
+
+describe("focus reset on show", () => {
+  it("gives Space back to the list after a show, even with the + focused from an earlier click", async () => {
+    api.todos = [todo({ title: "Gym" })];
+    await renderApp(configured);
+    await screen.findByText("Gym");
+    const plus = screen.getByRole("button", { name: "Add a To-do" });
+    fireEvent.click(plus);
+    fireEvent.click(plus);
+    // A click leaves the focus on the +.
+    plus.focus();
+    act(() => native.setShown?.(false));
+    act(() => native.setShown?.(true));
+    await act(async () => {});
+    expect(document.activeElement).toBe(document.body);
+
+    const key = (key: string) =>
+      fireEvent.keyDown(document.activeElement ?? document.body, { key });
+    key("ArrowDown");
+    key(" ");
+    await act(async () => {});
+    expect(
+      native.sendApi.mock.calls.filter(([method]) => method === "PATCH"),
+    ).toHaveLength(1);
+  });
+});

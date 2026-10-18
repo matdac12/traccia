@@ -2,6 +2,7 @@ import {
   type CreateTodoInput,
   parseQuickAdd,
   QUICK_ADD_REMINDER_NEEDS_DAY,
+  withoutQuickAddWords,
 } from "@traccia/shared";
 import { useEffect, useRef, useState } from "react";
 import type { ApiClient, ApiFailure, Todo } from "./api-client";
@@ -27,13 +28,58 @@ export type Draft = {
   error: string | null;
 };
 
-/**
- * What the Day and Reminder fields hold apart from the title: `undefined` is "not picked". Picking arrives with the
- * pickers (step 07, TRC-175); until then the composer passes `NOTHING_PICKED`.
- */
+/** What the Day and Reminder pickers picked, apart from the title: `undefined` is "not picked". */
 export type Picked = { day?: string | null; time?: string | null };
 
 export const NOTHING_PICKED: Picked = {};
+
+/** The title line and what the pickers picked: the composer's whole state for the draft. */
+export type Picking = { text: string; picked: Picked };
+
+/**
+ * Picking a day (§5.3): the title loses its day words, so the picked day is the one used. Anytime also removes the
+ * Reminder, typed or picked: only a To-do with a Planned day can have one.
+ */
+export function pickDay(
+  { text, picked }: Picking,
+  day: string | null,
+): Picking {
+  const next = withoutQuickAddWords(text, "day");
+  return day === null
+    ? { text: withoutQuickAddWords(next, "time"), picked: { day, time: null } }
+    : { text: next, picked: { ...picked, day } };
+}
+
+/**
+ * Picking a time, or null to remove the Reminder (§5.3): the title loses its times. A time on Anytime moves the day
+ * to today, the title losing its `anytime`.
+ */
+export function pickTime(
+  { text, picked }: Picking,
+  time: string | null,
+  today: string,
+): Picking {
+  const next: Picking = {
+    text: withoutQuickAddWords(text, "time"),
+    picked: { ...picked, time },
+  };
+  if (time === null) return next;
+  const { day } = composerDraft(next.text, {
+    today,
+    now: "00:00",
+    picked: next.picked,
+  });
+  return day === null
+    ? {
+        text: withoutQuickAddWords(next.text, "day"),
+        picked: { day: today, time },
+      }
+    : next;
+}
+
+/** The Reminder picker counts past times as today's: a draft on today, or on Anytime, which a time moves to today. */
+export const timeOnToday = (draft: Draft, today: string) =>
+  draft.day === null || draft.day === today;
 
 /** The composer's own check of a Reminder already behind the clock, as the Dashboard's Reminder picker words it. */
 export const TIME_PASSED = "That time has already passed.";
@@ -103,12 +149,15 @@ export function addedText(
 
 /**
  * A key that opens the composer from the list (§5.1): a character, typed with no Ctrl, Alt or Meta (AltGr is fine:
- * it types `@` on an Italian keyboard).
+ * it types `@` on an Italian keyboard). Ctrl+Alt counts as AltGr, as Windows treats them: `[` (AltGr+è) can arrive
+ * with both and no AltGraph state.
  */
 export function typedCharacter(event: KeyboardEvent): string | null {
-  if (event.key.length !== 1 || event.isComposing) return null;
-  const altGr = event.getModifierState?.("AltGraph") ?? false;
-  if (!altGr && (event.ctrlKey || event.altKey || event.metaKey)) return null;
+  if (event.key.length !== 1 || event.isComposing || event.metaKey) return null;
+  const altGr =
+    (event.getModifierState?.("AltGraph") ?? false) ||
+    (event.ctrlKey && event.altKey);
+  if (!altGr && (event.ctrlKey || event.altKey)) return null;
   return event.key;
 }
 
@@ -123,8 +172,11 @@ export type Composer = {
   open: boolean;
   /** The title line as typed. */
   text: string;
-  /** What Enter would add, read from `text` now. */
+  /** What Enter would add, read from `text` and what was picked, now. */
   draft: Draft;
+  /** Today and the clock (`HH:MM`) in the Owner timezone, as the draft was read. */
+  today: string;
+  now: string;
   /** The red line under the fields: offline, the API's refusal of the last Enter, or the draft's own error. */
   error: string | null;
   /** Changes are off: the title is disabled and Enter sends nothing. */
@@ -133,13 +185,17 @@ export type Composer = {
   openWith: (initial: string) => boolean;
   close: () => void;
   setText: (text: string) => void;
+  /** The Day picker's pick: a Planned day, or null for Anytime (§5.3). */
+  pickDay: (day: string | null) => void;
+  /** The Reminder picker's pick: a time, or null for "Remove Reminder" (§5.3). */
+  pickTime: (time: string | null) => void;
   /** Enter: posts the draft; on success empties the title for the next one and says where it went. */
   submit: () => void;
 };
 
 /**
- * The composer's state (docs/desktop-app.md §5): open or closed, the title line, and the add. It closes when the
- * window hides. `onAdded` gets the To-do as the API created it; `notify` shows a toast.
+ * The composer's state (docs/desktop-app.md §5): open or closed, the title line, what the pickers picked, and the
+ * add. It closes when the window hides. `onAdded` gets the To-do as the API created it; `notify` shows a toast.
  */
 export function useComposer(
   client: ComposerClient,
@@ -159,23 +215,31 @@ export function useComposer(
 ): Composer {
   const [open, setOpen] = useState(false);
   const [text, setTextState] = useState("");
-  /** The API's refusal of the last Enter; editing the title clears it. */
+  const [picked, setPicked] = useState<Picked>(NOTHING_PICKED);
+  /** The API's refusal of the last Enter; editing the title or picking clears it. */
   const [refusal, setRefusal] = useState<string | null>(null);
   const busy = useRef(false);
   /** Bumped on every hide: an add sent before it doesn't land on the next show. */
   const showId = useRef(0);
-  const latestText = useRef(text);
-  latestText.current = text;
+  const latest = useRef<Picking>({ text, picked });
+  latest.current = { text, picked };
 
-  // Step 07 (TRC-175) keeps what the Day and Reminder pickers picked in state here, and passes it as `picked`.
-  const draft = composerDraft(text, {
-    today: todayIn(ownerTimezone),
-    now: clockIn(ownerTimezone),
-  });
+  const today = todayIn(ownerTimezone);
+  const now = clockIn(ownerTimezone);
+  const draft = composerDraft(text, { today, now, picked });
 
+  const reset = () => {
+    setTextState("");
+    setPicked(NOTHING_PICKED);
+    setRefusal(null);
+  };
   const close = () => {
     setOpen(false);
-    setTextState("");
+    reset();
+  };
+  const apply = (next: Picking) => {
+    setTextState(next.text);
+    setPicked(next.picked);
     setRefusal(null);
   };
 
@@ -184,21 +248,26 @@ export function useComposer(
     showId.current += 1;
     setOpen(false);
     setTextState("");
+    setPicked(NOTHING_PICKED);
     setRefusal(null);
   }, [shown]);
 
   async function submit() {
     if (offline || busy.current) return;
     // Read again at Enter: the clock may have moved past a typed time since the last keystroke.
-    const sent = text;
-    const now = new Date();
-    const today = todayIn(ownerTimezone, now);
-    const at = composerDraft(sent, { today, now: clockIn(ownerTimezone, now) });
-    if (!canAdd(at)) return;
+    const sent = latest.current;
+    const at = new Date();
+    const today = todayIn(ownerTimezone, at);
+    const ready = composerDraft(sent.text, {
+      today,
+      now: clockIn(ownerTimezone, at),
+      picked: sent.picked,
+    });
+    if (!canAdd(ready)) return;
     const show = showId.current;
     busy.current = true;
     try {
-      const result = await client.createTodo(createBody(at));
+      const result = await client.createTodo(createBody(ready));
       if (show !== showId.current) return;
       if (result.ok) {
         const todo = result.value;
@@ -209,9 +278,10 @@ export function useComposer(
             today,
           ),
         );
-        // Empty for the next one, unless more was typed while it was sent.
-        if (latestText.current === sent) setTextState("");
-        setRefusal(null);
+        // Empty for the next one, unless more was typed or picked while it was sent.
+        const { text, picked } = latest.current;
+        if (text === sent.text && picked === sent.picked) reset();
+        else setRefusal(null);
       } else setRefusal(failureText(result.failure));
     } finally {
       busy.current = false;
@@ -222,6 +292,8 @@ export function useComposer(
     open,
     text,
     draft,
+    today,
+    now,
     error: offline ? OFFLINE_MESSAGE : (refusal ?? draft.error),
     disabled: offline,
     openWith(initial) {
@@ -229,8 +301,8 @@ export function useComposer(
         notify(OFFLINE_MESSAGE);
         return false;
       }
+      reset();
       setTextState(initial);
-      setRefusal(null);
       setOpen(true);
       return true;
     },
@@ -238,6 +310,12 @@ export function useComposer(
     setText(next) {
       setTextState(next);
       setRefusal(null);
+    },
+    pickDay(day) {
+      apply(pickDay(latest.current, day));
+    },
+    pickTime(time) {
+      apply(pickTime(latest.current, time, todayIn(ownerTimezone)));
     },
     submit() {
       void submit();

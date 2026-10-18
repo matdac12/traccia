@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseQuickAdd, QUICK_ADD_REMINDER_NEEDS_DAY } from "../src/quick-add.js";
+import { parseQuickAdd, QUICK_ADD_REMINDER_NEEDS_DAY, withoutQuickAddWords } from "../src/quick-add.js";
 
 // A Saturday.
 const TODAY = "2026-10-17";
@@ -138,5 +138,24 @@ describe("parseQuickAdd: typed flags", () => {
       timeTyped: false,
       error: null,
     });
+  });
+});
+
+describe("withoutQuickAddWords", () => {
+  it("takes the day words out, so the line names no day", () => {
+    expect(withoutQuickAddWords("Pay rent fri", "day")).toBe("Pay rent");
+    expect(withoutQuickAddWords("mon Call Luca @CRM tomorrow 15:00", "day")).toBe("Call Luca @CRM 15:00");
+    expect(withoutQuickAddWords("Read a book Anytime", "day")).toBe("Read a book");
+    expect(parseQuickAdd(withoutQuickAddWords("Call mon about tue fri", "day"), TODAY).dayTyped).toBe(false);
+  });
+
+  it("takes the times out, so the line names no time", () => {
+    expect(withoutQuickAddWords("Gym 9:00 tomorrow 18:30", "time")).toBe("Gym tomorrow");
+    expect(parseQuickAdd(withoutQuickAddWords("Gym 18:30", "time"), TODAY).timeTyped).toBe(false);
+  });
+
+  it("leaves words that only look like them: Monica, @MON, sunday, 10:00:00, 3:15pm", () => {
+    expect(withoutQuickAddWords("Monica @MON sunday", "day")).toBe("Monica @MON sunday");
+    expect(withoutQuickAddWords("Log 10:00:00 at 3:15pm", "time")).toBe("Log 10:00:00 at 3:15pm");
   });
 });

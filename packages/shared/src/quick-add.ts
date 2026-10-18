@@ -104,3 +104,15 @@ export function parseQuickAdd(input: string, today: string): QuickAddParse {
     error: time && dayTyped && !day ? QUICK_ADD_REMINDER_NEEDS_DAY : null,
   };
 }
+
+/**
+ * `input` without every day word (`kind` "day", `anytime` included) or every `HH:MM` time ("time"), spaces
+ * collapsed. A composer calls it when a value is picked in its Day or Reminder field (docs/desktop-app.md §5.3):
+ * the line then names no day (or time) of its own, so the picked one is used and the title stays clean.
+ */
+export function withoutQuickAddWords(input: string, kind: "day" | "time"): string {
+  return input
+    .replace(kind === "day" ? DAY_WORD : TIME, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
