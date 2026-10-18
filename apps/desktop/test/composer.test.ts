@@ -6,7 +6,12 @@ import {
   composerDraft,
   createBody,
   dayName,
+  NOTHING_PICKED,
+  type Picking,
+  pickDay,
+  pickTime,
   TIME_PASSED,
+  timeOnToday,
   typedCharacter,
 } from "../src/composer";
 
@@ -81,6 +86,88 @@ describe("composerDraft", () => {
   });
 });
 
+describe("pickDay and pickTime: typed or picked", () => {
+  const draftOf = (p: Picking) =>
+    composerDraft(p.text, { ...at, picked: p.picked });
+  const typed = (text: string): Picking => ({ text, picked: NOTHING_PICKED });
+
+  it("picking a day takes the typed day word out of the title, so the picked day is used", () => {
+    const next = pickDay(typed("Pay rent fri"), "2026-11-24");
+    expect(next).toEqual({
+      text: "Pay rent",
+      picked: { day: "2026-11-24" },
+    });
+    expect(draftOf(next)).toMatchObject({
+      title: "Pay rent",
+      day: "2026-11-24",
+      dayTyped: false,
+    });
+  });
+
+  it("keeps a typed time when a day is picked", () => {
+    const next = pickDay(typed("Dentist tomorrow 18:00"), "2026-10-20");
+    expect(next.text).toBe("Dentist 18:00");
+    expect(draftOf(next)).toMatchObject({
+      day: "2026-10-20",
+      time: "18:00",
+      timeTyped: true,
+    });
+  });
+
+  it("picking Anytime removes the Reminder, picked or typed", () => {
+    const picked = pickDay(
+      pickTime(typed("Call Marco"), "18:00", at.today),
+      null,
+    );
+    expect(picked).toEqual({
+      text: "Call Marco",
+      picked: { day: null, time: null },
+    });
+    expect(draftOf(picked)).toMatchObject({ day: null, time: null });
+    const fromTyped = pickDay(typed("Call Marco tomorrow 18:00"), null);
+    expect(fromTyped.text).toBe("Call Marco");
+    expect(draftOf(fromTyped)).toMatchObject({
+      day: null,
+      time: null,
+      error: null,
+    });
+  });
+
+  it("picking a time takes the typed time out of the title", () => {
+    const next = pickTime(typed("Gym tomorrow 9:00"), "18:30", at.today);
+    expect(next.text).toBe("Gym tomorrow");
+    expect(draftOf(next)).toMatchObject({
+      day: "2026-10-18",
+      time: "18:30",
+      timeTyped: false,
+    });
+  });
+
+  it("a time on Anytime moves the day to Today, picked or typed anytime", () => {
+    const picked = pickTime(pickDay(typed("Read"), null), "18:00", at.today);
+    expect(picked.picked).toEqual({ day: "2026-10-17", time: "18:00" });
+    const fromTyped = pickTime(typed("Read anytime"), "18:00", at.today);
+    expect(fromTyped.text).toBe("Read");
+    expect(draftOf(fromTyped)).toMatchObject({
+      day: "2026-10-17",
+      time: "18:00",
+      error: null,
+    });
+  });
+
+  it("Remove Reminder clears a picked or typed time and leaves the day", () => {
+    const next = pickTime(typed("Gym fri 18:00"), null, at.today);
+    expect(next.text).toBe("Gym fri");
+    expect(draftOf(next)).toMatchObject({ day: "2026-10-23", time: null });
+  });
+
+  it("counts Anytime as today for the Reminder picker's past times", () => {
+    expect(timeOnToday(composerDraft("Read anytime", at), at.today)).toBe(true);
+    expect(timeOnToday(composerDraft("Read", at), at.today)).toBe(true);
+    expect(timeOnToday(composerDraft("Read fri", at), at.today)).toBe(false);
+  });
+});
+
 describe("canAdd", () => {
   it("needs a title and no error", () => {
     expect(canAdd(composerDraft("Gym", at))).toBe(true);
@@ -151,5 +238,17 @@ describe("typedCharacter", () => {
       value: (name: string) => name === "AltGraph",
     });
     expect(typedCharacter(altGr)).toBe("@");
+  });
+
+  it("counts Ctrl+Alt as AltGr, as Windows does: [ arrives with both and no AltGraph state", () => {
+    expect(typedCharacter(key({ key: "[", ctrlKey: true, altKey: true }))).toBe(
+      "[",
+    );
+    expect(
+      typedCharacter(
+        key({ key: "[", ctrlKey: true, altKey: true, metaKey: true }),
+      ),
+    ).toBeNull();
+    expect(typedCharacter(key({ key: "[", metaKey: true }))).toBeNull();
   });
 });

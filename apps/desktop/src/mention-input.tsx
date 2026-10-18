@@ -24,12 +24,14 @@ type InputProps = Omit<
  * docs/desktop-app.md §5.2): typing `@` lists active and paused Projects, keys by prefix first, then names, up to 7;
  * ↑ ↓ move, Enter or Tab inserts `@KEY `, Esc closes the list. While the list is closed every key reaches
  * `onKeyDown` as usual. An Esc that closed the list is `preventDefault`ed, so nothing around it acts on it too.
+ * `quiet` keeps the list closed whatever the caret is on (the composer, after a pick, until the next keystroke).
  */
 export function MentionInput({
   value,
   onValueChange,
   projects,
   inputRef,
+  quiet = false,
   onKeyDown,
   onBlur,
   onFocus,
@@ -39,6 +41,7 @@ export function MentionInput({
   onValueChange: (value: string) => void;
   projects: readonly ProjectOption[];
   inputRef: RefObject<HTMLInputElement | null>;
+  quiet?: boolean;
 }) {
   const listId = useId();
   const [caret, setCaret] = useState(value.length);
@@ -52,7 +55,7 @@ export function MentionInput({
   const matches = keyQuery ? matchProjects(projects, keyQuery.query) : [];
   // Identifies the `@` run being typed, so a dismissed list stays closed until the run changes.
   const keyQueryId = keyQuery ? `${keyQuery.start}:${keyQuery.query}` : null;
-  const open = matches.length > 0 && keyQueryId !== dismissed;
+  const open = !quiet && matches.length > 0 && keyQueryId !== dismissed;
   const selected = Math.min(active, matches.length - 1);
   const optionId = (i: number) => `${listId}-${i}`;
 

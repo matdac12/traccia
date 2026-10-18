@@ -132,6 +132,15 @@ function ListView({
     if (!shown) setSelected(null);
   }, [shown]);
 
+  // Every show gives the keyboard back to the list: a button still focused from an earlier click (the +) would
+  // otherwise keep Space and Enter, so ↓ and Space on a row did nothing. The composer keeps its focus.
+  useEffect(() => {
+    if (!shown) return;
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && !focused.closest("[data-composer]"))
+      focused.blur();
+  }, [shown]);
+
   useEffect(() => {
     if (selectedId)
       document
