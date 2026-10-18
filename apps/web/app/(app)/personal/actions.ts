@@ -1,13 +1,13 @@
 "use server";
-import { createTodoInputSchema, type Todo, updateTodoInputSchema } from "@traccia/shared";
+import { createTodoInputSchema, moveTodoPositionInputSchema, type Todo, updateTodoInputSchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionFailure, failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { ApiError } from "@/lib/api/client";
-import { createTodo, deleteTodo, updateTodo } from "@/lib/api/todos";
+import { createTodo, deleteTodo, moveTodo, updateTodo } from "@/lib/api/todos";
 import { REF } from "@/lib/documentation";
 import type { QuickAddParse } from "@/lib/personal/quick-add";
-import type { TodoPatch } from "@/lib/personal/todo-changes";
+import { neighbourOf, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 
 const idSchema = z.string().regex(REF);
 
@@ -31,6 +31,13 @@ export async function createTodoAction(values: QuickAddParse & { parentId?: stri
 /** A refused To-do write. `openSubTodos` is set when a parent can't close alone: retry with `closeSubTodos: true`. */
 export type TodoWriteFailure = ActionFailure & { openSubTodos?: number };
 
+/** A refused write as a failure; one refused because the To-do changed since re-renders `/personal` with the current one. */
+function refused(err: unknown): ActionFailure {
+  const result = toFailure(err);
+  if (result.conflict) revalidatePath("/personal");
+  return result;
+}
+
 /**
  * A row or details edit: day, Reminder, state, title or Details. Re-renders `/personal` like quick add.
  * `expectedUpdatedAt` is the `updatedAt` the page last saw: if the To-do changed since (Parla, another tab), the API
@@ -48,9 +55,26 @@ export async function updateTodoAction(id: string, patch: TodoPatch, expectedUpd
     if (err instanceof ApiError && err.code === "conflict" && typeof err.details.openSubTodos === "number") {
       return { ...failure(err.message), openSubTodos: err.details.openSubTodos };
     }
-    const result = toFailure(err);
-    if (result.conflict) revalidatePath("/personal");
-    return result;
+    return refused(err);
+  }
+}
+
+/**
+ * A drag in Today or Anytime: the To-do goes right above `beforeId` or right below `afterId`, within its bucket (the API
+ * refuses a neighbour from another one). Re-renders `/personal`. It sends no `expectedUpdatedAt`: a move changes only
+ * the order, which the API works out from the neighbours as they are, and a second drag before the first one's answer
+ * arrives would otherwise be refused.
+ */
+export async function moveTodoAction(id: string, move: TodoMove): Promise<ActionResult<{ todo: Todo }>> {
+  if (!idSchema.safeParse(id).success || !idSchema.safeParse(neighbourOf(move)).success) return failure("Not a valid To-do id.");
+  const parsed = moveTodoPositionInputSchema.safeParse(move);
+  if (!parsed.success) return failure("Fix the highlighted fields.", zodFieldErrors(parsed.error.issues));
+  try {
+    const todo = await moveTodo(id, parsed.data);
+    revalidatePath("/personal");
+    return success({ todo });
+  } catch (err) {
+    return refused(err);
   }
 }
 

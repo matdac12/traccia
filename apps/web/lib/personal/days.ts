@@ -84,10 +84,10 @@ export const longDate = (day: string) => format(day, { day: "numeric", month: "l
 /** "Thu 15 Oct". */
 export const shortDate = (day: string) => format(day, { weekday: "short", day: "numeric", month: "short" });
 
-/** "Today", "Tomorrow", "Yesterday", else "Thu 15 Oct". */
+/** "Today", "Tomorrow", "Yesterday", else "Thu 15 Oct", with the year when it isn't this year's ("Tue 5 Jan 2027"). */
 export function dayLabel(day: string, today: string): string {
   if (day === today) return "Today";
   if (day === addDays(today, 1)) return "Tomorrow";
   if (day === addDays(today, -1)) return "Yesterday";
-  return shortDate(day);
+  return day.slice(0, 4) === today.slice(0, 4) ? shortDate(day) : `${shortDate(day)} ${day.slice(0, 4)}`;
 }

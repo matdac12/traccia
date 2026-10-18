@@ -3,12 +3,14 @@ import type { Todo } from "@traccia/shared";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TodayList } from "../components/personal/today-list";
 import { type TodoActions, TodoActionsProvider } from "../components/personal/todo-actions";
 import { TodoRow } from "../components/personal/todo-row";
 import { TooltipProvider } from "../components/ui/tooltip";
+
+vi.mock("next/navigation", () => import("./history-navigation"));
 
 const TODAY = "2026-10-17";
 
@@ -35,7 +37,7 @@ function todo(over: Partial<Todo> = {}): Todo {
   };
 }
 const reminder = (status: "pending" | "sent" | "failed" | "skipped", time = "15:00") => ({ time, status, failure: null, sentAt: null });
-const actions: TodoActions = { today: TODAY, timeZone: "Europe/Rome", update: async () => {}, deleteTodo: () => {}, errorFor: () => undefined, dismissError: () => {} };
+const actions: TodoActions = { today: TODAY, timeZone: "Europe/Rome", update: async () => {}, move: async () => {}, deleteTodo: () => {}, errorFor: () => undefined, dismissError: () => {} };
 // Rows write through the page's actions; linked chips use the app's TooltipProvider (root layout).
 function Providers({ children }: { children: ReactNode }) {
   return (
@@ -50,7 +52,7 @@ const titles = (el: HTMLElement) => within(el).queryAllByRole("listitem").map(te
 
 describe("TodayList", () => {
   it("shows the weekday masthead with the date, the open count and the Reminders still to come", () => {
-    render(<TodayList today={TODAY} todos={[todo({ reminder: reminder("pending") }), todo(), todo({ reminder: reminder("sent") })]} />, { wrapper: Providers });
+    render(<TodayList today={TODAY} timeZone="Europe/Rome" todos={[todo({ reminder: reminder("pending") }), todo(), todo({ reminder: reminder("sent") })]} />, { wrapper: Providers });
     expect(screen.getByRole("heading", { level: 2, name: "Saturday" })).toBeInTheDocument();
     expect(screen.getByText("17 October · 3 open · 1 Reminder still to come")).toBeInTheDocument();
   });
@@ -62,7 +64,7 @@ describe("TodayList", () => {
       todo({ title: "First", position: 10 }),
       todo({ title: "Paid the bill", state: "done", closedAt: "2026-10-17T07:00:00Z" }),
     ];
-    render(<TodayList today={TODAY} todos={todos} />, { wrapper: Providers });
+    render(<TodayList today={TODAY} timeZone="Europe/Rome" todos={todos} />, { wrapper: Providers });
     const overdue = screen.getByRole("region", { name: /Overdue/ });
     expect(titles(overdue)).toEqual(["LateThu 15 Oct"]);
     const today = screen.getByRole("region", { name: /Today/ });
@@ -71,7 +73,7 @@ describe("TodayList", () => {
   });
 
   it("says nothing is planned when the day is empty", () => {
-    render(<TodayList today={TODAY} todos={[todo({ day: null }), todo({ day: "2026-10-18" })]} />, { wrapper: Providers });
+    render(<TodayList today={TODAY} timeZone="Europe/Rome" todos={[todo({ day: null }), todo({ day: "2026-10-18" })]} />, { wrapper: Providers });
     expect(screen.getByText("Nothing planned for today")).toBeInTheDocument();
     expect(screen.queryByRole("region")).toBeNull();
   });
@@ -126,6 +128,7 @@ describe("TodoRow", () => {
 });
 
 describe("PersonalSpace", () => {
+  beforeEach(() => window.history.replaceState(null, "", "/personal"));
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();

@@ -1,29 +1,20 @@
 import type { Todo } from "@traccia/shared";
 import { Sun } from "lucide-react";
-import type { ReactNode } from "react";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { longDate, weekdayName } from "@/lib/personal/days";
 import { todayList } from "@/lib/personal/lists";
-import { cn, plural } from "@/lib/utils";
-import { ListHeading } from "./list-heading";
+import { plural } from "@/lib/utils";
+import { ListHeading, SectionLabel } from "./list-heading";
 import { QuickAdd } from "./quick-add";
+import { SortableGroup, SortableRows, SortableTodoRow } from "./sortable-rows";
 import { TodoRow } from "./todo-row";
 
-export function SectionLabel({ children, count, tone, id }: { children: ReactNode; count?: number; tone?: "danger"; id?: string }) {
-  return (
-    <h3 id={id} className={cn("flex items-baseline gap-2 px-2 pb-1 pt-5 text-[11px] font-medium uppercase tracking-[0.08em]", tone === "danger" ? "text-destructive" : "text-muted-foreground")}>
-      {children}
-      {count !== undefined ? <span className="font-mono tabular-nums opacity-70">{count}</span> : null}
-    </h3>
-  );
-}
-
 /**
- * Today (docs/personal-space.md §7.3): the weekday masthead, quick add (onto today), then Overdue (each row with its day), today's open
- * To-dos by Position, and today's done and dropped ones at the bottom.
+ * Today (docs/personal-space.md §7.3): the weekday masthead, quick add (onto today), then Overdue (each row with its
+ * day), today's open To-dos by Position (drag to reorder), and today's done and dropped ones at the bottom.
  */
-export function TodayList({ todos, today }: { todos: Todo[]; today: string }) {
-  const list = todayList(todos, today);
+export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: string; timeZone: string }) {
+  const list = todayList(todos, today, timeZone);
   const empty = list.overdue.length + list.today.length + list.closed.length === 0;
   return (
     <>
@@ -47,9 +38,15 @@ export function TodayList({ todos, today }: { todos: Todo[]; today: string }) {
           ) : null}
           <section aria-labelledby="personal-today">
             <SectionLabel id="personal-today" count={list.today.length}>Today</SectionLabel>
-            <ul>
-              {list.today.map((t) => <TodoRow key={t.id} todo={t} />)}
-            </ul>
+            <SortableRows id="personal-today" rows={list.today}>
+              <SortableGroup rows={list.today}>
+                <ul>
+                  {list.today.map((t) => (
+                    <SortableTodoRow key={t.id} todo={t} />
+                  ))}
+                </ul>
+              </SortableGroup>
+            </SortableRows>
             {list.closed.length ? (
               <ul aria-label="Closed today">
                 {list.closed.map((t) => <TodoRow key={t.id} todo={t} />)}

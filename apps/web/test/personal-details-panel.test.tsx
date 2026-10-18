@@ -11,30 +11,7 @@ import type { ProjectOption } from "../lib/personal/project-autocomplete";
 const { createTodoAction, updateTodoAction, deleteTodoAction } = vi.hoisted(() => ({ createTodoAction: vi.fn(), updateTodoAction: vi.fn(), deleteTodoAction: vi.fn() }));
 vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction, updateTodoAction, deleteTodoAction }));
 
-// Next's `useSearchParams` follows `history.pushState` and back/forward; this stand-in does the same over jsdom's history.
-vi.mock("next/navigation", async () => {
-  const { useMemo, useSyncExternalStore } = await import("react");
-  const listeners = new Set<() => void>();
-  const notify = () => {
-    for (const l of listeners) l();
-  };
-  const push = window.history.pushState.bind(window.history);
-  window.history.pushState = (...args: Parameters<History["pushState"]>) => {
-    push(...args);
-    notify();
-  };
-  window.addEventListener("popstate", notify);
-  const subscribe = (l: () => void) => {
-    listeners.add(l);
-    return () => listeners.delete(l);
-  };
-  return {
-    useSearchParams: () => {
-      const search = useSyncExternalStore(subscribe, () => window.location.search);
-      return useMemo(() => new URLSearchParams(search), [search]);
-    },
-  };
-});
+vi.mock("next/navigation", () => import("./history-navigation"));
 
 // Saturday 17 October 2026, 15:00 in Rome.
 const TODAY = "2026-10-17";
@@ -96,7 +73,8 @@ describe("selecting a To-do", () => {
     expect(screen.queryByRole("complementary", { name: "To-do details" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Open “Call the bank”" }));
-    expect(window.location.search).toBe(`?todo=${t.id}`);
+    // The list goes into the URL too, so the panel stays over it whatever the To-do becomes.
+    expect(window.location.search).toBe(`?list=today&todo=${t.id}`);
     expect(within(panel()).getByRole("heading", { name: "Call the bank" })).toBeInTheDocument();
     expect(within(panel()).getByLabelText("Details")).toHaveValue("Ask about the rate");
     expect(row("Call the bank")).toHaveAttribute("data-selected", "true");
@@ -106,7 +84,7 @@ describe("selecting a To-do", () => {
     expect(screen.queryByRole("complementary", { name: "To-do details" })).toBeNull();
 
     act(() => window.history.back());
-    await waitFor(() => expect(window.location.search).toBe(`?todo=${t.id}`));
+    await waitFor(() => expect(window.location.search).toBe(`?list=today&todo=${t.id}`));
     expect(await screen.findByRole("complementary", { name: "To-do details" })).toBeInTheDocument();
   });
 
@@ -288,9 +266,9 @@ describe("Sub-to-dos", () => {
     const sub = todo({ title: "Buy tiles", parentId: parent.id, day: null, subTodos: null });
     const { user } = setup(page([parent, sub]), `/personal?todo=${parent.id}`);
     await user.click(within(panel()).getByRole("button", { name: "Open “Buy tiles”" }));
-    expect(window.location.search).toBe(`?todo=${sub.id}`);
+    expect(window.location.search).toBe(`?list=today&todo=${sub.id}`);
     expect(within(panel()).queryByRole("list", { name: "Sub-to-dos" })).toBeNull();
     await user.click(within(panel()).getByRole("button", { name: "Sub-to-do of Fix the kitchen" }));
-    expect(window.location.search).toBe(`?todo=${parent.id}`);
+    expect(window.location.search).toBe(`?list=today&todo=${parent.id}`);
   });
 });

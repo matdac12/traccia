@@ -2,11 +2,12 @@
 import type { Todo } from "@traccia/shared";
 import { AlertDialog } from "radix-ui";
 import { createContext, type ReactNode, startTransition, useContext, useOptimistic, useState } from "react";
-import { deleteTodoAction, updateTodoAction } from "@/app/(app)/personal/actions";
+import { deleteTodoAction, moveTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
 import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
+import type { ActionResult } from "@/lib/action-result";
 import { ownerNow } from "@/lib/personal/days";
-import { applyTodoChange, isClosing, type TodoPatch } from "@/lib/personal/todo-changes";
+import { applyTodoChange, isClosing, type TodoChange, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { plural } from "@/lib/utils";
 
 /** The writes a To-do row (and the details panel) can make, plus what they need to know. */
@@ -16,6 +17,8 @@ export type TodoActions = {
   timeZone: string;
   /** Edits a To-do. Resolves once the API answered (or a confirm dialog opened). */
   update: (todo: Todo, patch: TodoPatch) => Promise<void>;
+  /** Reorders a To-do within its bucket (a drag). Resolves once the API answered. */
+  move: (todo: Todo, move: TodoMove) => Promise<void>;
   /** Deletes a To-do (and its Sub-to-dos): it goes to the Trash. */
   deleteTodo: (todo: Todo) => void;
   /** The last refused write on this To-do, shown under its row. */
@@ -35,13 +38,18 @@ export function useTodoActions(): TodoActions {
 /** A write waiting for a yes: the patch to send then, and what to ask. */
 type Confirm = { todo: Todo; patch: TodoPatch } & ({ kind: "close"; state: "done" | "dropped"; count: number } | { kind: "anytime" });
 
+/** Told about each write the API took: the To-do as it saved it, or the id it deleted (with its Sub-to-dos). */
+export type WriteListener = { saved?: (todo: Todo) => void; deleted?: (id: string) => void };
+
+type WriteResult = ActionResult<{ todo: Todo }> | TodoWriteFailure;
+
 /**
- * The Personal Space's writes (docs/personal-space.md §7.5). Each one shows at once (an optimistic copy of the API's
- * rules) and goes back, with an error under the row, if the API refuses it. Two writes ask first: moving a To-do with
- * a Reminder to Anytime, and closing a parent the API says still has open Sub-to-dos (its 409 `openSubTodos`), which
- * is retried with `closeSubTodos: true` once confirmed.
+ * The Personal Space's writes (docs/personal-space.md §7.5): edits, position moves (drag) and deletes. Each one shows
+ * at once (an optimistic copy of the API's rules) and goes back, with an error under the row, if the API refuses it.
+ * Two edits ask first: moving a To-do with a Reminder to Anytime, and closing a parent the API says still has open
+ * Sub-to-dos (its 409 `openSubTodos`), which is retried with `closeSubTodos: true` once confirmed.
  */
-export function useTodoWrites(todos: Todo[], today: string, timeZone: string) {
+export function useTodoWrites(todos: Todo[], today: string, timeZone: string, listener: WriteListener = {}) {
   const [shown, addChange] = useOptimistic(todos, applyTodoChange);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -53,24 +61,35 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string) {
       return message ? { ...rest, [id]: message } : rest;
     });
 
-  const write = (todo: Todo, patch: TodoPatch, optimistic: boolean) =>
+  /** Shows `change` (if any) until `send` answers; a refusal goes to `refused`. */
+  const run = (todo: Todo, change: TodoChange | null, send: () => Promise<WriteResult>, refused: (result: TodoWriteFailure) => void) =>
     new Promise<void>((resolve) => {
       startTransition(async () => {
         setError(todo.id, null);
-        if (optimistic) addChange({ type: "update", id: todo.id, patch, at: new Date().toISOString(), now: ownerNow(timeZone) });
-        const result = await updateTodoAction(todo.id, patch, todo.updatedAt);
+        if (change) addChange(change);
+        const result = await send();
         // Inside the transition, so the error (or the confirm) shows together with the rollback.
         startTransition(() => {
-          if (result.ok) return;
-          if ("openSubTodos" in result && result.openSubTodos && isClosing(patch)) {
-            setConfirm({ kind: "close", todo, patch: { state: patch.state, closeSubTodos: true }, state: patch.state, count: result.openSubTodos });
-          } else {
-            setError(todo.id, firstError(result));
-          }
+          if (result.ok) listener.saved?.(result.data.todo);
+          else refused(result);
         });
         resolve();
       });
     });
+
+  const write = (todo: Todo, patch: TodoPatch, optimistic: boolean) =>
+    run(
+      todo,
+      optimistic ? { type: "update", id: todo.id, patch, at: new Date().toISOString(), now: ownerNow(timeZone) } : null,
+      () => updateTodoAction(todo.id, patch, todo.updatedAt),
+      (result) => {
+        if (result.openSubTodos && isClosing(patch)) {
+          setConfirm({ kind: "close", todo, patch: { state: patch.state, closeSubTodos: true }, state: patch.state, count: result.openSubTodos });
+        } else {
+          setError(todo.id, firstError(result));
+        }
+      },
+    );
 
   const actions: TodoActions = {
     today,
@@ -84,12 +103,23 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string) {
       const openSubTodos = todo.subTodos ? todo.subTodos.total - todo.subTodos.done : 0;
       return write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
     },
+    move(todo, move) {
+      return run(
+        todo,
+        { type: "move", id: todo.id, ...move },
+        () => moveTodoAction(todo.id, move),
+        (result) => setError(todo.id, `Couldn't reorder it. ${firstError(result)}`),
+      );
+    },
     deleteTodo(todo) {
       startTransition(async () => {
         setError(todo.id, null);
         addChange({ type: "delete", id: todo.id });
         const result = await deleteTodoAction(todo.id);
-        if (!result.ok) startTransition(() => setError(todo.id, result.error));
+        startTransition(() => {
+          if (result.ok) listener.deleted?.(todo.id);
+          else setError(todo.id, result.error);
+        });
       });
     },
     errorFor: (id) => errors[id],
