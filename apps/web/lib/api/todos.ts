@@ -1,5 +1,5 @@
 import "server-only";
-import { type CreateTodoInput, type MoveTodoPositionInput, subTodosResponseSchema, type Todo, type UpdateTodoInput } from "@traccia/shared";
+import { type CreateTodoInput, type MoveTodoPositionInput, subTodosResponseSchema, type Todo, type TodoDelivery, todoDeliverySchema, type UpdateTodoInput } from "@traccia/shared";
 import { z } from "zod";
 import { REF } from "../documentation";
 import { dayInZone } from "../personal/days";
@@ -43,6 +43,19 @@ export const getTodo = (id: string) => api().request(`/todos/${encodeURIComponen
 /** `GET /v1/todos/:id/sub-todos`: every live Sub-to-do, open or closed, by Position. */
 export const listSubTodos = (id: string) => api().request(`/todos/${encodeURIComponent(id)}/sub-todos`, { schema: subTodosResponseSchema });
 
+/**
+ * `GET /v1/todos/delivery`: whether Reminders are being delivered. Undefined when the API can't say (an older API
+ * without the route, or a failed read), so the banner stays away rather than the page failing.
+ */
+export async function getDelivery(): Promise<TodoDelivery | undefined> {
+  try {
+    return await api().request("/todos/delivery", { schema: todoDeliverySchema });
+  } catch (err) {
+    console.warn("Could not read the Reminder delivery state:", err instanceof Error ? err.message : err);
+    return undefined;
+  }
+}
+
 /** A live To-do, or null when the API says it is unknown or deleted. */
 async function liveTodo(id: string): Promise<Todo | null> {
   const todo = await orNotFound(getTodo(id));
@@ -63,17 +76,17 @@ async function readSelected(id: string): Promise<Todo[]> {
  * What `/personal` shows: today in the Owner timezone, every open To-do and the ones closed today, and the To-do the
  * URL selects (`todoId`), if any. The page and its poll (`GET /api/todos`) both call this, so a page left open across
  * midnight rolls over on the next refresh. Two requests, plus one per extra page; a selected To-do adds two (three for
- * a Sub-to-do, whose parent comes too).
+ * a Sub-to-do, whose parent comes too). The delivery state rides along for the banner: one more request.
  */
 export async function loadPersonalSpace(now = new Date(), todoId?: string | null): Promise<PersonalSpaceData> {
   const timeZone = serverEnv().ownerTimezone;
   const today = dayInZone(now, timeZone);
-  const [open, closed, selected] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone), todoId ? readSelected(todoId) : []]);
-  const todos = [...open, ...closed];
-  if (!todoId) return { today, timeZone, todos };
-  const loaded = new Set(todos.map((t) => t.id));
+  const [open, closed, selected, delivery] = await Promise.all([listOpenTodos(), listTodosClosedOn(today, timeZone), todoId ? readSelected(todoId) : [], getDelivery()]);
+  const base = { today, timeZone, todos: [...open, ...closed], ...(delivery ? { delivery } : {}) };
+  if (!todoId) return base;
+  const loaded = new Set(base.todos.map((t) => t.id));
   const read: SelectedTodo = { id: todoId, extra: selected.filter((t) => !loaded.has(t.id)) };
-  return { today, timeZone, todos, selected: read };
+  return { ...base, selected: read };
 }
 
 export function createTodo(body: CreateTodoInput) {

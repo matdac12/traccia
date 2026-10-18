@@ -54,8 +54,25 @@ describe("loadPersonalSpace", () => {
     // 22:45Z on the 17th is already the 18th in Rome.
     const out = await loadPersonalSpace(new Date("2026-10-17T22:45:00Z"));
     expect(out.today).toBe("2026-10-18");
-    expect(request.mock.calls.map((c) => c[1].query.state)).toEqual(["open", "closed"]);
+    expect(request.mock.calls.filter((c) => c[0] === "/todos").map((c) => c[1].query.state)).toEqual(["open", "closed"]);
     expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 2, total: 3 }], ["k", null]]);
+  });
+});
+
+describe("loadPersonalSpace delivery state", () => {
+  const serve = (delivery: () => unknown) =>
+    request.mockImplementation(async (path: string) => (path === "/todos/delivery" ? delivery() : { items: [], nextCursor: null }));
+
+  it("carries the API's delivery state for the banner", async () => {
+    serve(() => ({ ok: false, reason: "not_configured" }));
+    expect((await loadPersonalSpace(new Date("2026-10-17T13:00:00Z"))).delivery).toEqual({ ok: false, reason: "not_configured" });
+  });
+
+  it("loads the page without it when the API can't say", async () => {
+    serve(() => Promise.reject(new ApiErrorClass(404, "not_found", "Not found")));
+    const out = await loadPersonalSpace(new Date("2026-10-17T13:00:00Z"));
+    expect(out).not.toHaveProperty("delivery");
+    expect(out.todos).toEqual([]);
   });
 });
 
@@ -94,7 +111,7 @@ describe("loadPersonalSpace with a selected To-do (?todo=)", () => {
     expect((await loadPersonalSpace(NOW, "gone")).selected).toEqual({ id: "gone", extra: [] });
     request.mockClear();
     expect((await loadPersonalSpace(NOW, "../etc")).selected).toEqual({ id: "../etc", extra: [] });
-    expect(request.mock.calls.map((c) => c[0])).toEqual(["/todos", "/todos"]);
+    expect(request.mock.calls.map((c) => c[0])).toEqual(["/todos", "/todos", "/todos/delivery"]);
   });
 
   it("fails the load when the API fails another way", async () => {
