@@ -45,6 +45,8 @@ export type RowActions = {
   undo: () => void;
   /** A short toast, e.g. a link that would not open. */
   notify: (text: string) => void;
+  /** A To-do the composer just added: it shows at once, before the next fetch lists it. */
+  added: (todo: Todo) => void;
 };
 
 /** The title without its `@KEY` chips, for a toast. */
@@ -101,7 +103,8 @@ export function useRowActions(
       seen.add(t.id);
       out.push(overrides.get(t.id) ?? t);
     }
-    // Closed this show, so no longer in the open list: they stay until the window hides.
+    // Closed this show, so no longer in the open list, or added this show and not fetched yet: they stay until
+    // the window hides.
     for (const [id, t] of overrides) if (!seen.has(id)) out.push(t);
     return out;
   }, [todos, overrides, gone]);
@@ -237,6 +240,9 @@ export function useRowActions(
     },
     notify(text) {
       setToast({ text });
+    },
+    added(todo) {
+      setOverrides((map) => new Map(map).set(todo.id, todo));
     },
     undo() {
       const dropped = toast?.undo;

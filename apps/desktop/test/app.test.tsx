@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { UpdateTodoInput } from "@traccia/shared";
+import type { CreateTodoInput, UpdateTodoInput } from "@traccia/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiMethod, ApiOutcome } from "../src/api-client";
 import type { SavedSettings, SettingsForm } from "../src/settings";
@@ -72,6 +72,22 @@ const api = {
 };
 
 /** `PATCH /v1/todos/:id` as the API does it, with the 409 for a parent's open Sub-to-dos. */
+/** `POST /v1/todos` as the API does it: a `@KEY` naming a Project becomes a reference, a time a pending Reminder. */
+function postTodo(input: CreateTodoInput): ApiOutcome {
+  const created = todo({
+    title: input.title,
+    day: input.day ?? null,
+    reminder: input.time
+      ? { time: input.time, status: "pending", failure: null, sentAt: null }
+      : null,
+    references: api.projects
+      .filter((p) => input.title.includes(`@${p.key}`))
+      .map((p) => ({ key: p.key, projectId: p.id, projectDeleted: false })),
+  });
+  api.todos.push(created);
+  return { kind: "response", status: 201, body: JSON.stringify(created) };
+}
+
 function patchTodo(path: string, input: UpdateTodoInput): ApiOutcome {
   const id = decodeURIComponent(path.replace("/v1/todos/", ""));
   const found = api.todos.find((t) => t.id === id);
@@ -104,6 +120,7 @@ beforeEach(() => {
   native.sendApi.mockImplementation(async (method, path, body) => {
     if (api.offline) return { kind: "offline", reason: "could not connect" };
     if (method === "PATCH") return patchTodo(path, body as UpdateTodoInput);
+    if (method === "POST") return postTodo(body as CreateTodoInput);
     const items = path.startsWith("/v1/projects")
       ? api.projects
       : api.todos.filter((t) => t.state === "open");
@@ -571,7 +588,9 @@ describe("actions on rows", () => {
 
   it("says so when a link won't open", async () => {
     await showList(todo({ title: "Gym" }));
-    native.openUrl.mockRejectedValueOnce("The To-do's link is not a web address");
+    native.openUrl.mockRejectedValueOnce(
+      "The To-do's link is not a web address",
+    );
     fireEvent.click(screen.getByText("Gym"));
     await act(async () => {});
     expect(screen.getByRole("status").textContent).toBe(
@@ -615,5 +634,275 @@ describe("actions on rows", () => {
     key("Delete");
     expect(patches()).toEqual([]);
     expect(screen.getByText(/changes are off until/)).toBeTruthy();
+  });
+});
+
+describe("the composer", () => {
+  // Sat 17 Oct 2026, 14:30 in Rome, as in "the list".
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(new Date("2026-10-17T12:30:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const title = () =>
+    screen.getByRole("combobox", { name: "New To-do" }) as HTMLInputElement;
+  const composerShown = () =>
+    screen.queryByRole("dialog", { name: "Add a To-do" }) !== null;
+  const type = (value: string) =>
+    fireEvent.change(title(), { target: { value } });
+  /** A key where the focus is, as the keyboard would send it. */
+  const press = (key: string, init: KeyboardEventInit = {}) =>
+    fireEvent.keyDown(document.activeElement ?? document.body, {
+      key,
+      ...init,
+    });
+  const posts = () =>
+    native.sendApi.mock.calls
+      .filter(([method]) => method === "POST")
+      .map(([, path, body]) => [path, body]);
+  const fieldText = (name: string) =>
+    document.querySelector(`[data-field="${name}"]`)?.textContent;
+  const row = (text: string) =>
+    screen.getByText(text).closest("[data-todo]") as HTMLElement;
+
+  async function showList(...todos: ReturnType<typeof todo>[]) {
+    api.todos = todos;
+    await renderApp(configured);
+    if (todos[0]) await screen.findByText(todos[0].title);
+  }
+
+  it("opens on typing with no input focused, the first character in the title", async () => {
+    await showList(todo({ title: "Gym", day: "2026-10-17" }));
+    expect(composerShown()).toBe(false);
+    const taken = !fireEvent.keyDown(document.body, { key: "C" });
+    expect(taken).toBe(true);
+    expect(composerShown()).toBe(true);
+    expect(title().value).toBe("C");
+    expect(document.activeElement).toBe(title());
+    expect(title().placeholder).toBe("New To-do… @KEY");
+    expect(fieldText("Day")).toBe("Today");
+    expect(fieldText("Reminder")).toBe("Reminder");
+    expect(screen.getByText("↵ add")).toBeTruthy();
+  });
+
+  it("doesn't open on shortcuts or named keys", async () => {
+    await showList(todo({ title: "Gym" }));
+    fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    fireEvent.keyDown(document.body, { key: "Tab" });
+    expect(composerShown()).toBe(false);
+  });
+
+  it("opens and closes from the +, orange while open, and closes on a click on the dimmed list", async () => {
+    await showList(todo({ title: "Gym" }));
+    const plus = screen.getByRole("button", { name: "Add a To-do" });
+    fireEvent.click(plus);
+    expect(composerShown()).toBe(true);
+    expect(title().value).toBe("");
+    expect(plus.getAttribute("aria-expanded")).toBe("true");
+    expect(plus.className).toContain("text-primary");
+    fireEvent.click(plus);
+    expect(composerShown()).toBe(false);
+
+    fireEvent.click(plus);
+    fireEvent.click(document.querySelector("[data-scrim]") as HTMLElement);
+    expect(composerShown()).toBe(false);
+  });
+
+  it("keeps the list's keys off while open: ↑ ↓, Space and Del act on the title, not the rows", async () => {
+    await showList(todo({ title: "Gym" }), todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "ArrowDown" });
+    expect(row("Gym").dataset.selected).toBe("true");
+    fireEvent.keyDown(document.body, { key: "g" });
+    // Opening clears the selection, and the list no longer moves it.
+    expect(row("Gym").dataset.selected).toBeUndefined();
+    for (const key of ["ArrowDown", "ArrowUp", " ", "Delete"]) press(key);
+    await act(async () => {});
+    expect(row("Gym").dataset.selected).toBeUndefined();
+    expect(row("Shop").dataset.selected).toBeUndefined();
+    expect(
+      native.sendApi.mock.calls.filter(([method]) => method === "PATCH"),
+    ).toHaveLength(0);
+    expect(composerShown()).toBe(true);
+  });
+
+  it("adds Call Marco @CRM tomorrow 15:00 with the @ list, and stays open for the next one", async () => {
+    api.projects = [
+      { id: "pr_core", key: "CORE", name: "Core", status: "paused" },
+      { id: "pr_crm", key: "CRM", name: "CRM rollout", status: "active" },
+      { id: "pr_cx", key: "CX", name: "Old CX", status: "completed" },
+    ];
+    await showList(todo({ title: "Gym", day: "2026-10-17" }));
+    fireEvent.keyDown(document.body, { key: "C" });
+    type("Call Marco @c");
+
+    const list = screen.getByRole("listbox", { name: "Projects" });
+    const options = within(list).getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual([
+      "CORECorepaused",
+      "CRMCRM rollout",
+    ]);
+    expect(title().getAttribute("aria-expanded")).toBe("true");
+    expect(title().getAttribute("aria-activedescendant")).toBe(options[0]?.id);
+    press("ArrowDown");
+    expect(title().getAttribute("aria-activedescendant")).toBe(options[1]?.id);
+    press("Enter");
+    expect(title().value).toBe("Call Marco @CRM ");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(posts()).toEqual([]);
+
+    type("Call Marco @CRM tomorrow 15:00");
+    expect(fieldText("Day")).toBe("Tomorrowtyped");
+    expect(fieldText("Reminder")).toBe("15:00typed");
+    press("Enter");
+    await act(async () => {});
+
+    expect(posts()).toEqual([
+      [
+        "/v1/todos",
+        { title: "Call Marco @CRM", day: "2026-10-18", time: "15:00" },
+      ],
+    ]);
+    expect(composerShown()).toBe(true);
+    expect(title().value).toBe("");
+    expect(document.activeElement).toBe(title());
+    expect(screen.getByRole("status").textContent).toBe(
+      "Added to Tomorrow · Reminder 15:00",
+    );
+    const tomorrow = screen.getByRole("region", { name: "Tomorrow" });
+    expect(tomorrow.textContent).toContain("Call Marco");
+    expect(within(tomorrow).getByTitle("CRM rollout").textContent).toBe("CRM");
+    expect(
+      tomorrow.querySelector('[data-reminder="pending"]')?.textContent,
+    ).toBe("15:00");
+  });
+
+  it("refuses a time already passed today, and creates nothing", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    type("Gym 09:00");
+    expect(screen.getByRole("alert").textContent).toBe(
+      "That time has already passed.",
+    );
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([]);
+    expect(title().value).toBe("Gym 09:00");
+  });
+
+  it("refuses anytime with a time, and creates nothing", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "C" });
+    type("Call anytime 15:00");
+    expect(screen.getByRole("alert").textContent).toBe(
+      "A Reminder needs a Planned day: remove anytime or the time.",
+    );
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([]);
+  });
+
+  it("posts today by default, and no day for Anytime", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    type("Gym");
+    press("Enter");
+    await act(async () => {});
+    expect(screen.getByRole("status").textContent).toBe("Added to Today");
+    type("Read a book anytime");
+    expect(fieldText("Day")).toBe("Anytimetyped");
+    press("Enter");
+    await act(async () => {});
+    expect(posts()).toEqual([
+      ["/v1/todos", { title: "Gym", day: "2026-10-17" }],
+      ["/v1/todos", { title: "Read a book" }],
+    ]);
+    expect(screen.getByRole("status").textContent).toBe("Added to Anytime");
+  });
+
+  it("shows the API's 400 in red under the fields and keeps the text", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    type("Gym 14:31");
+    const refusal =
+      "time must be in the future (2026-10-17 14:31 in Europe/Rome has passed)";
+    native.sendApi.mockResolvedValueOnce({
+      kind: "response",
+      status: 400,
+      body: JSON.stringify({
+        error: { code: "validation_error", message: refusal },
+      }),
+    });
+    press("Enter");
+    await act(async () => {});
+    expect(screen.getByRole("alert").textContent).toBe(refusal);
+    expect(title().value).toBe("Gym 14:31");
+    expect(screen.queryByRole("status")).toBeNull();
+    // Editing clears it.
+    type("Gym 18:00");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("closes on Esc, and a second Esc hides the window", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    press("Escape");
+    expect(composerShown()).toBe(false);
+    expect(native.hideWindow).not.toHaveBeenCalled();
+    press("Escape");
+    expect(native.hideWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the @ list first on Esc, then the composer", async () => {
+    api.projects = [
+      { id: "pr_crm", key: "CRM", name: "CRM rollout", status: "active" },
+    ];
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "@" });
+    expect(screen.getByRole("listbox", { name: "Projects" })).toBeTruthy();
+    press("Escape");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(composerShown()).toBe(true);
+    press("Escape");
+    expect(composerShown()).toBe(false);
+    expect(native.hideWindow).not.toHaveBeenCalled();
+  });
+
+  it("opens empty again after the window hides", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    act(() => native.setShown?.(false));
+    expect(composerShown()).toBe(false);
+    act(() => native.setShown?.(true));
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Add a To-do" }));
+    expect(title().value).toBe("");
+  });
+
+  it("doesn't open while offline, and is disabled if Traccia goes offline while it is open", async () => {
+    await showList(todo({ title: "Shop" }));
+    fireEvent.keyDown(document.body, { key: "G" });
+    type("Gym");
+    api.offline = true;
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(title().disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toBe(
+      "Offline: changes are off until Traccia is reachable.",
+    );
+    press("Enter");
+    expect(posts()).toEqual([]);
+
+    press("Escape");
+    expect(composerShown()).toBe(false);
+    fireEvent.keyDown(document.body, { key: "G" });
+    expect(composerShown()).toBe(false);
+    // The toast, next to the offline line under the title bar.
+    expect(
+      screen
+        .getAllByRole("status")
+        .map((s) => s.textContent)
+        .at(-1),
+    ).toBe("Offline: changes are off until Traccia is reachable.");
   });
 });

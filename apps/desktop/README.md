@@ -84,6 +84,16 @@ Every open To-do, Sub-to-dos included (§3): Overdue (oldest first, each row wit
 - Closing a parent with open Sub-to-dos: the API answers 409 with `openSubTodos`, and a line under the row asks "Also mark 2 open Sub-to-dos done?". Yes or Enter sends it again with `closeSubTodos: true`; Cancel or Esc does nothing. Undo after such a drop reopens the parent, then its Sub-to-dos.
 - Closed rows stay, struck through, until the window hides (Settings counts too); then they leave the list. They are in the Dashboard's Logbook.
 
+## Adding a To-do
+
+The composer (§5): `src/composer.ts` (the title's rules and the add), `src/composer-card.tsx` (the card) and `src/mention-input.tsx` (`@` autocomplete).
+
+- **Open** it with the + in the title bar, or by typing while no input has focus: the first character goes into the title. Space opens it too while no row is selected. It is a card under the title bar over the dimmed list; clicking the dimmed list closes it. While it is open the list's keys (↑ ↓, Space, Del, Enter, Ctrl+Z) are off.
+- **Title**: one line, read with the Dashboard's quick-add rules from `packages/shared` (`@KEY`, today/oggi, tomorrow/domani, mon…sun, `HH:MM`) plus `anytime`. `@` lists active and paused Projects; ↑ ↓, Enter or Tab inserts `@KEY `, Esc closes the list.
+- **Fields**: Day (default Today) and Reminder (default none) show what the title says, with a "typed" tag. Picking in them comes with TRC-175.
+- **Enter** posts `POST /v1/todos { title, day?, time? }`, with no `day` for Anytime. The composer stays open and empty, and a toast says "Added to Tue 20 Oct · Reminder 18:00". A time already past today in the Owner timezone reads "That time has already passed." and sends nothing; `anytime` with a time is refused the same way; an API refusal shows its message in red, and the text stays.
+- **Esc** closes the `@` list, then the composer, then the window. Hiding the window closes it. While offline the title is disabled and typing doesn't open it.
+
 ## Settings and the API
 
 - A fresh install opens **Settings**: API URL, Token and Owner timezone (default `Europe/Rome`), with **Test connection** (`GET /v1/todos?state=open&limit=1`). The tray's "Settings…" opens it later; Esc or the back arrow returns to the list.

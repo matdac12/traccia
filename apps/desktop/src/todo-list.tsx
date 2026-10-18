@@ -223,6 +223,10 @@ function CascadeLine({
   );
 }
 
+/** A `@KEY` chip, in a row's title and in the composer's `@` list. */
+export const CHIP =
+  "mx-px inline-flex translate-y-[-1px] items-center rounded-[4px] border bg-surface px-1 align-middle font-mono text-[10.5px] leading-4 font-medium tracking-wide text-foreground/80";
+
 /** The title with its `@KEY` chips (not clickable here), each named after its Project. */
 function Title({
   todo,
@@ -243,7 +247,7 @@ function Title({
                 ? `${s.key} is deleted`
                 : (names.get(s.projectId) ?? s.key)
             }
-            className={`mx-px inline-flex translate-y-[-1px] items-center rounded-[4px] border bg-surface px-1 align-middle font-mono text-[10.5px] leading-4 font-medium tracking-wide text-foreground/80 ${s.projectDeleted ? "border-dashed text-muted-foreground/60" : ""}`}
+            className={`${CHIP} ${s.projectDeleted ? "border-dashed text-muted-foreground/60" : ""}`}
           >
             {s.key}
           </span>
