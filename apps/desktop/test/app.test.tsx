@@ -720,7 +720,7 @@ describe("the composer", () => {
     expect(composerShown()).toBe(false);
   });
 
-  it("opens and closes from the +, orange while open, and closes on a click on the dimmed list", async () => {
+  it("opens from the +, orange while open; the + again keeps the draft; a click on the dimmed list closes", async () => {
     await showList(todo({ title: "Gym" }));
     const plus = screen.getByRole("button", { name: "Add a To-do" });
     fireEvent.click(plus);
@@ -728,10 +728,13 @@ describe("the composer", () => {
     expect(title().value).toBe("");
     expect(plus.getAttribute("aria-expanded")).toBe("true");
     expect(plus.className).toContain("text-primary");
+    type("Call Marco");
+    plus.focus();
     fireEvent.click(plus);
-    expect(composerShown()).toBe(false);
+    expect(composerShown()).toBe(true);
+    expect(title().value).toBe("Call Marco");
+    expect(document.activeElement).toBe(title());
 
-    fireEvent.click(plus);
     fireEvent.click(document.querySelector("[data-scrim]") as HTMLElement);
     expect(composerShown()).toBe(false);
   });

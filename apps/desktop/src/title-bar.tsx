@@ -2,8 +2,8 @@ import { Plus } from "lucide-react";
 import type { ListCounts } from "./list";
 
 /**
- * The 40 px bar of variant G (docs/desktop-app.md §3.1): "Personal", the counts, and the + that opens and closes
- * the composer, orange while it is open. The + is off while offline.
+ * The 40 px bar of variant G (docs/desktop-app.md §3.1): "Personal", the counts, and the + that opens the composer
+ * (or, while it is open, goes back to its title), orange while it is open. The + is off while offline.
  */
 export function TitleBar({
   counts,

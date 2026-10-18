@@ -273,7 +273,17 @@ function ListView({
         counts={todos ? listCounts(todos, today) : undefined}
         offline={offline}
         composing={composer.open}
-        onAdd={() => (composer.open ? composer.close() : compose(""))}
+        // Open, the + goes back to the title and keeps the draft (a stray click or Space shouldn't lose it); Esc or
+        // a click on the dimmed list closes.
+        onAdd={() =>
+          composer.open
+            ? document
+                .querySelector<HTMLInputElement>(
+                  "[data-composer] input[role=combobox]",
+                )
+                ?.focus()
+            : compose("")
+        }
       />
       {list.problem && (
         <ProblemLine
