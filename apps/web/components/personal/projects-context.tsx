@@ -1,6 +1,6 @@
 "use client";
+import type { ProjectOption } from "@traccia/shared";
 import { createContext, useContext } from "react";
-import type { ProjectOption } from "@/lib/personal/project-autocomplete";
 
 const ProjectOptionsContext = createContext<readonly ProjectOption[]>([]);
 

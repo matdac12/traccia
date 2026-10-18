@@ -1,10 +1,9 @@
 "use client";
-import type { Todo } from "@traccia/shared";
+import type { ProjectOption, Todo } from "@traccia/shared";
 import { useEffect, useMemo, useState } from "react";
 import { LiveStatus } from "@/components/traccia/live-status";
 import { PageHeader } from "@/components/traccia/page-header";
 import { byPosition, closedDay, listMenuCounts, listOf, mergeById, type PersonalList, type PersonalSpaceData } from "@/lib/personal/lists";
-import type { ProjectOption } from "@/lib/personal/project-autocomplete";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
 import { AnytimeList } from "./anytime-list";

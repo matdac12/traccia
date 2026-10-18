@@ -1,10 +1,10 @@
 "use client";
+import { parseQuickAdd } from "@traccia/shared";
 import { CornerDownLeft, Plus } from "lucide-react";
 import { type FormEvent, useId, useState, useTransition } from "react";
 import { createTodoAction } from "@/app/(app)/personal/actions";
 import { firstError } from "@/lib/action-message";
 import { dayLabel } from "@/lib/personal/days";
-import { parseQuickAdd } from "@/lib/personal/quick-add";
 import { cn } from "@/lib/utils";
 import { MentionInput } from "./mention-input";
 import { useProjectOptions } from "./projects-context";
@@ -14,8 +14,9 @@ import { TodoTitle } from "./todo-title";
 /**
  * Quick add (docs/personal-space.md §7.5): one line with `@` autocomplete, a day word and a time. A read-back line
  * shows what it understood (Reminder time, title with chips, day) before Enter. A line with no day word goes to
- * `defaultDay` (null for Anytime); a time alone means today. With a `parentId` it adds a Sub-to-do of that To-do (the
- * details panel's "Add a Sub-to-do").
+ * `defaultDay` (null for Anytime), `anytime` to Anytime; a time alone means today, and `anytime` with a time is
+ * refused (a Reminder needs a Planned day). With a `parentId` it adds a Sub-to-do of that To-do (the details panel's
+ * "Add a Sub-to-do").
  */
 export function QuickAdd({
   today,
@@ -39,13 +40,17 @@ export function QuickAdd({
   const errorId = useId();
 
   const parsed = parseQuickAdd(value, today);
-  const day = parsed.day ?? defaultDay;
+  const day = parsed.dayTyped ? parsed.day : (parsed.day ?? defaultDay);
   // Every live Project's key, as the API would derive references from the title once saved.
   const references = projects.map((p) => ({ key: p.key, projectId: p.id, projectDeleted: false }));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!parsed.title || pending) return;
+    if (parsed.error) {
+      setError(parsed.error);
+      return;
+    }
     startTransition(async () => {
       const result = await createTodoAction({ title: parsed.title, day, time: parsed.time, parentId });
       if (result.ok) {

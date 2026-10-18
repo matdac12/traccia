@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen, within } from "@testing-library/react";
+import type { ProjectOption } from "@traccia/shared";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectOptionsProvider } from "../components/personal/projects-context";
 import { QuickAdd } from "../components/personal/quick-add";
-import type { ProjectOption } from "../lib/personal/project-autocomplete";
 
 const createTodoAction = vi.hoisted(() => vi.fn());
 vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction }));
@@ -124,5 +124,23 @@ describe("QuickAdd", () => {
     await user.type(screen.getByRole("combobox", { name: "New To-do" }), "Someday maybe{Enter}");
     expect(createTodoAction).toHaveBeenCalledWith({ title: "Someday maybe", day: null, time: null });
     expect(screen.queryByText("Anytime")).not.toBeInTheDocument();
+  });
+
+  it("puts a line with anytime in Anytime, whatever the default day", async () => {
+    const { input, user } = renderQuickAdd();
+    await user.type(input, "Read the RFC anytime");
+    const readBack = document.getElementById(input.getAttribute("aria-describedby") ?? "") as HTMLElement;
+    expect(readBack).toHaveTextContent("Read the RFC");
+    expect(readBack).toHaveTextContent("Anytime");
+    await user.keyboard("{Enter}");
+    expect(createTodoAction).toHaveBeenCalledWith({ title: "Read the RFC", day: null, time: null });
+  });
+
+  it("refuses anytime with a time inline, without sending: a Reminder needs a Planned day", async () => {
+    const { input, user } = renderQuickAdd();
+    await user.type(input, "Call the bank anytime 15:00{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("A Reminder needs a Planned day");
+    expect(createTodoAction).not.toHaveBeenCalled();
+    expect(input).toHaveValue("Call the bank anytime 15:00");
   });
 });
