@@ -40,9 +40,10 @@ Not in v1 (decided, see §11): editing a To-do's title, Details, day or Reminder
 Every open To-do, Sub-to-dos included, as one scrolling list with sticky section headings, each with its open count on the right:
 
 1. **Overdue** (red), oldest day first. Each row shows its day ("Thu 15"), in red.
-2. **Today**, with the date in muted text ("Today Sat 17 Oct"). When nothing is planned for today it reads "Nothing planned."
+2. **Today**, with the date in muted text ("Today Sat 17 Oct"). When nothing is planned for today it reads "Nothing planned.", or "All done for today." once everything planned for today is done.
 3. One heading per later day **that has To-dos**: "Tomorrow", then "Mon 19 Oct" and so on. Empty days are skipped.
 4. **Anytime**, last.
+5. The **Done today** shelf, under them all (§3.4).
 
 Within a day, and within Anytime, the order is the manual **Position**, as in the Dashboard. A **Sub-to-do sits on its own Planned day**, not under its parent, with a faint "↳ Parent title" line under its title.
 
@@ -58,18 +59,31 @@ From left to right:
 
 Marking a To-do done draws the Personal Space's 1.5 px orange line through the title (a 300 ms background-size transition, none under reduced motion). Dropping draws the line in muted grey.
 
+A closed row then **leaves its place**: 600 ms after the close it folds to nothing in 300 ms, so the rows below slide up rather than jump. A done row goes to the shelf; a dropped one is gone, with its Undo toast (§4). Reopening the row before it has gone stops this.
+
+### 3.4 Done today shelf
+
+The To-dos done today in the Owner timezone, newest close first, wherever they were closed (the window, the Dashboard, Parla). It lasts all day, across hides.
+
+- A **heading** "Done today" with a chevron that folds the shelf (it stays folded while the app runs), and the count on the right.
+- **Rows**, dimmed and without the line: a soft orange check, the title (and a Sub-to-do's "↳ Parent title" line), and the time it was closed, in mono, on the right. No Reminder, day or "n/m".
+- The check (or Space) **reopens** a row, which goes back to its section. Clicking the title opens it in the Dashboard.
+- Dropped To-dos never show here.
+
+The variant was picked from five in a throwaway prototype on the `prototype/desktop-done-row` branch (TRC-183).
+
 ## 4. Actions on rows
 
 | Action | Mouse | Keyboard (row selected) | API |
 |---|---|---|---|
 | Mark done | Click the check | Space | `PATCH /v1/todos/:id {state:"done"}` |
-| Reopen | Click the check of a closed row | Space | `PATCH … {state:"open"}` |
+| Reopen | Click the check of a row on the shelf (or one still leaving) | Space | `PATCH … {state:"open"}` |
 | Drop | Right-click the row | Del | `PATCH … {state:"dropped"}` |
 | Undo a drop | "Undo" in the toast | Ctrl+Z | `PATCH … {state:"open"}` |
 | Open in Dashboard | Click the title | Enter | opens the To-do's `url` in the default browser |
 
-- **Selection**: ↑ ↓ move a highlighted row (an orange inset bar) when the composer is closed. Clicking a row's empty area selects it.
-- **Closed rows stay** in place, struck through, until the window hides; then they leave the list (they are in the Logbook).
+- **Selection**: ↑ ↓ move a highlighted row (the accent background; hovering shows a lighter shade of it) when the composer is closed. They reach the shelf's rows while it is open. Clicking a row's empty area selects it.
+- **Closed rows leave** their place after a beat (§3.3): done ones to the shelf, dropped ones out of the list (they are in the Logbook).
 - **Drop toast**: "Dropped "Gym" · Undo", at the bottom of the window, for 5 seconds.
 - **Closing a parent with open Sub-to-dos**: the API answers 409 with `details.openSubTodos`. An inline line appears under the row: "Also mark 2 open Sub-to-dos done? [Yes ↵] [Cancel]" (or "dropped"). Enter or Yes retries with `closeSubTodos: true`; Esc or Cancel does nothing.
 - Every write updates the row optimistically and puts it back with a short error toast if the API refuses.
@@ -131,6 +145,7 @@ How typing and picking combine:
 
 - **Endpoints**:
   - `GET /v1/todos?state=open` (paged to the end), for the list;
+  - `GET /v1/todos?state=closed`, the Logbook, newest close first, paged back to the first To-do closed before today, for the shelf. It is fetched with the open list, and both land together;
   - `GET /v1/projects`, for chips and `@` autocomplete (cached per show);
   - `POST /v1/todos` and `PATCH /v1/todos/:id`.
   - Nothing else. That is exactly what a `todos`-scoped Token allows (`personal-space.md` §5).

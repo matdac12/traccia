@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Todo } from "../src/api-client";
-import { buildSections, headingOf, listCounts } from "../src/list";
+import { buildSections, headingOf, layoutList, listCounts } from "../src/list";
 import { todo } from "./todos";
 
 const TODAY = "2026-10-17";
@@ -109,5 +109,50 @@ describe("listCounts", () => {
       todo({ day: null }),
     ];
     expect(listCounts(todos, TODAY)).toEqual({ today: 2, open: 4 });
+  });
+});
+
+describe("layoutList", () => {
+  // Sat 17 Oct in Rome: 22:00Z on the 16th is 00:00 on the 17th.
+  const layout = (todos: Todo[], leaving: string[] = []) => {
+    const { sections, shelf } = layoutList(todos, {
+      today: TODAY,
+      timeZone: "Europe/Rome",
+      leaving: new Set(leaving),
+    });
+    return {
+      sections: sections.map(
+        (s) =>
+          `${headingOf(s, TODAY).label}: ${s.items.map((t) => t.id).join(" ")}`,
+      ),
+      shelf: shelf.map((t) => t.id),
+    };
+  };
+  const closed = (id: string, state: "done" | "dropped", closedAt: string) =>
+    todo({ id, day: TODAY, state, closedAt });
+
+  it("puts today's done To-dos on the shelf, newest first, and nothing closed in the sections", () => {
+    expect(
+      layout([
+        todo({ id: "open", day: TODAY }),
+        closed("first", "done", "2026-10-16T22:00:00.000Z"),
+        closed("last", "done", "2026-10-17T12:00:00.000Z"),
+        closed("yesterday", "done", "2026-10-16T21:59:00.000Z"),
+        closed("dropped", "dropped", "2026-10-17T12:00:00.000Z"),
+      ]),
+    ).toEqual({ sections: ["Today: open"], shelf: ["last", "first"] });
+  });
+
+  it("keeps a leaving row in its section, off the shelf, dropped or done", () => {
+    expect(
+      layout(
+        [
+          todo({ id: "open", day: TODAY, position: 1 }),
+          closed("done", "done", "2026-10-17T12:00:00.000Z"),
+          closed("dropped", "dropped", "2026-10-17T12:00:00.000Z"),
+        ],
+        ["done", "dropped"],
+      ),
+    ).toEqual({ sections: ["Today: open done dropped"], shelf: [] });
   });
 });

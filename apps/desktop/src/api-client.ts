@@ -5,6 +5,7 @@ import {
   type UpdateTodoInput,
 } from "@traccia/shared";
 import { z } from "zod";
+import { todayIn } from "./days";
 
 /**
  * Typed requests to the Traccia API (docs/desktop-app.md §6). They go through the Rust side's
@@ -204,6 +205,33 @@ export function createApiClient(send: Transport) {
       return pageToTheEnd((cursor) =>
         listTodos({ state: "open", limit: PAGE_LIMIT, cursor }),
       );
+    },
+
+    /**
+     * The To-dos done today in `timeZone`, for the shelf: the Logbook (newest close first) paged back to the first
+     * To-do closed before today. Dropped ones are left out.
+     */
+    async listDoneToday(
+      timeZone: string,
+      today: string = todayIn(timeZone),
+    ): Promise<ApiResult<Todo[]>> {
+      const done: Todo[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await listTodos({
+          state: "closed",
+          limit: PAGE_LIMIT,
+          cursor,
+        });
+        if (!page.ok) return page;
+        for (const t of page.value.items) {
+          if (!t.closedAt || todayIn(timeZone, new Date(t.closedAt)) < today)
+            return { ok: true, value: done };
+          if (t.state === "done") done.push(t);
+        }
+        cursor = page.value.nextCursor ?? undefined;
+      } while (cursor);
+      return { ok: true, value: done };
     },
 
     /** Every live Project, paged to the end. */

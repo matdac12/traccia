@@ -57,7 +57,7 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("useRowActions", () => {
-  it("marks a To-do done at once and keeps it, struck through, until the window hides", async () => {
+  it("marks a To-do done at once, and keeps it done over the list from before a hide", async () => {
     const gym = todo({ title: "Gym" });
     const { client } = fakeClient([gym]);
     const list = [gym];
@@ -72,17 +72,19 @@ describe("useRowActions", () => {
     await settle();
     expect(client.updateTodo).toHaveBeenCalledWith(gym.id, { state: "done" });
 
-    // Hidden, it leaves, even before the next fetch replaces the list from before.
+    // Hidden and shown again, it stays done before the next fetch replaces the list from before.
     rerender({ todos: list, shown: false, offline: false });
     rerender({ todos: list, shown: true, offline: false });
-    expect(result.current.todos).toEqual([]);
+    expect(result.current.todos?.map((t) => [t.id, t.state])).toEqual([
+      [gym.id, "done"],
+    ]);
 
     // A later fetch is the truth again: reopened elsewhere, it is back.
     rerender({ todos: [gym], shown: true, offline: false });
     expect(stateOf(result.current.todos, gym.id)).toBe("open");
   });
 
-  it("keeps a closed row out across a second hide before any new fetch", async () => {
+  it("keeps a closed row closed across a second hide before any new fetch", async () => {
     const gym = todo({ title: "Gym" });
     const { client } = fakeClient([gym]);
     const list = [gym];
@@ -95,7 +97,24 @@ describe("useRowActions", () => {
     await settle();
     for (const shown of [false, true, false, true])
       rerender({ todos: list, shown, offline: false });
-    expect(result.current.todos).toEqual([]);
+    expect(stateOf(result.current.todos, gym.id)).toBe("done");
+  });
+
+  it("keeps a row reopened from the shelf open over the list from before a hide", async () => {
+    const gym = todo({ title: "Gym", state: "done" });
+    const { client } = fakeClient([gym]);
+    const list = [gym];
+    const { result, rerender } = mount(client, {
+      todos: list,
+      shown: true,
+      offline: false,
+    });
+    act(() => result.current.toggle(gym.id));
+    await settle();
+    expect(client.updateTodo).toHaveBeenCalledWith(gym.id, { state: "open" });
+    rerender({ todos: list, shown: false, offline: false });
+    rerender({ todos: list, shown: true, offline: false });
+    expect(stateOf(result.current.todos, gym.id)).toBe("open");
   });
 
   it("keeps a closed row through a re-fetch that no longer lists it", async () => {

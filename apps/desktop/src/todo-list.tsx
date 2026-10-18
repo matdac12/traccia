@@ -1,8 +1,9 @@
-import { Bell, Check, X } from "lucide-react";
-import type { MouseEvent } from "react";
+import { Bell, Check, ChevronDown, X } from "lucide-react";
+import type { MouseEvent, ReactNode } from "react";
 import type { Project, Todo } from "./api-client";
-import { dayLabel } from "./days";
-import { buildSections, headingOf } from "./list";
+import { clockIn, dayLabel } from "./days";
+import type { Leaving } from "./leaving";
+import { headingOf, type ListLayout } from "./list";
 import type { CascadeConfirm } from "./row-actions";
 import { titleSegments } from "./title";
 
@@ -17,21 +18,33 @@ export type RowHandlers = {
 };
 
 /**
- * The To-dos of variant G (docs/desktop-app.md §3.2 and §3.3): one scrolling list with sticky section headings.
- * Rows closed during this show stay, struck through.
+ * The To-dos of variant G (docs/desktop-app.md §3.2 to §3.4): one scrolling list with sticky section headings, and
+ * the Done today shelf under them. A row closed during this show strikes through, then folds away.
  */
 export function TodoList({
   todos,
+  layout,
+  leaving,
+  shelfOpen,
+  onToggleShelf,
   projects,
   today,
+  timeZone,
   offline,
   selectedId,
   confirm,
   handlers,
 }: {
+  /** Every To-do the list knows, for the Sub-to-dos' parent lines. */
   todos: Todo[];
+  layout: ListLayout;
+  leaving: Leaving;
+  shelfOpen: boolean;
+  onToggleShelf: () => void;
   projects: Project[];
   today: string;
+  /** The Owner timezone, for the shelf's closing times. */
+  timeZone: string;
   /** Changes are off: the checks are disabled. */
   offline: boolean;
   selectedId: string | null;
@@ -40,10 +53,13 @@ export function TodoList({
 }) {
   const byId = new Map(todos.map((t) => [t.id, t]));
   const names = new Map(projects.map((p) => [p.id, p.name]));
+  const { sections, shelf } = layout;
   return (
     <div className="pb-3">
-      {buildSections(todos, today).map((section) => {
+      {sections.map((section) => {
         const heading = headingOf(section, today);
+        const allDone =
+          section.kind === "today" && shelf.some((t) => t.day === today);
         return (
           <section key={section.key} aria-label={heading.label}>
             <h2
@@ -61,11 +77,16 @@ export function TodoList({
             </h2>
             {section.items.length === 0 ? (
               <p className="pt-1 pr-4 pb-2 pl-11 text-xs text-muted-foreground">
-                Nothing planned.
+                {allDone ? "All done for today." : "Nothing planned."}
               </p>
             ) : (
               section.items.map((todo) => (
-                <div key={todo.id}>
+                <Fold
+                  key={todo.id}
+                  folding={
+                    todo.state !== "open" && leaving.get(todo.id) === "fold"
+                  }
+                >
                   <Row
                     todo={todo}
                     parent={todo.parentId ? byId.get(todo.parentId) : undefined}
@@ -78,15 +99,69 @@ export function TodoList({
                   {confirm?.id === todo.id && (
                     <CascadeLine confirm={confirm} handlers={handlers} />
                   )}
-                </div>
+                </Fold>
               ))
             )}
           </section>
         );
       })}
+      {shelf.length > 0 && (
+        <section aria-label="Done today" className="mt-2 border-t pt-1">
+          <h2 className="flex items-baseline px-4 pt-2 pb-1 text-[11.5px] font-semibold text-muted-foreground">
+            <button
+              type="button"
+              aria-expanded={shelfOpen}
+              onClick={onToggleShelf}
+              className="-ml-1 flex items-center gap-1 rounded-sm hover:text-foreground"
+            >
+              <ChevronDown
+                className={`size-3.5 transition-transform motion-reduce:transition-none ${shelfOpen ? "" : "-rotate-90"}`}
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+              Done today
+            </button>
+            <span className="ml-auto font-normal">{shelf.length}</span>
+          </h2>
+          {shelfOpen &&
+            shelf.map((todo) => (
+              <ShelfRow
+                key={todo.id}
+                todo={todo}
+                parent={todo.parentId ? byId.get(todo.parentId) : undefined}
+                names={names}
+                closedAt={clockIn(timeZone, new Date(todo.closedAt as string))}
+                offline={offline}
+                selected={todo.id === selectedId}
+                handlers={handlers}
+              />
+            ))}
+        </section>
+      )}
     </div>
   );
 }
+
+/** Folds a leaving row's height to nothing, so the rows below slide up instead of jumping (§3.4). */
+function Fold({
+  folding,
+  children,
+}: {
+  folding: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none ${folding ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr]"}`}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+/** A selected row has the accent background; a hovered one a lighter shade of it (§4). */
+const rowTone = (selected: boolean) =>
+  selected ? "bg-accent" : "hover:bg-accent/60";
 
 const CHECK_TONE = {
   open: "border-input hover:border-primary disabled:hover:border-input",
@@ -133,7 +208,7 @@ function Row({
         event.preventDefault();
         act(() => handlers.onDrop(todo.id))(event);
       }}
-      className={`relative mx-1.5 flex min-h-[34px] items-center gap-2.5 rounded-md px-2.5 py-1 hover:bg-accent ${selected ? "bg-accent shadow-[inset_2px_0_0_var(--primary)]" : ""}`}
+      className={`relative mx-1.5 flex min-h-[34px] items-center gap-2.5 rounded-md px-2.5 py-1 ${rowTone(selected)}`}
     >
       <button
         type="button"
@@ -181,6 +256,76 @@ function Row({
           {dayLabel(todo.day, "weekday")}
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * A row on the Done today shelf (§3.4): dimmed, no line, the time it was closed. Its check reopens it, back to its
+ * section; its title opens it in the dashboard.
+ */
+function ShelfRow({
+  todo,
+  parent,
+  names,
+  closedAt,
+  offline,
+  selected,
+  handlers,
+}: {
+  todo: Todo;
+  parent: Todo | undefined;
+  names: Map<string, string>;
+  closedAt: string;
+  offline: boolean;
+  selected: boolean;
+  handlers: RowHandlers;
+}) {
+  const act = (run: () => void) => (event: MouseEvent) => {
+    event.stopPropagation();
+    handlers.onSelect(todo.id);
+    run();
+  };
+  return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the keyboard selection lives on the list, as for the other rows.
+    // biome-ignore lint/a11y/noStaticElementInteractions: as above.
+    <div
+      data-todo={todo.id}
+      data-state={todo.state}
+      data-selected={selected || undefined}
+      onClick={() => handlers.onSelect(todo.id)}
+      className={`relative mx-1.5 flex min-h-[30px] items-center gap-2.5 rounded-md px-2.5 py-0.5 ${rowTone(selected)}`}
+    >
+      <button
+        type="button"
+        aria-label="Reopen"
+        disabled={offline}
+        onClick={act(() => handlers.onToggle(todo.id))}
+        className="grid size-[18px] flex-none place-items-center rounded-full border-[1.5px] border-primary/50 bg-primary/15 text-primary"
+      >
+        <Check className="size-[11px]" strokeWidth={3.2} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        title="Open in the dashboard"
+        onClick={act(() => handlers.onOpen(todo))}
+        className="min-w-0 flex-1 cursor-pointer text-left leading-[1.35] text-muted-foreground hover:text-foreground"
+      >
+        <span className="block truncate">
+          <Title todo={todo} names={names} />
+        </span>
+        {parent && (
+          <span className="block truncate text-[11px] opacity-70">
+            ↳ <Title todo={parent} names={names} />
+          </span>
+        )}
+      </button>
+      <span
+        className="flex-none font-mono text-[10.5px] text-muted-foreground tabular-nums"
+        title="Done at"
+      >
+        {closedAt}
+      </span>
     </div>
   );
 }

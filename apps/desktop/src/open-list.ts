@@ -15,6 +15,8 @@ export type ListProblem =
 export type OpenList = {
   /** The last fetched open To-dos; null until the first fetch succeeds. */
   todos: Todo[] | null;
+  /** The To-dos done today, for the shelf, fetched together with `todos`. */
+  doneToday: Todo[];
   /** The live Projects, fetched once per show; the last ones if that fails. */
   projects: Project[];
   /** When `todos` was fetched. */
@@ -23,10 +25,14 @@ export type OpenList = {
   problem: ListProblem | null;
 };
 
-type ListClient = Pick<ApiClient, "listOpenTodos" | "listProjects">;
+type ListClient = Pick<
+  ApiClient,
+  "listOpenTodos" | "listDoneToday" | "listProjects"
+>;
 
 const EMPTY: OpenList = {
   todos: null,
+  doneToday: [],
   projects: [],
   fetchedAt: null,
   problem: null,
@@ -45,10 +51,14 @@ function problemOf(failure: ApiFailure): ListProblem {
 }
 
 /**
- * The open To-dos while the window is shown: fetched on every show and every 30 s after, with nothing while hidden.
- * A failed fetch keeps the last list and reports why.
+ * The open To-dos, and the ones done today in `timeZone`, while the window is shown: fetched on every show and every
+ * 30 s after, with nothing while hidden. A failed fetch keeps the last list and reports why.
  */
-export function useOpenList(client: ListClient, shown: boolean): OpenList {
+export function useOpenList(
+  client: ListClient,
+  shown: boolean,
+  timeZone: string,
+): OpenList {
   const [list, setList] = useState<OpenList>(EMPTY);
   useEffect(() => {
     if (!shown) return;
@@ -60,18 +70,27 @@ export function useOpenList(client: ListClient, shown: boolean): OpenList {
       if (busy) return;
       busy = true;
       try {
-        const result = await client.listOpenTodos();
+        // Both or neither: the rows the shelf takes from the open list land at the same time.
+        const [open, done] = await Promise.all([
+          client.listOpenTodos(),
+          client.listDoneToday(timeZone),
+        ]);
         if (!live) return;
         const at = new Date();
         setList((current) => {
-          if (result.ok)
+          if (open.ok && done.ok)
             return {
               ...current,
-              todos: result.value,
+              todos: open.value,
+              doneToday: done.value,
               fetchedAt: at,
               problem: null,
             };
-          return { ...current, problem: problemOf(result.failure) };
+          const failed = open.ok ? (done.ok ? null : done) : open;
+          return {
+            ...current,
+            problem: failed && problemOf(failed.failure),
+          };
         });
       } finally {
         busy = false;
@@ -91,7 +110,7 @@ export function useOpenList(client: ListClient, shown: boolean): OpenList {
       live = false;
       clearInterval(timer);
     };
-  }, [client, shown]);
+  }, [client, shown, timeZone]);
 
   return list;
 }

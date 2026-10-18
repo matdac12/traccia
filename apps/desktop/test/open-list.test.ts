@@ -14,10 +14,12 @@ const offline: ApiResult<never> = {
 function fakeClient() {
   const answers = {
     todos: ok<Todo[]>([]) as ApiResult<Todo[]>,
+    done: ok<Todo[]>([]) as ApiResult<Todo[]>,
     projects: ok<Project[]>([]) as ApiResult<Project[]>,
   };
   const client = {
     listOpenTodos: vi.fn(async () => answers.todos),
+    listDoneToday: vi.fn(async (_timeZone: string) => answers.done),
     listProjects: vi.fn(async () => answers.projects),
   };
   return { client, answers };
@@ -28,7 +30,8 @@ function mount(
   shown: boolean,
 ) {
   return renderHook(
-    (props: { shown: boolean }) => useOpenList(client, props.shown),
+    (props: { shown: boolean }) =>
+      useOpenList(client, props.shown, "Europe/Rome"),
     {
       initialProps: { shown },
     },
@@ -59,6 +62,30 @@ describe("useOpenList", () => {
     expect(result.current.todos).toEqual([gym]);
     expect(result.current.projects.map((p) => p.key)).toEqual(["TRC"]);
     expect(result.current.problem).toBeNull();
+  });
+
+  it("fetches today's done To-dos with the open ones, in the Owner timezone", async () => {
+    const { client, answers } = fakeClient();
+    const gym = todo({ title: "Gym", state: "done" });
+    answers.done = ok([gym]);
+    const { result } = mount(client, true);
+    await settle();
+    expect(client.listDoneToday).toHaveBeenCalledWith("Europe/Rome");
+    expect(result.current.doneToday).toEqual([gym]);
+  });
+
+  it("keeps both last lists when only the done ones can't be fetched", async () => {
+    const { client, answers } = fakeClient();
+    const swim = todo({ title: "Swim" });
+    answers.todos = ok([swim]);
+    const { result } = mount(client, true);
+    await settle();
+
+    answers.todos = ok([]);
+    answers.done = offline;
+    await act(async () => vi.advanceTimersByTimeAsync(REFRESH_MS));
+    expect(result.current.todos).toEqual([swim]);
+    expect(result.current.problem).toEqual({ kind: "offline" });
   });
 
   it("makes no calls while hidden", async () => {

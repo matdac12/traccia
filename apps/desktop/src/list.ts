@@ -1,5 +1,5 @@
 import type { Todo } from "./api-client";
-import { addDays, dayLabel } from "./days";
+import { addDays, dayLabel, todayIn } from "./days";
 
 /**
  * The open To-dos as the window lists them (docs/desktop-app.md §3.2): Overdue, Today, one section per later day
@@ -62,6 +62,39 @@ export function buildSections(todos: Todo[], today: string): Section[] {
     );
   }
   return sections;
+}
+
+/** What the window lists: the sections, and the Done today shelf under them. */
+export type ListLayout = { sections: Section[]; shelf: Todo[] };
+
+/**
+ * Where each To-do shows (docs/desktop-app.md §3.2, §3.4). Open ones sit in their sections, and so does a row still
+ * `leaving` after it closed. The To-dos done today in `timeZone` go on the shelf, newest first. A dropped row shows
+ * only while it leaves.
+ */
+export function layoutList(
+  todos: Todo[],
+  {
+    today,
+    timeZone,
+    leaving,
+  }: {
+    today: string;
+    timeZone: string;
+    leaving: { has: (id: string) => boolean };
+  },
+): ListLayout {
+  const inPlace = todos.filter((t) => t.state === "open" || leaving.has(t.id));
+  const shelf = todos
+    .filter(
+      (t) =>
+        t.state === "done" &&
+        !leaving.has(t.id) &&
+        t.closedAt !== null &&
+        todayIn(timeZone, new Date(t.closedAt)) === today,
+    )
+    .sort((a, b) => (b.closedAt as string).localeCompare(a.closedAt as string));
+  return { sections: buildSections(inPlace, today), shelf };
 }
 
 /** A section's heading: "Overdue", "Today" with its date, "Tomorrow", "Mon 19 Oct" or "Anytime". */

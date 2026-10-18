@@ -4,8 +4,8 @@ import { titleSegments } from "./title";
 
 /**
  * Done, drop, reopen and undo on the list's rows (docs/desktop-app.md §4). Writes show at once and are put back,
- * with an error toast, when the API refuses them. Rows closed while shown stay, struck through, until the window
- * hides; then they leave the list (they are in the Logbook).
+ * with an error toast, when the API refuses them. Where a closed row then shows (its section while it leaves, the
+ * Done today shelf, or nowhere once dropped) is the list's business (list.ts, leaving.ts).
  */
 
 /** How long a toast stays (§4). */
@@ -30,7 +30,7 @@ type ToastState = {
 type RowClient = Pick<ApiClient, "updateTodo">;
 
 export type RowActions = {
-  /** The fetched open To-dos with this show's writes applied, closed ones included. */
+  /** The fetched To-dos (open, and done today) with the writes applied, closed ones included. */
   todos: Todo[] | null;
   confirm: CascadeConfirm | null;
   toast: Toast | null;
@@ -85,29 +85,35 @@ export function useRowActions(
   const [overrides, setOverrides] = useState<ReadonlyMap<string, Todo>>(
     () => new Map(),
   );
-  /** The rows closed during the last show, left out of the list that was fetched before it hid. */
-  const [gone, setGone] = useState<{
+  /**
+   * The writes of earlier shows, kept over the list fetched before them until a new fetch replaces it: without
+   * them, a row closed last show would show open again for a moment on the next.
+   */
+  const [carried, setCarried] = useState<{
     from: Todo[] | null;
-    ids: ReadonlySet<string>;
+    todos: ReadonlyMap<string, Todo>;
   } | null>(null);
   const [confirm, setConfirm] = useState<CascadeConfirm | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const merged = useMemo(() => {
     if (!todos) return null;
-    const left = gone && gone.from === todos ? gone.ids : null;
+    const earlier = carried?.from === todos ? carried.todos : null;
     const out: Todo[] = [];
     const seen = new Set<string>();
     for (const t of todos) {
-      if (left?.has(t.id)) continue;
       seen.add(t.id);
-      out.push(overrides.get(t.id) ?? t);
+      out.push(overrides.get(t.id) ?? earlier?.get(t.id) ?? t);
     }
-    // Closed this show, so no longer in the open list, or added this show and not fetched yet: they stay until
-    // the window hides.
+    // Written but not in the fetched list (yet): added, or closed after a fetch that listed it open.
+    for (const [id, t] of earlier ?? [])
+      if (!seen.has(id)) {
+        seen.add(id);
+        out.push(overrides.get(id) ?? t);
+      }
     for (const [id, t] of overrides) if (!seen.has(id)) out.push(t);
     return out;
-  }, [todos, overrides, gone]);
+  }, [todos, overrides, carried]);
 
   // The latest values, for the async writes.
   const latest = useRef({ merged, overrides, todos, offline });
@@ -122,14 +128,11 @@ export function useRowActions(
     if (shown) return;
     showId.current += 1;
     const { overrides: current, todos: fetched } = latest.current;
-    const closed = [...current.values()]
-      .filter((t) => t.state !== "open")
-      .map((t) => t.id);
-    // Still the same list: the rows left out at an earlier hide stay out too.
-    setGone((previous) => {
-      const ids = new Set(previous?.from === fetched ? previous.ids : []);
-      for (const id of closed) ids.add(id);
-      return ids.size > 0 ? { from: fetched, ids } : null;
+    // Still the same list: what an earlier hide carried stays, under this show's writes.
+    setCarried((previous) => {
+      const next = new Map(previous?.from === fetched ? previous.todos : []);
+      for (const [id, t] of current) next.set(id, t);
+      return next.size > 0 ? { from: fetched, todos: next } : null;
     });
     setOverrides(new Map());
     setConfirm(null);
