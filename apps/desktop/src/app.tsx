@@ -1,9 +1,10 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { createApiClient, type Todo } from "./api-client";
 import { typedCharacter, useComposer } from "./composer";
 import { ComposerCard } from "./composer-card";
 import { clockIn, todayIn } from "./days";
-import { buildSections, listCounts } from "./list";
+import { useLeaving } from "./leaving";
+import { layoutList, listCounts } from "./list";
 import {
   hideWindow,
   loadSettings,
@@ -14,7 +15,11 @@ import {
 } from "./native";
 import { type ListProblem, type OpenList, useOpenList } from "./open-list";
 import { type RowActions, type Toast, useRowActions } from "./row-actions";
-import { FRESH_SETTINGS, type SavedSettings } from "./settings";
+import {
+  DEFAULT_TIMEZONE,
+  FRESH_SETTINGS,
+  type SavedSettings,
+} from "./settings";
 import { SettingsView } from "./settings-view";
 import { TitleBar } from "./title-bar";
 import { TodoList } from "./todo-list";
@@ -51,9 +56,18 @@ export function App() {
 
   const canGoBack = saved !== null && isComplete(saved);
   const listShown = shown && view === "list" && canGoBack;
-  const list = useOpenList(client, listShown);
+  const list = useOpenList(
+    client,
+    listShown,
+    saved?.ownerTimezone ?? DEFAULT_TIMEZONE,
+  );
+  // One list for the row actions: a shelf row reopens like any other.
+  const fetched = useMemo(
+    () => list.todos && [...list.todos, ...list.doneToday],
+    [list.todos, list.doneToday],
+  );
   const rows = useRowActions(client, {
-    todos: list.todos,
+    todos: fetched,
     // Settings counts as a hide: the rows closed before it leave the list.
     shown: listShown,
     offline: list.problem?.kind === "offline",
@@ -121,9 +135,17 @@ function ListView({
   const offline = list.problem?.kind === "offline";
   const todos = rows.todos;
   const [selected, setSelected] = useState<string | null>(null);
+  const [shelfOpen, setShelfOpen] = useState(true);
+  const leaving = useLeaving(todos, shown);
+  const layout = todos
+    ? layoutList(todos, { today, timeZone: ownerTimezone, leaving })
+    : null;
   // The rows in the order they show, for ↑ ↓.
-  const order = todos
-    ? buildSections(todos, today).flatMap((s) => s.items.map((t) => t.id))
+  const order = layout
+    ? [
+        ...layout.sections.flatMap((s) => s.items.map((t) => t.id)),
+        ...(shelfOpen ? layout.shelf.map((t) => t.id) : []),
+      ]
     : [];
   const selectedId = selected && order.includes(selected) ? selected : null;
 
@@ -298,11 +320,16 @@ function ListView({
         inert={composer.open}
         className="flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]"
       >
-        {todos && (
+        {todos && layout && (
           <TodoList
             todos={todos}
+            layout={layout}
+            leaving={leaving}
+            shelfOpen={shelfOpen}
+            onToggleShelf={() => setShelfOpen((open) => !open)}
             projects={list.projects}
             today={today}
+            timeZone={ownerTimezone}
             offline={offline}
             selectedId={selectedId}
             confirm={rows.confirm}

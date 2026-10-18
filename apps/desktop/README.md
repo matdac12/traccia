@@ -31,13 +31,13 @@ It runs `vite build`, then `tauri build --no-bundle`, and writes `apps/desktop/s
 pnpm --filter desktop build:installer
 ```
 
-It writes a per-user NSIS installer, `apps/desktop/src-tauri/target/release/bundle/nsis/Traccia_<version>_x64-setup.exe`: no signing, no auto-update, no administrator rights. The first run downloads NSIS into Tauri's cache. Run the setup (`/S` installs silently); it installs to `%LOCALAPPDATA%\Traccia	raccia-desktop.exe` with a Start menu entry. To upgrade, run a newer setup; it closes the running app first.
+It writes a per-user NSIS installer, `apps/desktop/src-tauri/target/release/bundle/nsis/Traccia_<version>_x64-setup.exe`: no signing, no auto-update, no administrator rights. The first run downloads NSIS into Tauri's cache. Run the setup (`/S` installs silently); it installs to `%LOCALAPPDATA%\Traccia\traccia-desktop.exe` with a Start menu entry. To upgrade, run a newer setup; it closes the running app first.
 
 After installing:
 
 - **Settings** (opens on first start): the API URL (`https://<tailnet host>`), a `todos` Token and the Owner timezone. Create the Token on the server with `docker compose exec -T api node dist/traccia.js token create --name desktop --actor you --scope todos`; the To-dos the app adds show "via desktop".
-- **Autostart**: every start of the installed exe writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Traccia` = `"<exe>" --hidden`, so it is resident after the next logon. Turning it off in Task Manager's Startup apps sticks. Uninstalling (Settings → Apps) removes the Run value; the Token stays in Credential Manager (`cmdkey /delete:traccia-desktop:token`) and the settings in `%APPDATA%pp.traccia.desktop`.
-- **Caps+R**: the owner's AutoHotkey script binds `CapsLock & r` to `"%LOCALAPPDATA%\Traccia	raccia-desktop.exe" --toggle`.
+- **Autostart**: every start of the installed exe writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Traccia` = `"<exe>" --hidden`, so it is resident after the next logon. Turning it off in Task Manager's Startup apps sticks. Uninstalling (Settings → Apps) removes the Run value; the Token stays in Credential Manager (`cmdkey /delete:traccia-desktop:token`) and the settings in `%APPDATA%\app.traccia.desktop`.
+- **Caps+R**: the owner's AutoHotkey script binds `CapsLock & r` to `"%LOCALAPPDATA%\Traccia\traccia-desktop.exe" --toggle`.
 
 ## Run it while developing
 

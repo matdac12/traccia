@@ -9,6 +9,7 @@ import {
 import type { CreateTodoInput, UpdateTodoInput } from "@traccia/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiMethod, ApiOutcome } from "../src/api-client";
+import { clockIn, todayIn } from "../src/days";
 import type { SavedSettings, SettingsForm } from "../src/settings";
 import { todo } from "./todos";
 
@@ -64,7 +65,7 @@ async function renderApp(saved: SavedSettings) {
 
 const field = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
 
-/** The API: these open To-dos and Projects, or offline. */
+/** The API: these To-dos and Projects, or offline. */
 const api = {
   todos: [] as ReturnType<typeof todo>[],
   projects: [] as { id: string; key: string; name: string; status: string }[],
@@ -107,8 +108,11 @@ function patchTodo(path: string, input: UpdateTodoInput): ApiOutcome {
       }),
     };
   }
-  for (const t of input.state === "open" ? [found] : [found, ...subs])
+  const closedAt = input.state === "open" ? null : new Date().toISOString();
+  for (const t of input.state === "open" ? [found] : [found, ...subs]) {
     t.state = input.state;
+    t.closedAt = closedAt;
+  }
   return { kind: "response", status: 200, body: JSON.stringify(found) };
 }
 
@@ -121,9 +125,14 @@ beforeEach(() => {
     if (api.offline) return { kind: "offline", reason: "could not connect" };
     if (method === "PATCH") return patchTodo(path, body as UpdateTodoInput);
     if (method === "POST") return postTodo(body as CreateTodoInput);
+    // The Logbook (`state=closed`) is newest close first.
     const items = path.startsWith("/v1/projects")
       ? api.projects
-      : api.todos.filter((t) => t.state === "open");
+      : path.includes("state=closed")
+        ? api.todos
+            .filter((t) => t.state !== "open")
+            .sort((a, b) => (b.closedAt ?? "").localeCompare(a.closedAt ?? ""))
+        : api.todos.filter((t) => t.state === "open");
     return {
       kind: "response",
       status: 200,
@@ -428,15 +437,16 @@ describe("the list", () => {
   });
 
   it("fetches on every show and not while hidden", async () => {
+    // The open To-dos, today's done ones and the Projects.
     await renderApp(configured);
-    await waitFor(() => expect(native.sendApi).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(native.sendApi).toHaveBeenCalledTimes(3));
 
     act(() => native.setShown?.(false));
     await act(async () => vi.advanceTimersByTimeAsync(90_000));
-    expect(native.sendApi).toHaveBeenCalledTimes(2);
+    expect(native.sendApi).toHaveBeenCalledTimes(3);
 
     act(() => native.setShown?.(true));
-    await waitFor(() => expect(native.sendApi).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(native.sendApi).toHaveBeenCalledTimes(6));
   });
 
   it("links a refused Token to Settings", async () => {
@@ -477,18 +487,101 @@ describe("actions on rows", () => {
     await screen.findAllByText(todos[0]?.title as string);
   }
 
-  it("marks done from the check, struck through until the window hides", async () => {
-    await showList(todo({ id: "td_gym", title: "Gym" }));
+  /** The rows on the Done today shelf, top to bottom, as "title time". */
+  const shelf = () =>
+    [
+      ...(screen
+        .queryByRole("region", { name: "Done today" })
+        ?.querySelectorAll<HTMLElement>("[data-todo]") ?? []),
+    ].map((el) => el.textContent);
+  /** Until the row has struck, folded and moved (leaving.ts). */
+  const afterLeaving = { timeout: 3000 };
+
+  it("marks done from the check: the line draws, then the row moves to Done today with its time", async () => {
+    await showList(
+      todo({ id: "td_gym", title: "Gym", day: todayIn("Europe/Rome") }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Mark done" }));
     expect(row("Gym").dataset.state).toBe("done");
     await act(async () => {});
     expect(patches()).toEqual([["/v1/todos/td_gym", { state: "done" }]]);
-    expect(screen.getByRole("button", { name: "Reopen" })).toBeTruthy();
+    expect(shelf()).toEqual([]);
 
+    const time = clockIn("Europe/Rome");
+    await waitFor(() => expect(shelf()).toEqual([`Gym${time}`]), afterLeaving);
+    expect(screen.getByRole("region", { name: "Today" }).textContent).toContain(
+      "All done for today.",
+    );
+
+    // It stays there across a hide.
     act(() => native.setShown?.(false));
     act(() => native.setShown?.(true));
     await act(async () => {});
-    expect(screen.queryByText("Gym")).toBeNull();
+    expect(shelf()).toEqual([`Gym${time}`]);
+  });
+
+  it("shows To-dos done today elsewhere on the shelf, newest first, and its check reopens one", async () => {
+    const now = Date.now();
+    const at = (minutesAgo: number) =>
+      new Date(now - minutesAgo * 60_000).toISOString();
+    const clock = (minutesAgo: number) =>
+      clockIn("Europe/Rome", new Date(now - minutesAgo * 60_000));
+    await showList(
+      todo({ title: "Shop" }),
+      todo({ title: "Pay rent", state: "done", closedAt: at(30) }),
+      todo({ id: "td_gym", title: "Gym", state: "done", closedAt: at(5) }),
+      todo({ title: "Bin", state: "dropped", closedAt: at(1) }),
+    );
+    await waitFor(() =>
+      expect(shelf()).toEqual([`Gym${clock(5)}`, `Pay rent${clock(30)}`]),
+    );
+
+    const gym = screen
+      .getByRole("region", { name: "Done today" })
+      .querySelector<HTMLElement>('[data-todo="td_gym"]') as HTMLElement;
+    fireEvent.click(within(gym).getByRole("button", { name: "Reopen" }));
+    await act(async () => {});
+    expect(patches()).toEqual([["/v1/todos/td_gym", { state: "open" }]]);
+    expect(shelf()).toEqual([`Pay rent${clock(30)}`]);
+    expect(row("Gym").dataset.state).toBe("open");
+  });
+
+  it("folds the shelf with its chevron, and ↑ ↓ reach its rows only while it is open", async () => {
+    await showList(
+      todo({ title: "Shop" }),
+      todo({
+        title: "Gym",
+        state: "done",
+        closedAt: new Date().toISOString(),
+      }),
+    );
+    const fold = await screen.findByRole("button", { name: "Done today" });
+    expect(fold.getAttribute("aria-expanded")).toBe("true");
+    key("ArrowDown");
+    key("ArrowDown");
+    const gym = () =>
+      document.querySelector<HTMLElement>(
+        '[aria-label="Done today"] [data-todo]',
+      );
+    expect(gym()?.dataset.selected).toBe("true");
+
+    fireEvent.click(fold);
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    expect(gym()).toBeNull();
+    key("ArrowDown");
+    expect(row("Shop").dataset.selected).toBe("true");
+  });
+
+  it("drops a row with a grey line, then lets it go without putting it on the shelf", async () => {
+    await showList(todo({ title: "Gym" }));
+    fireEvent.contextMenu(row("Gym"));
+    await act(async () => {});
+    expect(row("Gym").dataset.state).toBe("dropped");
+    await waitFor(
+      () => expect(screen.queryByText("Gym", { selector: "span" })).toBeNull(),
+      afterLeaving,
+    );
+    expect(shelf()).toEqual([]);
   });
 
   it("asks before closing a parent with open Sub-to-dos; Enter closes all three", async () => {
@@ -537,6 +630,9 @@ describe("actions on rows", () => {
     await showList(todo({ title: "Gym" }), todo({ title: "Shop" }));
     key("ArrowDown");
     expect(row("Gym").dataset.selected).toBe("true");
+    // The accent background, without the orange bar it once had.
+    expect(row("Gym").className).toContain("bg-accent");
+    expect(row("Gym").className).not.toContain("shadow");
     key("ArrowDown");
     expect(row("Shop").dataset.selected).toBe("true");
     expect(row("Gym").dataset.selected).toBeUndefined();

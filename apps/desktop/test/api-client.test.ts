@@ -76,6 +76,47 @@ describe("the API client", () => {
     expect(result).toEqual({ ok: true, value: [todo, second] });
   });
 
+  it("lists today's done To-dos from the Logbook, paging back to the first closed before today in Rome", async () => {
+    const closed = (id: string, state: string, closedAt: string) => ({
+      ...todo,
+      id,
+      state,
+      closedAt,
+    });
+    const send = transport(
+      json(200, {
+        items: [
+          closed("late", "done", "2026-10-19T21:30:00.000Z"),
+          closed("drop", "dropped", "2026-10-19T09:00:00.000Z"),
+        ],
+        nextCursor: "c1",
+      }),
+      json(200, {
+        items: [
+          // 00:30 on the 19th in Rome: still today.
+          closed("early", "done", "2026-10-18T22:30:00.000Z"),
+          closed("yesterday", "done", "2026-10-18T21:30:00.000Z"),
+          closed("older", "done", "2026-10-17T08:00:00.000Z"),
+        ],
+        nextCursor: "c2",
+      }),
+    );
+
+    const result = await createApiClient(send).listDoneToday(
+      "Europe/Rome",
+      "2026-10-19",
+    );
+
+    expect(send.mock.calls.map((call) => call[1])).toEqual([
+      "/v1/todos?state=closed&limit=250",
+      "/v1/todos?state=closed&limit=250&cursor=c1",
+    ]);
+    expect(result.ok && result.value.map((t) => t.id)).toEqual([
+      "late",
+      "early",
+    ]);
+  });
+
   it("keeps a parent's Sub-to-do count, and null for a To-do without one", async () => {
     const parent = { ...todo, id: "td_p", subTodos: { done: 1, total: 3 } };
     const send = transport(
