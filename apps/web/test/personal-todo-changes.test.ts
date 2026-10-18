@@ -1,6 +1,6 @@
 import type { Todo } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
-import { applyTodoChange } from "../lib/personal/todo-changes";
+import { applyTodoChange, dropMove } from "../lib/personal/todo-changes";
 
 const TODAY = "2026-10-17";
 const AT = "2026-10-17T13:00:00.000Z";
@@ -106,5 +106,46 @@ describe("applyTodoChange: the optimistic copy of a write", () => {
   it("leaves the list as it is when the To-do is no longer there", () => {
     const list = [todo()];
     expect(applyTodoChange(list, update("gone", { state: "done" }))).toBe(list);
+  });
+});
+
+describe("applyTodoChange: a position move", () => {
+  const order = (todos: Todo[], ids: string[]) => todos.filter((t) => ids.includes(t.id)).sort((a, b) => a.position - b.position).map((t) => t.id);
+
+  it("puts the To-do right below afterId or right above beforeId, between its bucket neighbours", () => {
+    const [a, b, c] = [todo({ position: 1024 }), todo({ position: 2048 }), todo({ position: 3072 })];
+    // Another bucket's positions don't count: a Sub-to-do on the same day, and another day.
+    const sub = todo({ parentId: "p", position: 2500 });
+    const other = todo({ day: "2026-10-18", position: 1500 });
+    const all = [a, b, c, sub, other];
+    const ids = [a.id, b.id, c.id];
+    expect(order(applyTodoChange(all, { type: "move", id: c.id, afterId: a.id }), ids)).toEqual([a.id, c.id, b.id]);
+    expect(order(applyTodoChange(all, { type: "move", id: c.id, beforeId: a.id }), ids)).toEqual([c.id, a.id, b.id]);
+    expect(order(applyTodoChange(all, { type: "move", id: a.id, afterId: c.id }), ids)).toEqual([b.id, c.id, a.id]);
+    expect(byId(applyTodoChange(all, { type: "move", id: c.id, afterId: a.id }), c.id)?.position).toBe(1536);
+    expect(byId(applyTodoChange(all, { type: "move", id: a.id, afterId: b.id }), sub.id)).toBe(sub);
+  });
+});
+
+describe("dropMove: where a drag dropped a row", () => {
+  const rows = (...todos: Todo[]) => todos;
+
+  it("names the row above it in its bucket, or the one below at the top; nothing when it didn't move", () => {
+    const [a, b, c] = [todo(), todo(), todo()];
+    expect(dropMove(rows(a, b, c), c.id, a.id)).toEqual({ beforeId: a.id });
+    expect(dropMove(rows(a, b, c), a.id, b.id)).toEqual({ afterId: b.id });
+    expect(dropMove(rows(a, b, c), a.id, c.id)).toEqual({ afterId: c.id });
+    expect(dropMove(rows(a, b, c), b.id, b.id)).toBeNull();
+  });
+
+  it("skips rows of other buckets in between, and refuses a drop on another bucket", () => {
+    const a = todo();
+    const sub = todo({ parentId: "p" });
+    const b = todo();
+    const c = todo();
+    expect(dropMove(rows(a, sub, b, c), c.id, sub.id)).toBeNull();
+    // Over b, past the Sub-to-do: right below b.
+    expect(dropMove(rows(a, sub, b, c), a.id, b.id)).toEqual({ afterId: b.id });
+    expect(dropMove(rows(a, todo({ day: null }), b), b.id, a.id)).toEqual({ beforeId: a.id });
   });
 });

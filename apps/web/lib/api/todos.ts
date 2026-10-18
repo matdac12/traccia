@@ -1,19 +1,24 @@
 import "server-only";
-import { type CreateTodoInput, subTodosResponseSchema, type Todo, type UpdateTodoInput } from "@traccia/shared";
+import { type CreateTodoInput, type MoveTodoPositionInput, subTodosResponseSchema, type Todo, type UpdateTodoInput } from "@traccia/shared";
 import { z } from "zod";
 import { REF } from "../documentation";
 import { dayInZone } from "../personal/days";
-import type { PersonalSpaceData, SelectedTodo } from "../personal/lists";
+import type { LogbookPage, PersonalSpaceData, SelectedTodo } from "../personal/lists";
 import { serverEnv } from "../server-env";
 import { ApiError, api } from "./client";
 import { listAll } from "./list-all";
 import { pageOf, todoSchema } from "./schemas";
 
 /** Logbook page size: newest first, so the first page usually holds every To-do closed today. */
-const CLOSED_PAGE_LIMIT = 50;
+const LOGBOOK_PAGE_LIMIT = 50;
 
 /** Every open To-do, Sub-to-dos included: by day (Anytime last), then Position. */
 export const listOpenTodos = () => listAll("/todos", todoSchema, { state: "open" });
+
+/** One Logbook page (`GET /v1/todos?state=closed`): done and dropped To-dos, most recently closed first. */
+export function listLogbookPage(cursor?: string): Promise<LogbookPage> {
+  return api().request("/todos", { schema: pageOf(todoSchema), query: { state: "closed", limit: LOGBOOK_PAGE_LIMIT, cursor } });
+}
 
 /**
  * The To-dos done or dropped on `day` (in `timeZone`). The Logbook is newest first, so this reads pages only until
@@ -23,7 +28,7 @@ export async function listTodosClosedOn(day: string, timeZone: string) {
   const todos = [];
   let cursor: string | undefined;
   do {
-    const page = await api().request("/todos", { schema: pageOf(todoSchema), query: { state: "closed", limit: CLOSED_PAGE_LIMIT, cursor } });
+    const page = await listLogbookPage(cursor);
     const onDay = page.items.filter((t) => t.closedAt !== null && dayInZone(t.closedAt, timeZone) === day);
     todos.push(...onDay);
     if (onDay.length < page.items.length) break;
@@ -78,6 +83,11 @@ export function createTodo(body: CreateTodoInput) {
 /** `PATCH /v1/todos/:id`. Closing a parent with open Sub-to-dos is a 409 with `details.openSubTodos`. */
 export function updateTodo(id: string, body: UpdateTodoInput) {
   return api().request(`/todos/${encodeURIComponent(id)}`, { schema: todoSchema, method: "PATCH", body });
+}
+
+/** `PATCH /v1/todos/:id/position`: within its bucket, right above `beforeId` or right below `afterId`. */
+export function moveTodo(id: string, body: MoveTodoPositionInput) {
+  return api().request(`/todos/${encodeURIComponent(id)}/position`, { schema: todoSchema, method: "PATCH", body });
 }
 
 const deletedSchema = z.object({ type: z.literal("todo"), id: z.string() }).loose();

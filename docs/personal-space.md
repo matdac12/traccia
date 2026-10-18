@@ -253,7 +253,7 @@ Three columns on a laptop:
   - **Overdue** (red label, each row showing its day).
   - **Today** (manual order, drag handle on hover).
   - Today's done and dropped To-dos, which stay at the bottom struck through.
-- **Upcoming**: the next 14 days, one section per day. Empty days are dimmed and say "Nothing planned".
+- **Upcoming**: the next 14 days, one section per day. Empty days are dimmed and say "Nothing planned". Below them, **Later** lists every open To-do planned after those 14 days, grouped by day, each day with its label (decided in TRC-163).
 - **Anytime**: quick add (with no day), then the list in manual order. A parent shows its Sub-to-dos indented underneath.
 - **Logbook**: grouped by close day, newest first, loading more on scroll.
 - **By project**: a big key chip as the heading, and the open To-dos referencing that key, sorted by day.

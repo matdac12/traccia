@@ -1,7 +1,7 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { Bell, CalendarDays, Check, X } from "lucide-react";
-import { startTransition, useState } from "react";
+import { type CSSProperties, type ReactNode, type Ref, startTransition, useState } from "react";
 import { dayLabel } from "@/lib/personal/days";
 import { isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,9 @@ import { useTodoSelection } from "./selection";
 import { useTodoActions } from "./todo-actions";
 import { ROW_ICON_BUTTON, TodoMenu } from "./todo-menu";
 import { TodoTitle } from "./todo-title";
+
+/** What a sortable row needs from dnd-kit: the item's ref and transform, whether it is the one dragged, and its handle. */
+export type RowDrag = { ref: Ref<HTMLLIElement>; style: CSSProperties; dragging: boolean; handle: ReactNode };
 
 /** How long the strike takes to draw (TodoTitle's transition): the row stays in place until it is done. */
 const STRIKE_MS = 300;
@@ -96,9 +99,10 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
  * Planned day where the list mixes days (red when Overdue; a calendar icon on hover otherwise), both opening the day
  * picker, and the "…" menu. A refused write shows under the row. On the page, a click anywhere else on the row (an
  * "Open" button stretched under the controls) selects it for the details panel. `wrap` lets a long title wrap instead
- * of cutting it short (the narrow panel's Sub-to-dos).
+ * of cutting it short (the narrow panel's Sub-to-dos). `drag` makes it sortable (its handle shows on hover, left of the
+ * check); `children` go under it, inside the item (Anytime's indented Sub-to-dos, which move with their parent).
  */
-export function TodoRow({ todo, showDay = false, wrap = false }: { todo: Todo; showDay?: boolean; wrap?: boolean }) {
+export function TodoRow({ todo, showDay = false, wrap = false, drag, children }: { todo: Todo; showDay?: boolean; wrap?: boolean; drag?: RowDrag; children?: ReactNode }) {
   const actions = useTodoActions();
   const selection = useTodoSelection();
   const { today } = actions;
@@ -106,8 +110,15 @@ export function TodoRow({ todo, showDay = false, wrap = false }: { todo: Todo; s
   const selected = selection?.selectedId === todo.id;
 
   return (
-    <li data-todo-id={todo.id} data-selected={selected || undefined} className={cn("rounded-md px-2 text-[13px]", selection && "hover:bg-accent/60", selected && "bg-accent hover:bg-accent")}>
-      <div className="group/row relative flex min-h-11 items-center gap-3 md:min-h-9">
+    <li
+      ref={drag?.ref}
+      style={drag?.style}
+      data-todo-id={todo.id}
+      data-selected={selected || undefined}
+      className={cn("rounded-md text-[13px]", drag?.dragging && "relative z-10 bg-card shadow-sm ring-1 ring-border")}
+    >
+      <div className={cn("group/row relative flex min-h-11 items-center gap-3 rounded-md px-2 md:min-h-9", selection && "hover:bg-accent/60", selected && "bg-accent hover:bg-accent")}>
+        {drag?.handle}
         <TodoCheck state={shown.state} title={todo.title} onToggle={toggle} />
         <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
           <button
@@ -134,7 +145,7 @@ export function TodoRow({ todo, showDay = false, wrap = false }: { todo: Todo; s
             aria-label={`Open “${todo.title}”`}
             aria-current={selected || undefined}
             onClick={() => selection.select(todo.id)}
-            className="absolute inset-y-0 -inset-x-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         ) : null}
         <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -163,7 +174,8 @@ export function TodoRow({ todo, showDay = false, wrap = false }: { todo: Todo; s
         </DayPicker>
         <TodoMenu todo={todo} />
       </div>
-      <TodoError todo={todo} className="pb-1.5 pl-[76px]" />
+      <TodoError todo={todo} className="pb-1.5 pl-[84px] pr-2" />
+      {children}
     </li>
   );
 }

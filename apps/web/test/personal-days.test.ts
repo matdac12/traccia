@@ -47,6 +47,9 @@ describe("day labels", () => {
     expect(dayLabel("2026-10-18", today)).toBe("Tomorrow");
     expect(dayLabel("2026-10-16", today)).toBe("Yesterday");
     expect(dayLabel("2026-10-15", today)).toBe("Thu 15 Oct");
+    // Another year says which (Upcoming's Later, an old Logbook day).
+    expect(dayLabel("2027-01-05", today)).toBe("Tue 5 Jan 2027");
+    expect(dayLabel("2025-12-31", today)).toBe("Wed 31 Dec 2025");
   });
 });
 

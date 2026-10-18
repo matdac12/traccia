@@ -1,14 +1,42 @@
-import type { Todo } from "@traccia/shared";
+import { issueKeySchema, type Todo } from "@traccia/shared";
+import { addDays, dayInZone } from "./days";
 
 /** The Personal Space lists (docs/personal-space.md §7.3). */
 export type PersonalList = "today" | "upcoming" | "anytime" | "logbook" | `project:${string}`;
 
+const NAMED_LISTS = new Set(["today", "upcoming", "anytime", "logbook"]);
+
+/** The list a `?list=` value names: a named list or `project:KEY` (a well-formed Project key), else null. */
+export function parseList(value: string | null | undefined): PersonalList | null {
+  if (!value) return null;
+  if (NAMED_LISTS.has(value)) return value as PersonalList;
+  return value.startsWith("project:") && issueKeySchema.safeParse(value.slice("project:".length)).success ? (value as PersonalList) : null;
+}
+
+/** One copy of each To-do: the first list that has it wins, so the freshest source goes first. */
+export function mergeById(...lists: Todo[][]): Todo[] {
+  const seen = new Set<string>();
+  const out: Todo[] = [];
+  for (const list of lists) {
+    for (const t of list) {
+      if (seen.has(t.id)) continue;
+      seen.add(t.id);
+      out.push(t);
+    }
+  }
+  return out;
+}
+
 /**
  * The list a To-do opens over when a link selects it (docs/personal-space.md §7.6): Today for today and Overdue,
- * Upcoming for a later day, Anytime, or the Logbook once closed. Only Today is built until TRC-163, so for now every
- * To-do opens over Today: TRC-163 fills the rule in here.
+ * Upcoming for a later day (its "Later" included), Anytime, or the Logbook once closed. An undated Sub-to-do has no
+ * row of its own, so it opens over its parent's list when the parent is at hand.
  */
-export const listOf = (_todo: Todo, _today: string): PersonalList => "today";
+export function listOf(todo: Todo, today: string, parent?: Todo | null): PersonalList {
+  if (todo.state !== "open") return "logbook";
+  if (todo.day === null) return todo.parentId && parent ? listOf(parent, today) : "anytime";
+  return todo.day <= today ? "today" : "upcoming";
+}
 
 /**
  * The To-do the URL selects (`/personal?todo=<id>`), read for the details panel: the To-dos it shows that the lists
@@ -23,6 +51,9 @@ export type SelectedTodo = { id: string; extra: Todo[] };
  */
 export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[]; selected?: SelectedTodo };
 
+/** One page of the Logbook as the API sends it, newest first; `nextCursor` reads the next (older) one. */
+export type LogbookPage = { items: Todo[]; nextCursor: string | null };
+
 /** A To-do that gets its own row in the day lists: top level, or a Sub-to-do with its own Planned day. */
 const ownRow = (t: Todo) => t.parentId === null || t.day !== null;
 
@@ -36,20 +67,108 @@ export const isOverdue = (t: Pick<Todo, "state" | "day">, today: string) => t.st
 /** An open To-do the Today list shows: Overdue, or planned for today. */
 const isOnToday = (t: Todo, today: string) => t.state === "open" && ownRow(t) && t.day !== null && t.day <= today;
 
+/** The day a closed To-do was closed on, in the Owner timezone (the Logbook's day); null while open. */
+export const closedDay = (t: Pick<Todo, "closedAt">, timeZone: string) => (t.closedAt ? dayInZone(t.closedAt, timeZone) : null);
+
 /**
- * The Today list (docs/personal-space.md §7.3). `todos` holds the open To-dos and those closed today: Overdue (oldest
- * day first), today's open To-dos by Position, then today's done and dropped ones in the order they were closed.
+ * The Today list (docs/personal-space.md §7.3): Overdue (oldest day first), today's open To-dos by Position, then the
+ * done and dropped ones closed today (in `timeZone`), in the order they were closed. Whatever else `todos` holds
+ * (the Logbook's pages, the details panel's reads) stays out.
  */
-export function todayList<T extends Todo>(todos: T[], today: string) {
+export function todayList<T extends Todo>(todos: T[], today: string, timeZone: string) {
   const rows = todos.filter(ownRow);
   const onToday = rows.filter((t) => isOnToday(t, today));
   const todayOpen = onToday.filter((t) => t.day === today).sort(byPosition);
   return {
     overdue: onToday.filter((t) => t.day !== today).sort(byDayThenPosition),
     today: todayOpen,
-    closed: rows.filter((t) => t.state !== "open").sort(byClosedAt),
+    closed: rows.filter((t) => t.state !== "open" && closedDay(t, timeZone) === today).sort(byClosedAt),
     remindersToCome: todayOpen.filter((t) => t.reminder?.status === "pending").length,
   };
+}
+
+/** A day and its To-dos, in the order the list shows them. */
+type DayGroup<T extends Todo = Todo> = { day: string; todos: T[] };
+
+/** How many days Upcoming shows one by one, starting tomorrow. */
+const UPCOMING_DAYS = 14;
+
+/**
+ * Upcoming (docs/personal-space.md §7.3): the open rows of the next 14 days, one group per day (empty days
+ * included), then "Later": every open row planned after them, grouped by day, only the days that have one. Each day
+ * is in Position order.
+ */
+export function upcomingList<T extends Todo>(todos: T[], today: string) {
+  const last = addDays(today, UPCOMING_DAYS);
+  const byDay = new Map<string, T[]>();
+  for (const t of todos) {
+    if (t.state !== "open" || !ownRow(t) || t.day === null || t.day <= today) continue;
+    const day = byDay.get(t.day);
+    if (day) day.push(t);
+    else byDay.set(t.day, [t]);
+  }
+  const group = (day: string): DayGroup<T> => ({ day, todos: (byDay.get(day) ?? []).sort(byPosition) });
+  return {
+    days: Array.from({ length: UPCOMING_DAYS }, (_, i) => group(addDays(today, i + 1))),
+    later: [...byDay.keys()].filter((day) => day > last).sort().map(group),
+  };
+}
+
+/**
+ * Anytime (docs/personal-space.md §7.3): the open top-level To-dos without a day, by Position, each with its open
+ * Sub-to-dos to show indented under it: the undated ones (its own bucket, by Position), then the dated ones by day.
+ */
+export function anytimeList<T extends Todo>(todos: T[]) {
+  const open = todos.filter((t) => t.state === "open");
+  const subTodos = new Map<string, T[]>();
+  for (const t of open) {
+    if (!t.parentId) continue;
+    const siblings = subTodos.get(t.parentId);
+    if (siblings) siblings.push(t);
+    else subTodos.set(t.parentId, [t]);
+  }
+  return open
+    .filter((t) => t.parentId === null && t.day === null)
+    .sort(byPosition)
+    .map((todo) => {
+      const subs = subTodos.get(todo.id) ?? [];
+      return { todo, undated: subs.filter((t) => t.day === null).sort(byPosition), dated: subs.filter((t) => t.day !== null).sort(byDayThenPosition) };
+    });
+}
+
+/** Sorts after every Planned day. */
+const ANYTIME_LAST = "9999-12-31";
+
+/** By project (docs/personal-space.md §7.3): the open rows that reference `key`, by day (Anytime last), then Position. */
+export function projectTodos<T extends Todo>(todos: T[], key: string) {
+  return todos
+    .filter((t) => t.state === "open" && ownRow(t) && t.references.some((r) => r.key === key))
+    .sort((a, b) => (a.day ?? ANYTIME_LAST).localeCompare(b.day ?? ANYTIME_LAST) || byPosition(a, b));
+}
+
+/** Where the Logbook's loaded pages end: the last To-do of the last page (the API pages by `closedAt`, then id, both descending). */
+export type LogbookEnd = { closedAt: string; id: string };
+
+/** Newest first, as the API pages the Logbook. */
+const byClosedAtDesc = (a: Todo, b: Todo) => (b.closedAt ?? "").localeCompare(a.closedAt ?? "") || b.id.localeCompare(a.id);
+
+/**
+ * The Logbook (docs/personal-space.md §7.3): done and dropped To-dos (Sub-to-dos included) grouped by the day they
+ * were closed in `timeZone`, newest first. With `end` (more pages to load), anything closed before the loaded pages
+ * end stays out (a To-do the poll or the panel brought from further back), so no day shows ahead of the ones between.
+ */
+export function logbookList<T extends Todo>(todos: T[], timeZone: string, end: LogbookEnd | null): DayGroup<T>[] {
+  const groups: DayGroup<T>[] = [];
+  // Not closed after `end`, newest first: closedAt before it, or the same moment and an id not above it.
+  const loaded = (t: Todo) => !end || (t.closedAt as string) > end.closedAt || (t.closedAt === end.closedAt && t.id >= end.id);
+  const closed = todos.filter((t) => t.state !== "open" && t.closedAt && loaded(t));
+  for (const t of closed.sort(byClosedAtDesc)) {
+    const day = closedDay(t, timeZone) as string;
+    const last = groups.at(-1);
+    if (last?.day === day) last.todos.push(t);
+    else groups.push({ day, todos: [t] });
+  }
+  return groups;
 }
 
 /**
