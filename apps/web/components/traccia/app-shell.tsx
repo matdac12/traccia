@@ -1,5 +1,5 @@
 "use client";
-import { Check, ChevronsUpDown, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Trash2, TriangleAlert } from "lucide-react";
+import { Check, ChevronsUpDown, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Sun, Trash2, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -129,6 +129,7 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
             <kbd className="rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground group-data-[collapsed=true]:hidden">C</kbd>
           </button>
         </RailTip>
+        <NavItem href="/personal" icon={<Sun className="size-3.5" />} active={path.startsWith("/personal")} label="Personal" collapsed={collapsed}>Personal</NavItem>
         <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")} label="Issues" collapsed={collapsed}>Issues</NavItem>
         <NavItem href="/settings" icon={<Settings className="size-3.5" />} active={path === "/settings"} label="Settings" collapsed={collapsed}>Settings</NavItem>
         <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"} label="Trash" collapsed={collapsed}>Trash</NavItem>

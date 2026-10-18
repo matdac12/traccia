@@ -26,6 +26,7 @@ pnpm dev          # http://localhost:3000
 | `TRACCIA_API_TOKEN` | yes | A `you` token. Server only, never `NEXT_PUBLIC_`. |
 | `DASHBOARD_ALLOWED_LOGINS` | yes in production | Comma-separated Tailscale logins (case-insensitive). |
 | `DASHBOARD_DEV_LOGIN` | no | Local-development bypass of the access check. **Refused when `NODE_ENV=production`.** |
+| `OWNER_TIMEZONE` | no | IANA zone where a day starts and ends in the Personal Space (`/personal`), default `Europe/Rome`. Set it to the API's value; an unknown zone fails startup. |
 
 The env is validated with Zod at server start (`instrumentation.ts`, `lib/env.ts`): a bad env prints every problem
 and exits with code 1.
@@ -128,9 +129,10 @@ lib/access.ts          pure access decision
 lib/env.ts             Zod env schema, pure (server-env.ts: server-only cached read)
 lib/api/               server-only API client, response schemas, per-resource functions
 lib/session.ts         current login for display
-app/(app)/             shell layout + pages (issues, projects, trash)
+app/(app)/             shell layout + pages (issues, projects, trash, personal)
 components/ui/         shadcn primitives
 components/traccia/    app components
+components/personal/   Personal Space page (TRC-159); lib/personal/ holds its pure helpers
 components/issue-detail/  issue page (TRC-47); lib/issue-detail/ holds its pure helpers
 scripts/               check-client-bundle.mjs
 test/                  vitest
@@ -174,6 +176,86 @@ change" (patches are rebuilt against the fresh issue, and title/description are 
 Markdown goes through `components/issue-detail/markdown.tsx` (react-markdown + rehype-sanitize); always use it for
 agent-written text. Attachments live in `components/issue-detail/attachments.tsx` (see "Files" below).
 The API's search prefix-matches the last word (so `perch` finds `perché`); the blocker/parent picker also looks `MAT-12`-style input up directly.
+
+## Personal Space (`/personal`, TRC-159)
+
+Spec: `docs/personal-space.md` §7. The page is `app/(app)/personal/page.tsx`; its components live in
+`components/personal/` and the pure helpers in `lib/personal/` (`days.ts` for Planned days in the Owner timezone,
+`lists.ts` for what each list shows and the menu counts, `title.ts` for Project chips, `quick-add.ts` for the quick-add
+parser, `project-autocomplete.ts` for `@` matching, `todo-changes.ts` for the optimistic copy of a write). "Personal" (lucide `Sun`) is the first sidebar item, above Issues.
+
+- **Data.** `loadPersonalSpace` (`lib/api/todos.ts`) dates today in `OWNER_TIMEZONE`, then reads every open To-do
+  (`GET /todos?state=open`, following `nextCursor`) and the Logbook only as far back as today
+  (`GET /todos?state=closed`, newest first). Two requests, plus one per extra page. The page renders it on the server;
+  the live refresh (TRC-52) polls the same function through `GET /api/todos`, so a page left open across midnight
+  rolls over to the new day on its next refresh. The page also passes the live Projects (`listProjects`, shared
+  with the layout through React `cache`) to `projects-context.tsx`, for `@` autocomplete and chip tooltips; the poll
+  doesn't re-read them.
+- **Quick add (TRC-160).** `quick-add.tsx` sits at the top of Today (its `defaultDay` prop is the day a line with no
+  day word goes to; `null` is Anytime). It parses `@KEY`, a day word and `HH:MM`, shows a read-back line, and posts
+  through `createTodoAction` (`app/(app)/personal/actions.ts`), which revalidates `/personal` so the new To-do shows in
+  the same round trip. API errors (a Reminder time already past) show under the field. `mention-input.tsx` is the
+  `@` autocomplete input (an ARIA combobox) that title editing and the Sub-to-do input reuse.
+- **Project chips.** A chip links to `/projects/:id` with an "Open <name>" tooltip and stops the click, so it never
+  selects the row; a chip whose Project is deleted is greyed and not a link. A key that names several Projects links
+  to the first one the API lists.
+- **Sub-to-do counts.** The row's `n/m` is the API's `subTodos` (TRC-177): `done` of `total`, dropped ones left out
+  of both, `null` on a Sub-to-do. A parent without live Sub-to-dos (`{0,0}`) shows no count.
+- **Row actions (TRC-161).** Every write goes through `useTodoWrites` (`todo-actions.tsx`), which `personal-space.tsx`
+  provides to the rows as `useTodoActions()`: `update(todo, patch)`, `move(todo, move)` (drag, TRC-163) and
+  `deleteTodo(todo)`.
+  - It shows the write at once with React's `useOptimistic` and `applyTodoChange`, the API's update rules applied
+    locally. It sends the row's `updatedAt` as `expectedUpdatedAt`. A refusal (a 409 `conflict` included) rolls the
+    row back, with the error under it.
+  - It asks before two writes. Moving a To-do with a Reminder to Anytime asks first. Closing a parent asks on the
+    API's 409 `openSubTodos` and retries with `closeSubTodos: true`. A parent the counts show has open Sub-to-dos isn't
+    closed optimistically, so cancelling leaves it open.
+  - The server actions are `updateTodoAction`, `moveTodoAction` (`PATCH /todos/:id/position`) and `deleteTodoAction`
+    (`app/(app)/personal/actions.ts`). All revalidate `/personal`. Delete goes to the Trash with no confirm.
+  - The row's check waits about 300 ms for the strike to draw before it writes (no wait under reduced motion).
+  - `DayPicker` (`day-picker.tsx`) and `ReminderPicker` (`reminder-picker.tsx`) are Radix Popovers. They take any
+    trigger and only report the choice, so the details panel (TRC-162) can reuse them. Their bodies mount only while
+    open.
+  - The Reminder picker reads "now" in the Owner timezone (`PersonalSpaceData.timeZone`) when it opens, and disables
+    the moments already past. The "…" menu (`todo-menu.tsx`) offers Move to, Reminder, Mark done, Drop, Reopen and
+    Delete, as the single-pointer alternative to drag.
+- **Details panel (TRC-162).** The selected To-do lives in the URL, `/personal?todo=<id>` (the link in every Telegram
+  Reminder and the API's `url`), next to the list shown (`?list=`, below). `usePersonalUrl` (`selection.tsx`) reads
+  both with `useSearchParams` and changes them with `history.pushState`, which Next's router follows with no server
+  round trip, so back and forward move between lists and selections.
+  - A row selects itself through an "Open" button stretched under it; the check, the Reminder time, the day, the "…"
+    menu and the chips sit above it (`relative z-[1]`), so a click on them never selects.
+  - `loadPersonalSpace(now, todoId)` (the page, and the poll as `GET /api/todos?todo=<id>`) adds `selected`: the
+    To-dos the panel needs that the lists don't load (it, its Sub-to-dos from `GET /todos/:id/sub-todos`, or its
+    parent, when closed on an earlier day). A To-do `GET /todos/:id` doesn't find, or finds deleted, is in neither,
+    and the panel says it no longer exists. `personal-space.tsx` merges those into the one `useTodoWrites` set; the
+    lists filter what they show themselves (Today's closed section by close day). The poll asks for `?todo=` only while the lists alone leave the panel short, and such
+    a selection is read at once rather than at the next poll (`usePoll` runs a `refresh()` that lands mid-poll as
+    soon as that poll ends).
+  - `details-panel.tsx` is a 340 px column from 1180 px and a dialog below; `todo-details.tsx` is its body (title
+    with `MentionInput`, the row's day and Reminder pickers, Details saved on blur, Sub-to-do rows and "Add a
+    Sub-to-do", which is `QuickAdd` with a `parentId`). Title and Details edits are local state, so the poll and the
+    revalidation after a write never reset them.
+- **Lists (TRC-163).** The list menu (`list-menu.tsx`) is a column on a laptop and a scrolling strip below `md`. The
+  chosen list is `?list=` (`today`, left out when nothing is selected, `upcoming`, `anytime`, `logbook`,
+  `project:KEY`); a row's selection writes it too. A link with only `?todo=` opens over the list `listOf`
+  (`lib/personal/lists.ts`) picks (Today for today and Overdue, Upcoming for a later day, Anytime, the Logbook once
+  closed, an undated Sub-to-do over its parent's), and the page then writes that list into the same history entry
+  (`replaceState`), so it stays put while the To-do changes and back/forward return to it.
+  - Each list is a pure helper in `lists.ts` and a component: `todayList` / `today-list.tsx` (closed rows only when
+    closed today in the Owner timezone), `upcomingList` / `upcoming-list.tsx` (the next 14 days, empty ones dimmed,
+    then "Later" by day), `anytimeList` / `anytime-list.tsx` (each parent's open Sub-to-dos indented under a left
+    rule), `projectTodos` / `project-list.tsx`, and `logbookList` / `logbook-list.tsx`.
+  - **Logbook.** `useLogbook` reads its own pages through `GET /api/todos/logbook?cursor=` (`listLogbookPage`, 50 a
+    page, newest first): the first when the list shows, the next when its end scrolls into view (or "Show older").
+    The poll never re-reads them. Its To-dos closed today come from the poll, which wins for them; a write's answer
+    updates the held copy (a reopened To-do leaves), and a new day starts over. Nothing older than the last loaded
+    page shows, so a deep-linked old To-do doesn't open a gap.
+  - **Drag to reorder** (`sortable-rows.tsx`, dnd-kit) in Today and Anytime: a handle on hover left of the check
+    (from `md` up), `KeyboardSensor` for the keyboard. A row moves only within its bucket (one Planned day or Anytime,
+    under one parent): while it is dragged the other buckets' rows are disabled as drop targets, and `dropMove`
+    (`todo-changes.ts`) names its new neighbour in that bucket (`afterId`, or `beforeId` at the top). It goes
+    through `useTodoWrites` like any edit, so it shows at once and rolls back with an error under the row.
 
 ## Browser smoke tests (`pnpm test:e2e`, TRC-61)
 

@@ -250,3 +250,9 @@ export const documentSchema = z.object({
   updatedAt: z.string(),
 });
 export type ProjectDocument = z.infer<typeof documentSchema>;
+
+/**
+ * To-dos (Personal Space): the request and response schemas live in `packages/shared`, shared with the API
+ * (docs/personal-space.md §5); re-exported here so response parsing still goes through this module.
+ */
+export { type Todo, todoSchema } from "@traccia/shared";
