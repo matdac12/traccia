@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod api;
+mod autostart;
 mod commands;
 mod launch;
 mod placement;
@@ -17,12 +18,14 @@ use tauri::WindowEvent;
 fn main() {
     let launch = Launch::parse(std::env::args().skip(1));
 
-    let first = resident::claim();
+    let claim = resident::claim();
+    let first = claim.first;
     // Whichever process ends up showing the window, this launch is the one Windows lets take focus.
     resident::let_resident_take_focus();
-    if first && launch.toggle {
-        // Never stay resident from a `--toggle` (it may be elevated): start the app through the shell.
-        std::process::exit(if resident::relaunch_through_shell().is_ok() { 0 } else { 1 });
+    if resident::start(first, launch.toggle, resident::is_elevated()) == resident::Start::RelaunchThroughShell
+    {
+        // Never stay resident from an elevated `--toggle`: start the app through the shell, unelevated.
+        std::process::exit(if resident::relaunch_through_shell(claim).is_ok() { 0 } else { 1 });
     }
     // Otherwise, when an instance is running, the single-instance plugin below hands it our arguments
     // and exits.
@@ -35,10 +38,6 @@ fn main() {
                 SecondLaunch::Show => window::show(app),
             }
         }))
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--hidden"]),
-        ))
         .plugin(tauri_plugin_opener::init())
         .manage(window::BlurHide::default())
         .manage(commands::Http(api::client()))
@@ -51,8 +50,14 @@ fn main() {
             commands::open_url,
         ])
         .setup(move |app| {
+            if !first {
+                // Another instance holds the claim but its single-instance listener wasn't up yet, so
+                // the plugin let this launch through. Never become a second resident (it may be
+                // elevated); the keypress is lost, which is the lesser harm.
+                std::process::exit(0);
+            }
             tray::build(app)?;
-            start_at_logon(app);
+            autostart::register();
             if !launch.hidden {
                 window::show(app.handle());
             }
@@ -65,16 +70,4 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("the Desktop app failed to start");
-}
-
-/// Registers the logon autostart (with `--hidden`) for this exe's current path. Release builds only,
-/// so `tauri dev` never registers a debug build.
-fn start_at_logon(app: &tauri::App) {
-    #[cfg(not(debug_assertions))]
-    {
-        use tauri_plugin_autostart::ManagerExt;
-        let _ = app.autolaunch().enable();
-    }
-    #[cfg(debug_assertions)]
-    let _ = app;
 }
