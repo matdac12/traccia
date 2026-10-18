@@ -88,15 +88,15 @@ Every open To-do, Sub-to-dos included (§3): Overdue (oldest first, each row wit
 | Action | Mouse | Keyboard (row selected) |
 |---|---|---|
 | Mark done | Click the check | Space |
-| Reopen | Click the check of a closed row | Space |
+| Reopen | Click the check of a row on the Done today shelf | Space |
 | Drop | Right-click the row | Del |
 | Undo a drop | "Undo" in the toast | Ctrl+Z, while the toast shows |
 | Open in the Dashboard | Click the title | Enter |
 
-- ↑ ↓ move the selection (the orange bar); clicking a row's empty area selects it. Opening sends the To-do's `url` from the API to `open_url`, which only opens `http://` and `https://` links.
+- ↑ ↓ move the selection (the accent background), into the shelf's rows while it is open; clicking a row's empty area selects it. Opening sends the To-do's `url` from the API to `open_url`, which only opens `http://` and `https://` links.
 - Every write shows at once, and is put back with a short toast if Traccia refuses it. While offline nothing is sent: the checks are disabled and the keys say "changes are off".
 - Closing a parent with open Sub-to-dos: the API answers 409 with `openSubTodos`, and a line under the row asks "Also mark 2 open Sub-to-dos done?". Yes or Enter sends it again with `closeSubTodos: true`; Cancel or Esc does nothing. Undo after such a drop reopens the parent, then its Sub-to-dos.
-- Closed rows stay, struck through, until the window hides (Settings counts too); then they leave the list. They are in the Dashboard's Logbook.
+- A closed row strikes through, then folds away after a beat (`src/leaving.ts`). A done one moves to the **Done today** shelf at the bottom (§3.4). It lists today's done To-dos in the Owner timezone, from the Logbook (`GET /v1/todos?state=closed`, fetched with the open list), newest first, with the time each was closed. It lasts all day and folds with its chevron. A dropped row leaves the list; it is in the Dashboard's Logbook. Where each row shows is `layoutList` in `src/list.ts`.
 
 ## Adding a To-do
 
