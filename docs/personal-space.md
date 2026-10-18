@@ -274,7 +274,7 @@ Marking a To-do done draws a 1.5 px orange line through the title (a background-
 ### 7.5 Interactions
 
 - **Quick add**:
-  - Parses `@KEY`, a day word (today/oggi, tomorrow/domani, mon…sun = the next such day) and `HH:MM` (which implies today when no day is given).
+  - Parses `@KEY`, a day word (today/oggi, tomorrow/domani, mon…sun = the next such day, anytime = no Planned day) and `HH:MM` (which implies today when no day is given; with anytime it is refused, as a Reminder needs a Planned day).
   - A read-back line shows the time, the title with chips, and the day before you press Enter.
   - It posts `{ title, day, time }`.
 - **`@` autocomplete** in quick add, the Sub-to-do input and title editing:

@@ -1,11 +1,8 @@
-import type { Todo } from "@traccia/shared";
+import { KEY_CANDIDATE_START, type Todo } from "@traccia/shared";
 
 export type ProjectReference = Todo["references"][number];
 
 export type TitleSegment = { text: string } | ProjectReference;
-
-/** Where a `@KEY` candidate starts, as the API decides it: an `@` not preceded by a letter or digit. */
-export const KEY_CANDIDATE_START = String.raw`(?<![\p{L}\p{N}])@`;
 
 const KEY_CANDIDATE = new RegExp(`${KEY_CANDIDATE_START}([A-Za-z0-9]+)`, "gu");
 

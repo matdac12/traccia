@@ -1,12 +1,11 @@
 "use server";
-import { createTodoInputSchema, moveTodoPositionInputSchema, type Todo, updateTodoInputSchema } from "@traccia/shared";
+import { createTodoInputSchema, moveTodoPositionInputSchema, type QuickAddParse, type Todo, updateTodoInputSchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionFailure, failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { ApiError } from "@/lib/api/client";
 import { createTodo, deleteTodo, moveTodo, updateTodo } from "@/lib/api/todos";
 import { REF } from "@/lib/documentation";
-import type { QuickAddParse } from "@/lib/personal/quick-add";
 import { neighbourOf, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 
 const idSchema = z.string().regex(REF);
@@ -16,7 +15,7 @@ const idSchema = z.string().regex(REF);
  * moment already past is a field error on `time`, a closed parent one on `parentId`). The revalidation re-renders
  * `/personal` in the same round trip, so the new To-do shows without waiting for the poll.
  */
-export async function createTodoAction(values: QuickAddParse & { parentId?: string }): Promise<ActionResult<{ id: string }>> {
+export async function createTodoAction(values: Pick<QuickAddParse, "title" | "day" | "time"> & { parentId?: string }): Promise<ActionResult<{ id: string }>> {
   const parsed = createTodoInputSchema.safeParse({ title: values.title, day: values.day, time: values.time ?? undefined, parentId: values.parentId });
   if (!parsed.success) return failure("Fix the highlighted fields.", zodFieldErrors(parsed.error.issues));
   try {

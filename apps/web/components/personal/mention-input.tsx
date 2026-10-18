@@ -1,6 +1,6 @@
 "use client";
+import { insertProjectKey, keyQueryAt, matchProjects } from "@traccia/shared";
 import { type ComponentProps, type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";
-import { insertProjectKey, keyQueryAt, matchProjects } from "@/lib/personal/project-autocomplete";
 import { cn } from "@/lib/utils";
 import { useProjectOptions } from "./projects-context";
 import { CHIP } from "./todo-title";

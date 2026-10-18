@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
-import type { Todo } from "@traccia/shared";
+import type { ProjectOption, Todo } from "@traccia/shared";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TooltipProvider } from "../components/ui/tooltip";
 import type { PersonalSpaceData, SelectedTodo } from "../lib/personal/lists";
-import type { ProjectOption } from "../lib/personal/project-autocomplete";
 
 const { createTodoAction, updateTodoAction, deleteTodoAction } = vi.hoisted(() => ({ createTodoAction: vi.fn(), updateTodoAction: vi.fn(), deleteTodoAction: vi.fn() }));
 vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction, updateTodoAction, deleteTodoAction }));

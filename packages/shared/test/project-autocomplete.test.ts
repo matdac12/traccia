@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { insertProjectKey, matchProjects, keyQueryAt, type ProjectOption } from "../lib/personal/project-autocomplete";
+import { insertProjectKey, matchProjects, keyQueryAt, type ProjectOption } from "../src/project-autocomplete.js";
 
 const project = (key: string, name: string, status: ProjectOption["status"] = "active"): ProjectOption => ({ id: `p_${key}_${name}`, key, name, status });
 
