@@ -226,7 +226,7 @@ describe("the fields", () => {
   });
 
   it("explains a failed Reminder", () => {
-    const t = todo({ reminder: { time: "09:00", status: "failed", failure: "telegram_forbidden", sentAt: null } });
+    const t = todo({ reminder: { time: "09:00", status: "failed", failure: "telegram_rejected", sentAt: null } });
     setup(page([t]), `/personal?todo=${t.id}`);
     expect(panel()).toHaveTextContent("Telegram refused it. Check the bot settings.");
     expect(panel()).toHaveTextContent(/Createds*in the dashboard/);

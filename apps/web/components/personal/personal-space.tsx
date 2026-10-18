@@ -8,6 +8,7 @@ import type { ProjectOption } from "@/lib/personal/project-autocomplete";
 import { getJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
 import { AnytimeList } from "./anytime-list";
+import { DeliveryBanner } from "./delivery-banner";
 import { DetailsPanel, type PanelContent } from "./details-panel";
 import { ListMenu, projectKeyOf } from "./list-menu";
 import { LogbookList, useLogbook } from "./logbook-list";
@@ -68,7 +69,11 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   const sync = usePoll(async () => {
     const remote = await getJson<PersonalSpaceData>(needsRead ? `/api/todos?todo=${encodeURIComponent(selectedId)}` : "/api/todos");
     // An unchanged answer keeps the same object, so nothing re-renders.
-    setData((current) => (JSON.stringify(current) === JSON.stringify(remote) ? current : remote));
+    // A poll that couldn't read the delivery state keeps the last one, so the banner doesn't flicker.
+    setData((current) => {
+      const next = remote.delivery || !current.delivery ? remote : { ...remote, delivery: current.delivery };
+      return JSON.stringify(current) === JSON.stringify(next) ? current : next;
+    });
   });
   const { today, timeZone } = data;
   // The read for the selected To-do, once it is the one selected.
@@ -105,6 +110,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
           <PageHeader title="Personal">
             <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
           </PageHeader>
+          <DeliveryBanner delivery={data.delivery} />
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
             <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={(next) => go({ list: next })} />
             <div className="min-h-0 flex-1 overflow-y-auto">

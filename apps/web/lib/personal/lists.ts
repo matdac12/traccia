@@ -1,4 +1,4 @@
-import { issueKeySchema, type Todo } from "@traccia/shared";
+import { issueKeySchema, type Todo, type TodoDelivery } from "@traccia/shared";
 import { addDays, dayInZone } from "./days";
 
 /** The Personal Space lists (docs/personal-space.md §7.3). */
@@ -47,9 +47,9 @@ export type SelectedTodo = { id: string; extra: Todo[] };
 
 /**
  * The Personal Space page's data: today in the Owner timezone (and the zone), the open To-dos and those closed today,
- * plus the selected To-do when the URL names one.
+ * plus the selected To-do when the URL names one and the Reminder delivery state (absent when the API couldn't say).
  */
-export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[]; selected?: SelectedTodo };
+export type PersonalSpaceData = { today: string; timeZone: string; todos: Todo[]; selected?: SelectedTodo; delivery?: TodoDelivery };
 
 /** One page of the Logbook as the API sends it, newest first; `nextCursor` reads the next (older) one. */
 export type LogbookPage = { items: Todo[]; nextCursor: string | null };

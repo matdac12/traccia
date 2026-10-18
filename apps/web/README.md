@@ -219,6 +219,12 @@ parser, `project-autocomplete.ts` for `@` matching, `todo-changes.ts` for the op
   - The Reminder picker reads "now" in the Owner timezone (`PersonalSpaceData.timeZone`) when it opens, and disables
     the moments already past. The "…" menu (`todo-menu.tsx`) offers Move to, Reminder, Mark done, Drop, Reopen and
     Delete, as the single-pointer alternative to drag.
+- **Reminder failures and the delivery banner (TRC-164).** `lib/personal/delivery.ts` holds the plain-words text for each
+  `failure` (`FAILURE_TEXT`), the "Skipped (day had passed)" note, and the three banner texts. A failed Reminder shows
+  red with a crossed bell and a tooltip naming the reason; a skipped one is dimmed; the details panel repeats the
+  sentence. `loadPersonalSpace` also reads `GET /todos/delivery` (`getDelivery`), so the page and its poll carry
+  `delivery`, and `DeliveryBanner` shows above the list unless `ok`. A delivery read that fails leaves the banner out
+  (a poll keeps the last state shown). A new time in the Reminder field re-arms a failed Reminder to pending.
 - **Details panel (TRC-162).** The selected To-do lives in the URL, `/personal?todo=<id>` (the link in every Telegram
   Reminder and the API's `url`), next to the list shown (`?list=`, below). `usePersonalUrl` (`selection.tsx`) reads
   both with `useSearchParams` and changes them with `history.pushState`, which Next's router follows with no server

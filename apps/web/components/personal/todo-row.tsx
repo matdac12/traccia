@@ -7,7 +7,7 @@ import { isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { ReminderPicker } from "./reminder-picker";
-import { reminderLabel, ReminderTime } from "./reminder-time";
+import { reminderDescription, ReminderTime } from "./reminder-time";
 import { useTodoSelection } from "./selection";
 import { useTodoActions } from "./todo-actions";
 import { ROW_ICON_BUTTON, TodoMenu } from "./todo-menu";
@@ -123,7 +123,7 @@ export function TodoRow({ todo, showDay = false, wrap = false, drag, children }:
         <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
           <button
             type="button"
-            aria-label={todo.reminder ? `Change Reminder (${reminderLabel(todo.reminder)})` : "Add a Reminder"}
+            aria-label={todo.reminder ? `Change Reminder (${reminderDescription(todo.reminder)})` : "Add a Reminder"}
             className="group/time relative z-[1] -my-1 shrink-0 rounded-md py-1 outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent"
           >
             {todo.reminder ? (

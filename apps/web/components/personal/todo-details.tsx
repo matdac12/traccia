@@ -4,13 +4,14 @@ import { Bell, CalendarDays } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { dayLabel, shortDate } from "@/lib/personal/days";
+import { reminderNote } from "@/lib/personal/delivery";
 import { isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { MentionInput } from "./mention-input";
 import { QuickAdd } from "./quick-add";
 import { ReminderPicker } from "./reminder-picker";
-import { reminderLabel, ReminderTime } from "./reminder-time";
+import { reminderDescription, ReminderTime } from "./reminder-time";
 import { useTodoSelection } from "./selection";
 import { useTodoActions } from "./todo-actions";
 import { SubTodoCount, TodoCheck, TodoError, TodoRow, useCheckToggle } from "./todo-row";
@@ -38,7 +39,7 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
   const selection = useTodoSelection();
   const { today } = actions;
   const { shown, toggle } = useCheckToggle(todo);
-  const failed = todo.reminder?.status === "failed";
+  const note = todo.reminder ? reminderNote(todo.reminder) : null;
 
   return (
     <div className="space-y-5">
@@ -75,7 +76,7 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
         <dt className="text-muted-foreground">Reminder</dt>
         <dd>
           <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
-            <button type="button" aria-label={todo.reminder ? `Change Reminder (${reminderLabel(todo.reminder)})` : "Add a Reminder"} className={cn(FIELD, !todo.reminder && "text-muted-foreground")}>
+            <button type="button" aria-label={todo.reminder ? `Change Reminder (${reminderDescription(todo.reminder)})` : "Add a Reminder"} className={cn(FIELD, !todo.reminder && "text-muted-foreground")}>
               {todo.reminder ? (
                 <ReminderTime todo={todo} />
               ) : (
@@ -86,7 +87,7 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
             </button>
           </ReminderPicker>
         </dd>
-        {failed ? <dd className="col-start-2 px-2 pb-1 text-[11px] text-destructive">Telegram refused it. Check the bot settings.</dd> : null}
+        {note ? <dd className={cn("col-start-2 px-2 pb-1 text-[11px]", todo.reminder?.status === "failed" ? "text-destructive" : "text-muted-foreground")}>{note}</dd> : null}
         <dt className="text-muted-foreground">Created</dt>
         <dd className="px-2 text-muted-foreground">{isFromParla(todo.source) ? "via Parla" : "in the dashboard"}</dd>
       </dl>
