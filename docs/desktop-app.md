@@ -159,7 +159,7 @@ How typing and picking combine:
 ## 8. Hotkey and single instance
 
 - **Single instance** (`tauri-plugin-single-instance`). Running `traccia-desktop.exe --toggle` while it runs makes the resident instance show or hide, and the second process exits at once.
-- **Elevation trap**: the owner's `hyper.ahk` runs elevated, so anything it launches starts elevated. If `--toggle` finds **no** resident instance, it starts the app **unelevated** through the shell (`explorer.exe <path to exe>`), then exits. It never stays resident itself.
+- **Elevation trap**: the owner's `hyper.ahk` runs elevated, so anything it launches starts elevated. If an elevated `--toggle` finds **no** resident instance, it starts the app **unelevated** through the shell (`explorer.exe <path to exe>`), then exits. It never stays resident itself. An unelevated one simply starts shown.
   - A plain launch with no arguments starts shown.
   - The logon autostart passes `--hidden`.
 - **AutoHotkey binding** in `C:\Users\MattiaDaCampo\Scripts\hyper.ahk` (AutoHotkey v2; see the `shortcut-expert` skill):
@@ -171,7 +171,7 @@ How typing and picking combine:
 
 - `apps/desktop`, in the pnpm workspace:
   - **Tauri 2**, with a Vite + React + Tailwind front end that reuses the Dashboard's tokens;
-  - plugins: single-instance, autostart and opener;
+  - plugins: single-instance and opener; the logon autostart is a quoted per-user `Run` value the app writes itself (TRC-178);
   - Rust crates: `keyring` and `reqwest`.
 - **Shared code** in `packages/shared`:
   - the To-do schemas (already there);

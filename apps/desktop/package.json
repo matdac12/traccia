@@ -10,7 +10,8 @@
     "typecheck": "tsc -p .",
     "test": "vitest run",
     "tauri": "tauri",
-    "build:exe": "tauri build --no-bundle"
+    "build:exe": "tauri build --no-bundle",
+    "build:installer": "tauri build --bundles nsis"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

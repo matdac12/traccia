@@ -23,7 +23,21 @@ Needs the Rust toolchain (stable, MSVC), the Visual Studio 2022 Build Tools (C++
 pnpm --filter desktop build:exe
 ```
 
-It runs `vite build`, then `tauri build --no-bundle`, and writes `apps/desktop/src-tauri/target/release/traccia-desktop.exe` (about 3.5 MB). A first build fetches and compiles the crates and takes about 10 minutes; later ones take about 4. The installer comes with TRC-173.
+It runs `vite build`, then `tauri build --no-bundle`, and writes `apps/desktop/src-tauri/target/release/traccia-desktop.exe` (about 3.5 MB). A first build fetches and compiles the crates and takes about 10 minutes; later ones take about 4.
+
+## Build and install the installer
+
+```sh
+pnpm --filter desktop build:installer
+```
+
+It writes a per-user NSIS installer, `apps/desktop/src-tauri/target/release/bundle/nsis/Traccia_<version>_x64-setup.exe`: no signing, no auto-update, no administrator rights. The first run downloads NSIS into Tauri's cache. Run the setup (`/S` installs silently); it installs to `%LOCALAPPDATA%\Traccia	raccia-desktop.exe` with a Start menu entry. To upgrade, run a newer setup; it closes the running app first.
+
+After installing:
+
+- **Settings** (opens on first start): the API URL (`https://<tailnet host>`), a `todos` Token and the Owner timezone. Create the Token on the server with `docker compose exec -T api node dist/traccia.js token create --name desktop --actor you --scope todos`; the To-dos the app adds show "via desktop".
+- **Autostart**: every start of the installed exe writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Traccia` = `"<exe>" --hidden`, so it is resident after the next logon. Turning it off in Task Manager's Startup apps sticks. Uninstalling (Settings → Apps) removes the Run value; the Token stays in Credential Manager (`cmdkey /delete:traccia-desktop:token`) and the settings in `%APPDATA%pp.traccia.desktop`.
+- **Caps+R**: the owner's AutoHotkey script binds `CapsLock & r` to `"%LOCALAPPDATA%\Traccia	raccia-desktop.exe" --toggle`.
 
 ## Run it while developing
 
@@ -47,9 +61,9 @@ Vite then proxies `/v1/…` to that API and adds the Token itself, so the page n
 |---|---|---|
 | `traccia-desktop.exe` | Starts shown | Shows the window |
 | `traccia-desktop.exe --hidden` | Starts hidden (the logon autostart) | Shows the window |
-| `traccia-desktop.exe --toggle` | Starts the app through `explorer.exe`, so unelevated, shown; then exits | Shows or hides the window; then exits |
+| `traccia-desktop.exe --toggle` | Elevated: starts the app through `explorer.exe`, so unelevated, shown, then exits. Not elevated: starts shown | Shows or hides the window; then exits |
 
-Only one instance stays resident. Caps+R in the owner's AutoHotkey script, which runs elevated, runs `--toggle`; going through `explorer.exe` keeps the resident instance unelevated (§8).
+Only one instance stays resident. Caps+R in the owner's AutoHotkey script, which runs elevated, runs `--toggle`; going through `explorer.exe` keeps the resident instance unelevated (§8). The elevated `--toggle` waits up to 3 s for the relaunched app to appear and exits with code 1 if it doesn't (Explorer not running). A launch that finds the resident mutex taken but nobody listening yet (two launches a few milliseconds apart) exits instead of becoming a second resident, so two Caps+R presses within about 150 ms of a cold start leave the window shown rather than shown and hidden.
 
 ## The window
 
