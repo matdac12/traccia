@@ -15,6 +15,7 @@ const todo = {
   state: "open",
   closedAt: null,
   parentId: null,
+  subTodos: null,
   position: 1,
   details: null,
   source: "desktop",
@@ -75,7 +76,7 @@ describe("the API client", () => {
     expect(result).toEqual({ ok: true, value: [todo, second] });
   });
 
-  it("keeps a parent's Sub-to-do count, and reads a To-do from an API without one", async () => {
+  it("keeps a parent's Sub-to-do count, and null for a To-do without one", async () => {
     const parent = { ...todo, id: "td_p", subTodos: { done: 1, total: 3 } };
     const send = transport(
       json(200, { items: [parent, todo], nextCursor: null }),
@@ -85,7 +86,7 @@ describe("the API client", () => {
 
     expect(result.ok && result.value.map((t) => t.subTodos)).toEqual([
       { done: 1, total: 3 },
-      undefined,
+      null,
     ]);
   });
 

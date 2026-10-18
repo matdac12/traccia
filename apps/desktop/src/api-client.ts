@@ -26,17 +26,8 @@ export type Transport = (
   body?: unknown,
 ) => Promise<ApiOutcome>;
 
-/**
- * A To-do as the API returns it: the shared schema, plus a parent's Sub-to-do count (`n/m`). The count comes with
- * TRC-177, which `packages/shared` on this branch doesn't have yet, so it is optional here; once the shared schema
- * has `subTodos`, this extension can go.
- */
-export const todoSchema = sharedTodoSchema.extend({
-  subTodos: z
-    .object({ done: z.number().int().min(0), total: z.number().int().min(0) })
-    .nullable()
-    .optional(),
-});
+/** A To-do as the API returns it, with a parent's Sub-to-do count (`n/m`). */
+export const todoSchema = sharedTodoSchema;
 export type Todo = z.infer<typeof todoSchema>;
 
 /**

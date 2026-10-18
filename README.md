@@ -66,6 +66,8 @@ Agents (MCP)  ──https://<host>──┘                           ── /mc
 
 Both containers bind to `127.0.0.1` on your server. `tailscale serve` is the only thing that publishes them, on your tailnet. The api is the only process that touches the database. The dashboard calls the api from server-side code and never exposes its token to the browser.
 
+`apps/desktop` is an optional Windows tray app for your open To-dos (Tauri; [`apps/desktop/README.md`](apps/desktop/README.md)). It runs on your own machine and talks to the api over the tailnet with a `todos` token; nothing on the server changes for it.
+
 ## Quickstart
 
 Local development needs Node 22 or newer and pnpm 10.
