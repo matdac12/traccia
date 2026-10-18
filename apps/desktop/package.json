@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prototype": "vite --open /prototype-done.html",
     "build": "vite build",
     "typecheck": "tsc -p .",
     "test": "vitest run",
