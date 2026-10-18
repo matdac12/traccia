@@ -1,0 +1,40 @@
+[package]
+name = "traccia-desktop"
+version = "0.0.0"
+description = "Traccia Desktop app: the owner's open To-dos in a resident window"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-autostart = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+# The Token in Windows Credential Manager (docs/desktop-app.md §7).
+keyring = { version = "3", features = ["windows-native"] }
+# Requests to the API (§6). Native TLS is Schannel on Windows: no extra build tools.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

@@ -1,0 +1,55 @@
+/* The Dashboard's tokens, theme and base layer (docs/desktop-app.md §2), so both apps share one look. */
+@import "../../web/app/globals.css";
+
+/* Scan only this app for classes, not the Dashboard the import above lives in. */
+@source not "../../web";
+@source "../";
+
+@font-face {
+  font-family: "Geist";
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+:root {
+  --font-geist-sans: "Geist", "Segoe UI Variable", system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+.dark { color-scheme: dark; }
+
+html, body, #root { height: 100%; margin: 0; overflow: hidden; }
+body { font-size: 13px; user-select: none; }
+
+/* A closed row's title (docs/desktop-app.md §3.3): the Personal Space's 1.5 px orange line, grey when dropped. */
+.todo-strike {
+  background-image: linear-gradient(var(--primary), var(--primary));
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 0% 1.5px;
+  transition: background-size 0.3s ease-out;
+}
+[data-state="done"] .todo-strike {
+  background-size: 100% 1.5px;
+  color: var(--muted-foreground);
+}
+[data-state="dropped"] .todo-strike {
+  background-image: linear-gradient(var(--muted-foreground), var(--muted-foreground));
+  background-size: 100% 1.5px;
+  color: var(--muted-foreground);
+}
+.todo-title:hover .todo-strike {
+  text-decoration: underline;
+  text-decoration-color: var(--input);
+  text-underline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .todo-strike { transition: none; }
+}

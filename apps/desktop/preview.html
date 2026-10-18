@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- Dev only (not built): the window at its real size, bottom-right of a fake work area, for visual checks in a browser. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Traccia window preview</title>
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: radial-gradient(1200px 700px at 30% 30%, #c9d8f0, #8fa9d6 60%, #6f8cc2); }
+      @media (prefers-color-scheme: dark) {
+        body { background: radial-gradient(1200px 700px at 30% 30%, #2a3550, #161c2c 60%, #0d111b); }
+      }
+      .taskbar { position: fixed; left: 0; right: 0; bottom: 0; height: 48px; background: rgb(127 127 127 / 35%); }
+      iframe { position: fixed; right: 12px; bottom: 60px; width: 380px; height: 520px; border: 0; border-radius: 8px;
+               box-shadow: 0 16px 48px rgb(0 0 0 / 28%), 0 2px 8px rgb(0 0 0 / 12%); }
+    </style>
+  </head>
+  <body>
+    <iframe src="/" title="Traccia window"></iframe>
+    <div class="taskbar"></div>
+  </body>
+</html>
