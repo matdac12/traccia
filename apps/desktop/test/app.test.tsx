@@ -686,6 +686,17 @@ describe("the composer", () => {
     expect(screen.getByText("↵ add")).toBeTruthy();
   });
 
+  it("makes the list inert while open, so Tab can't reach a row and Enter can't open one", async () => {
+    await showList(todo({ title: "Gym", day: "2026-10-17" }));
+    const list = row("Gym").closest("main") as HTMLElement;
+    expect(list.hasAttribute("inert")).toBe(false);
+    fireEvent.keyDown(document.body, { key: "C" });
+    expect(list.hasAttribute("inert")).toBe(true);
+    press("Escape");
+    expect(composerShown()).toBe(false);
+    expect(list.hasAttribute("inert")).toBe(false);
+  });
+
   it("doesn't open on shortcuts or named keys", async () => {
     await showList(todo({ title: "Gym" }));
     fireEvent.keyDown(document.body, { key: "z", ctrlKey: true });

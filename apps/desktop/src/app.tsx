@@ -266,8 +266,10 @@ function ListView({
           onOpenSettings={onOpenSettings}
         />
       )}
+      {/* Under the open composer the list is dimmed and inert: Tab can't reach its rows, so Enter can't open one. */}
       <main
         ref={listRef}
+        inert={composer.open}
         className="flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]"
       >
         {todos && (
