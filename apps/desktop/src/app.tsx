@@ -1,5 +1,7 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { createApiClient, type Todo } from "./api-client";
+import { typedCharacter, useComposer } from "./composer";
+import { ComposerCard } from "./composer-card";
 import { clockIn, todayIn } from "./days";
 import { buildSections, listCounts } from "./list";
 import {
@@ -142,18 +144,63 @@ function ListView({
       rows.notify(`Couldn't open it. ${err}`),
     );
 
-  // The keyboard (docs/desktop-app.md §4). On `document`, so it runs before the window's Esc-hides.
-  const keys = useRef({ order, selectedId, rows, todos, open });
-  keys.current = { order, selectedId, rows, todos, open };
+  const composer = useComposer(client, {
+    ownerTimezone,
+    shown,
+    offline,
+    onAdded: rows.added,
+    notify: rows.notify,
+  });
+  /** The + or a typed key (§5.1): the list's selection and confirm give way to the composer. */
+  const compose = (initial: string) => {
+    if (!composer.openWith(initial)) return;
+    setSelected(null);
+    rows.cancelCascade();
+  };
+
+  // The keyboard (docs/desktop-app.md §4, §5). On `document`, so it runs before the window's Esc-hides.
+  const keys = useRef({
+    order,
+    selectedId,
+    rows,
+    todos,
+    open,
+    composer,
+    compose,
+  });
+  keys.current = { order, selectedId, rows, todos, open, composer, compose };
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const { order, selectedId, rows, todos, open } = keys.current;
+      const { order, selectedId, rows, todos, open, composer, compose } =
+        keys.current;
       // A focused button handles its own Enter and Space, except a row's: a click leaves the focus on the check
       // or the title, and the keys then belong to the selection.
       const target = event.target as Element | null;
       const onButton =
         !!target?.closest?.("button") && !target.closest("[data-todo]");
       const take = () => event.preventDefault();
+      // While the composer is open, its keys are its own and none acts on the list. Esc closes it, unless the `@`
+      // list took that Esc; the next Esc hides the window.
+      if (composer.open) {
+        if (event.key === "Escape" && !event.defaultPrevented) {
+          take();
+          composer.close();
+        }
+        return;
+      }
+      // Typing opens the composer with that character (§5.1); Space does too while no row is selected.
+      const typed = typedCharacter(event);
+      const inField = !!target?.closest?.("input, textarea, select");
+      if (
+        typed !== null &&
+        !inField &&
+        !event.defaultPrevented &&
+        !(typed === " " && (selectedId || onButton))
+      ) {
+        take();
+        compose(typed === " " ? "" : typed);
+        return;
+      }
       if (rows.confirm && event.key === "Escape") {
         take();
         rows.cancelCascade();
@@ -200,6 +247,8 @@ function ListView({
       <TitleBar
         counts={todos ? listCounts(todos, today) : undefined}
         offline={offline}
+        composing={composer.open}
+        onAdd={() => (composer.open ? composer.close() : compose(""))}
       />
       {list.problem && (
         <ProblemLine
@@ -231,6 +280,13 @@ function ListView({
           />
         )}
       </main>
+      {composer.open && (
+        <ComposerCard
+          composer={composer}
+          projects={list.projects}
+          today={today}
+        />
+      )}
       {rows.toast && <ToastLine toast={rows.toast} onUndo={rows.undo} />}
     </>
   );
