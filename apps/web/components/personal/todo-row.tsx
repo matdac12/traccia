@@ -20,7 +20,7 @@ export type RowDrag = { ref: Ref<HTMLLIElement>; style: CSSProperties; dragging:
  * The To-do as it shows: with the state its strike is drawing while a close (or reopen) from the check, the "…" menu or
  * the panel waits to be sent (`useTodoWrites` times it).
  */
-export function useShownTodo(todo: Todo): Todo {
+function useShownTodo(todo: Todo): Todo {
   const preview = useTodoActions().previewOf(todo.id);
   return preview ? { ...todo, state: preview } : todo;
 }
@@ -84,6 +84,9 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
   );
 }
 
+/** What a row shows besides its To-do: the day (where the list mixes days), a wrapping title, the parent in front. */
+type RowProps = { todo: Todo; showDay?: boolean; wrap?: boolean; parentTitle?: string };
+
 /**
  * One To-do line (docs/personal-space.md §7.4): check, Reminder time (opens the Reminder picker; `––:––` on hover
  * when there is none), title with Project chips, a dot when it has Details, the Sub-to-do count, "via Parla", the
@@ -94,21 +97,8 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
  * (Today's second block). `drag` makes it sortable (its handle shows on hover, left of the
  * check); `children` go under it, inside the item (Anytime's indented Sub-to-dos, which move with their parent).
  */
-export function TodoRow({
-  todo,
-  showDay = false,
-  wrap = false,
-  parentTitle,
-  drag,
-  children,
-}: {
-  todo: Todo;
-  showDay?: boolean;
-  wrap?: boolean;
-  parentTitle?: string;
-  drag?: RowDrag;
-  children?: ReactNode;
-}) {
+export function TodoRow({ showDay = false, wrap = false, drag, children, ...row }: RowProps & { drag?: RowDrag; children?: ReactNode }) {
+  const { todo } = row;
   const selected = useTodoSelection()?.selectedId === todo.id;
   return (
     <li
@@ -118,7 +108,7 @@ export function TodoRow({
       data-selected={selected || undefined}
       className={cn("rounded-md text-[13px]", drag?.dragging && "relative z-10 bg-card shadow-sm ring-1 ring-border")}
     >
-      <RowBody todo={todo} showDay={showDay} wrap={wrap} parentTitle={parentTitle} selected={selected} handle={drag?.handle} />
+      <RowBody {...row} showDay={showDay} wrap={wrap} selected={selected} handle={drag?.handle} />
       {children}
     </li>
   );
@@ -128,21 +118,7 @@ export function TodoRow({
  * The row inside its item. Memoised: dragging re-renders every sortable item (dnd-kit's context), and this is the part
  * that costs, so it only renders again when its own To-do, flags or handle change.
  */
-const RowBody = memo(function RowBody({
-  todo,
-  showDay,
-  wrap,
-  parentTitle,
-  selected,
-  handle,
-}: {
-  todo: Todo;
-  showDay: boolean;
-  wrap: boolean;
-  parentTitle?: string;
-  selected: boolean;
-  handle?: ReactNode;
-}) {
+const RowBody = memo(function RowBody({ todo, showDay, wrap, parentTitle, selected, handle }: Required<Pick<RowProps, "showDay" | "wrap">> & Omit<RowProps, "showDay" | "wrap"> & { selected: boolean; handle?: ReactNode }) {
   const actions = useTodoActions();
   const selection = useTodoSelection();
   const { today } = actions;

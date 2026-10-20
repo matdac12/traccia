@@ -17,6 +17,9 @@ const noPages = (today: string): LogbookPages => ({ today, items: [], nextCursor
 /** The most pages one re-read goes back over. */
 const MAX_REREAD_PAGES = 20;
 
+/** One page of the Logbook: the newest, or the one `cursor` reads. */
+const readPage = (cursor: string | null) => getJson<LogbookPage>(`/api/todos/logbook${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
+
 /**
  * The Logbook's own read (docs/personal-space.md §7.3): `GET /v1/todos?state=closed` a page at a time, newest first,
  * only when asked (the list shown, or scrolled to its end). The To-dos closed today come with the page's poll, which
@@ -38,6 +41,7 @@ export function useLogbook(today: string, { active, tick }: { active: boolean; t
     current.current = pages;
   }, [pages]);
   const loading = useRef(false);
+  const rereading = useRef(false);
 
   const loadMore = useCallback(async () => {
     const asked = current.current;
@@ -45,7 +49,7 @@ export function useLogbook(today: string, { active, tick }: { active: boolean; t
     loading.current = true;
     setStatus("loading");
     try {
-      const page = await getJson<LogbookPage>(`/api/todos/logbook${asked.nextCursor ? `?cursor=${encodeURIComponent(asked.nextCursor)}` : ""}`);
+      const page = await readPage(asked.nextCursor);
       // A read the new day overtook is dropped.
       setPages((p) => (p.today === asked.today ? { ...p, items: mergeById(p.items, page.items), nextCursor: page.nextCursor, loaded: true, count: p.count + 1 } : p));
       setStatus("idle");
@@ -59,20 +63,27 @@ export function useLogbook(today: string, { active, tick }: { active: boolean; t
   /** The pages held, read again from the newest, silently. A failed re-read keeps what is held. */
   const reread = useCallback(async () => {
     const asked = current.current;
-    if (!asked.loaded) return;
+    // One at a time: a poll that comes while a chain of pages is still being read waits for the next one.
+    if (!asked.loaded || rereading.current) return;
+    rereading.current = true;
     try {
       const items: Todo[] = [];
       let cursor: string | null = null;
       let count = 0;
       do {
-        const page: LogbookPage = await getJson<LogbookPage>(`/api/todos/logbook${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
+        const page: LogbookPage = await readPage(cursor);
         items.push(...page.items);
         cursor = page.nextCursor;
         count++;
       } while (cursor && count < Math.min(asked.count, MAX_REREAD_PAGES));
-      setPages((p) => (p.today === asked.today ? { ...p, items: mergeById(items), nextCursor: cursor, count } : p));
+      const fresh = mergeById(items);
+      // Dropped when the new day, or a page `loadMore` added meanwhile, overtook it; when nothing changed it is the same
+      // state, so nothing renders.
+      setPages((p) => (p.today !== asked.today || p.count !== asked.count || (p.nextCursor === cursor && JSON.stringify(p.items) === JSON.stringify(fresh)) ? p : { ...p, items: fresh, nextCursor: cursor, count }));
     } catch {
       // The next poll tries again.
+    } finally {
+      rereading.current = false;
     }
   }, []);
   // Changes when the Logbook is shown, and with each poll while it is.

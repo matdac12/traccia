@@ -82,25 +82,23 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
    * 300 ms, none under reduced motion), then sends the write. The preview is cleared with the write's own render, so
    * the check never flashes back before the new state shows. A second try while it draws is ignored.
    */
-  const strike = (todo: Todo, state: Todo["state"], save: () => Promise<void>) => {
-    if (striking.current.has(todo.id)) return Promise.resolve();
+  const strike = async (todo: Todo, state: Todo["state"], save: () => Promise<void>) => {
+    if (striking.current.has(todo.id)) return;
     if (reducedMotion()) return save();
     striking.current.add(todo.id);
     setPreviews((current) => ({ ...current, [todo.id]: state }));
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        void save().then(() => {
-          striking.current.delete(todo.id);
-          startTransition(() =>
-            setPreviews((current) => {
-              const { [todo.id]: _, ...rest } = current;
-              return rest;
-            }),
-          );
-          resolve();
-        });
-      }, STRIKE_MS);
-    });
+    await new Promise((resolve) => setTimeout(resolve, STRIKE_MS));
+    try {
+      await save();
+    } finally {
+      striking.current.delete(todo.id);
+      startTransition(() =>
+        setPreviews((current) => {
+          const { [todo.id]: _, ...rest } = current;
+          return rest;
+        }),
+      );
+    }
   };
 
   const setError = (id: string, message: string | null) =>

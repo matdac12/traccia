@@ -92,7 +92,7 @@ export function todayList<T extends Todo>(todos: T[], today: string, timeZone: s
     today: todayOpen.filter((t) => t.parentId === null).sort(byPosition),
     subTodos: todayOpen.filter((t) => t.parentId !== null).sort(byParent),
     closed: rows.filter((t) => t.state !== "open" && closedDay(t, timeZone) === today).sort(byClosedAt),
-    remindersToCome: todayOpen.filter((t) => t.reminder?.status === "pending").length,
+    remindersToCome: todayOpen.filter(hasPendingReminder).length,
   };
 }
 

@@ -16,7 +16,7 @@ import {
 import { addDays, dayLabel, isMomentPast, ownerNow } from "@/lib/personal/days";
 import { hasPendingReminder } from "@/lib/personal/lists";
 import { stepMove, type TodoPatch } from "@/lib/personal/todo-changes";
-import { PAST_PRESETS_NOTE, REMINDER_PRESETS } from "./reminder-picker";
+import { anyPresetPast, PAST_PRESETS_NOTE, REMINDER_PRESETS } from "./reminder-picker";
 import { useRowOrder } from "./row-order";
 import { useTodoActions } from "./todo-actions";
 
@@ -25,7 +25,7 @@ export const ROW_ICON_BUTTON =
   "relative z-[1] grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover/row:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100";
 
 /** The panel's "…" button: always shown, with no row to hover. */
-export const PANEL_ICON_BUTTON = "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent";
+const PANEL_ICON_BUTTON = "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent";
 
 /**
  * The "…" menu of a row and of the details panel (docs/personal-space.md §7.5, §7.6): Move to (the next 7 days, or
@@ -62,7 +62,7 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
   const sortable = rows?.some((t) => t.id === todo.id) ?? false;
   const up = rows && stepMove(rows, todo.id, "up");
   const down = rows && stepMove(rows, todo.id, "down");
-  const anyPast = REMINDER_PRESETS.some((h) => isMomentPast(reminderDay, h, now));
+  const anyPast = anyPresetPast(reminderDay, now);
 
   return (
     <>
