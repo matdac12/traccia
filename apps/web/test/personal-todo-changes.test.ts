@@ -1,6 +1,6 @@
 import type { Todo } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
-import { applyTodoChange, dropMove } from "../lib/personal/todo-changes";
+import { applyTodoChange, dropMove, stepMove } from "../lib/personal/todo-changes";
 
 const TODAY = "2026-10-17";
 const AT = "2026-10-17T13:00:00.000Z";
@@ -124,6 +124,27 @@ describe("applyTodoChange: a position move", () => {
     expect(order(applyTodoChange(all, { type: "move", id: a.id, afterId: c.id }), ids)).toEqual([b.id, c.id, a.id]);
     expect(byId(applyTodoChange(all, { type: "move", id: c.id, afterId: a.id }), c.id)?.position).toBe(1536);
     expect(byId(applyTodoChange(all, { type: "move", id: a.id, afterId: b.id }), sub.id)).toBe(sub);
+  });
+});
+
+describe("stepMove: Move up and Move down", () => {
+  it("steps past the neighbour in the list order, and stops at the ends", () => {
+    const [a, b, c] = [todo(), todo(), todo()];
+    expect(stepMove([a, b, c], b.id, "up")).toEqual({ beforeId: a.id });
+    expect(stepMove([a, b, c], b.id, "down")).toEqual({ afterId: c.id });
+    expect(stepMove([a, b, c], a.id, "up")).toBeNull();
+    expect(stepMove([a, b, c], c.id, "down")).toBeNull();
+    expect(stepMove([a, b, c], "missing", "up")).toBeNull();
+  });
+
+  it("only counts rows of its own bucket", () => {
+    const a = todo();
+    const sub = todo({ parentId: "p" });
+    const b = todo();
+    expect(stepMove([a, sub, b], b.id, "up")).toEqual({ beforeId: a.id });
+    expect(stepMove([a, sub, b], a.id, "down")).toEqual({ afterId: b.id });
+    expect(stepMove([a, sub, b], sub.id, "up")).toBeNull();
+    expect(stepMove([a, sub, b], sub.id, "down")).toBeNull();
   });
 });
 

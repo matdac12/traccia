@@ -384,6 +384,62 @@ describe("drag to reorder", () => {
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(s1.id, { afterId: s2.id }));
   });
 
+  describe("Move up and Move down in the … menu", () => {
+    const items = (section: HTMLElement) => within(section).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"));
+    const openMenu = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+      await user.click(screen.getByRole("button", { name: `Actions for ${title}` }));
+      await screen.findByRole("menu");
+    };
+
+    it("moves a Today row one step, through the position endpoint with its neighbour", async () => {
+      const [a, b, c] = [todo({ title: "Alpha" }), todo({ title: "Bravo" }), todo({ title: "Charlie" })];
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([a, b, c]));
+      await openMenu(user, "Bravo");
+      await user.click(screen.getByRole("menuitem", { name: "Move down" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(b.id, { afterId: c.id });
+      await waitFor(() => expect(items(section(/^Today/))).toEqual([a.id, c.id, b.id]));
+    });
+
+    it("disables Move up on the first row and Move down on the last", async () => {
+      const [a, b] = [todo({ title: "Alpha" }), todo({ title: "Bravo" })];
+      const { user } = setup(page([a, b]));
+      await openMenu(user, "Alpha");
+      expect(screen.getByRole("menuitem", { name: "Move up" })).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("menuitem", { name: "Move down" })).not.toHaveAttribute("aria-disabled");
+      await user.keyboard("{Escape}");
+      await openMenu(user, "Bravo");
+      expect(screen.getByRole("menuitem", { name: "Move down" })).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("steps a Sub-to-do among its parent's only, and offers none on an Overdue row", async () => {
+      const parent = todo({ day: null, title: "Kitchen" });
+      const s1 = todo({ title: "Buy tiles", parentId: parent.id, subTodos: null });
+      const s2 = todo({ title: "Grout", parentId: parent.id, subTodos: null });
+      const late = todo({ title: "Old one", day: "2026-10-15" });
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([parent, s1, s2, late]));
+      await openMenu(user, "Grout");
+      await user.click(screen.getByRole("menuitem", { name: "Move up" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(s2.id, { beforeId: s1.id });
+      await openMenu(user, "Old one");
+      expect(screen.queryByRole("menuitem", { name: "Move up" })).toBeNull();
+    });
+
+    it("works in Anytime, and not on a dated Sub-to-do shown under its parent", async () => {
+      const p = todo({ day: null, title: "Plan the trip", subTodos: { done: 0, total: 1 } });
+      const q = todo({ day: null, title: "Read the manual" });
+      const dated = todo({ day: "2026-10-20", parentId: p.id, title: "Call the hotel", subTodos: null });
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([p, q, dated]), "/personal?list=anytime");
+      await openMenu(user, "Read the manual");
+      await user.click(screen.getByRole("menuitem", { name: "Move up" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(q.id, { beforeId: p.id });
+      await openMenu(user, "Call the hotel");
+      expect(screen.queryByRole("menuitem", { name: "Move down" })).toBeNull();
+    });
+  });
+
   it("reorders Anytime, and a parent's undated Sub-to-dos among themselves", async () => {
     const p = todo({ day: null, title: "Plan the trip", subTodos: { done: 0, total: 2 } });
     const s1 = todo({ day: null, parentId: p.id, title: "Book flights", subTodos: null });

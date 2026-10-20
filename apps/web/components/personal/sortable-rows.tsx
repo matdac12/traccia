@@ -6,6 +6,7 @@ import type { Todo } from "@traccia/shared";
 import { GripVertical } from "lucide-react";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import { bucketOf, dropMove } from "@/lib/personal/todo-changes";
+import { RowOrderProvider } from "./row-order";
 import { useTodoActions } from "./todo-actions";
 import { TodoRow } from "./todo-row";
 
@@ -55,7 +56,9 @@ export function SortableRows({ id, rows, children }: { id: string; rows: Todo[];
       onDragEnd={onEnd}
       onDragCancel={() => setDragging(null)}
     >
-      <DraggingBucket.Provider value={dragging}>{children}</DraggingBucket.Provider>
+      <DraggingBucket.Provider value={dragging}>
+        <RowOrderProvider value={rows}>{children}</RowOrderProvider>
+      </DraggingBucket.Provider>
     </DndContext>
   );
 }

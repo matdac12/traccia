@@ -1,6 +1,6 @@
 "use client";
 import type { Todo } from "@traccia/shared";
-import { Bell, CalendarDays, Check, Inbox, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Bell, CalendarDays, Check, Inbox, MoreHorizontal, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -15,8 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { addDays, dayLabel, isMomentPast, ownerNow } from "@/lib/personal/days";
 import { hasPendingReminder } from "@/lib/personal/lists";
-import type { TodoPatch } from "@/lib/personal/todo-changes";
+import { stepMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { PAST_PRESETS_NOTE, REMINDER_PRESETS } from "./reminder-picker";
+import { useRowOrder } from "./row-order";
 import { useTodoActions } from "./todo-actions";
 
 /** Revealed on row hover or focus from `md` up; always shown on touch widths. Above the row's "Open" button. */
@@ -51,6 +52,11 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const reminderDay = todo.day ?? today;
   const update = (patch: TodoPatch) => void actions.update(todo, patch);
+  // Only in a sortable list (Today, Anytime): one step through the order, as a drag would.
+  const rows = useRowOrder();
+  const sortable = rows?.some((t) => t.id === todo.id) ?? false;
+  const up = rows && stepMove(rows, todo.id, "up");
+  const down = rows && stepMove(rows, todo.id, "down");
   const anyPast = REMINDER_PRESETS.some((h) => isMomentPast(reminderDay, h, now));
 
   return (
@@ -94,6 +100,16 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
           ) : null}
         </DropdownMenuSubContent>
       </DropdownMenuSub>
+      {sortable ? (
+        <>
+          <DropdownMenuItem disabled={!up} onSelect={() => up && void actions.move(todo, up)}>
+            <ArrowUp className="size-3.5" aria-hidden /> Move up
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!down} onSelect={() => down && void actions.move(todo, down)}>
+            <ArrowDown className="size-3.5" aria-hidden /> Move down
+          </DropdownMenuItem>
+        </>
+      ) : null}
       <DropdownMenuSeparator />
       {todo.state === "open" ? (
         <>

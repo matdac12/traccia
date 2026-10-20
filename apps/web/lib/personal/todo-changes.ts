@@ -45,6 +45,21 @@ export function dropMove(rows: Todo[], activeId: string, overId: string): TodoMo
   return to > 0 ? { afterId: moved[to - 1] as string } : { beforeId: moved[1] as string };
 }
 
+/**
+ * One step of "Move up" or "Move down" (the single-pointer alternative to drag, WCAG 2.5.7): the move that puts `id`
+ * past its neighbour in the list order, among `rows` of its own bucket. Null at the edge of the bucket, or when `id`
+ * is not among the rows.
+ */
+export function stepMove(rows: Todo[], id: string, direction: "up" | "down"): TodoMove | null {
+  const target = rows.find((t) => t.id === id);
+  if (!target) return null;
+  const bucket = rows.filter((t) => bucketOf(t) === bucketOf(target));
+  const at = bucket.findIndex((t) => t.id === id);
+  const neighbour = bucket[direction === "up" ? at - 1 : at + 1];
+  if (!neighbour) return null;
+  return direction === "up" ? { beforeId: neighbour.id } : { afterId: neighbour.id };
+}
+
 /** The Position a move gives, as the API computes it: the midpoint of the new neighbours, or a step past the end. */
 function movedPosition(todos: Todo[], target: Todo, move: TodoMove): number {
   const bucket = todos.filter((t) => t.id !== target.id && bucketOf(t) === bucketOf(target)).sort(byPosition);
