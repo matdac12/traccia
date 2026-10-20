@@ -1,6 +1,6 @@
 "use client";
 import type { ProjectOption, Todo } from "@traccia/shared";
-import { createContext, type ReactNode, startTransition, useContext, useMemo, useOptimistic, useRef, useState } from "react";
+import { createContext, type ReactNode, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState } from "react";
 import { deleteTodoAction, moveTodoAction, restoreTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { UndoNotice } from "@/components/traccia/undo-notice";
@@ -11,8 +11,13 @@ import { latestInstantOn, ownerNow } from "@/lib/personal/days";
 import { hasPendingReminder } from "@/lib/personal/lists";
 import { applyTodoChange, isClosing, type TodoChange, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { plural } from "@/lib/utils";
+import { createTodoStatusStore } from "./todo-status";
 
-/** The writes a To-do row (and the details panel) can make, plus what they need to know. */
+/**
+ * The writes a To-do row (and the details panel) can make, plus what they need to know. The object only changes with
+ * the day or the zone, so the rows' memoised bodies don't render again for every write in flight; what changes more
+ * often (a strike drawing, a refused write) goes through `todo-status.tsx`.
+ */
 export type TodoActions = {
   /** Today in the Owner timezone, and the zone itself (the Reminder picker's "now"). */
   today: string;
@@ -23,10 +28,6 @@ export type TodoActions = {
   move: (todo: Todo, move: TodoMove) => Promise<void>;
   /** Deletes a To-do (and its Sub-to-dos): it goes to the Trash. */
   deleteTodo: (todo: Todo) => void;
-  /** The state a To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */
-  previewOf: (id: string) => Todo["state"] | undefined;
-  /** The last refused write on this To-do, shown under its row. */
-  errorFor: (id: string) => string | undefined;
   dismissError: (id: string) => void;
 };
 
@@ -64,11 +65,12 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
   // The deletes the API took, applied to whatever copies of those To-dos the page still holds (a Logbook page read
   // before the delete), with the same cascade as the optimistic delete. An id leaves once no copy is left.
   const [deleted, setDeleted] = useState<string[]>([]);
-  const { held, remaining } = useMemo(() => {
-    const held = deleted.filter((id) => todos.some((t) => t.id === id));
-    return { held, remaining: held.reduce((list, id) => applyTodoChange(list, { type: "delete", id }), todos) };
-  }, [deleted, todos]);
-  if (held.length !== deleted.length) setDeleted(held);
+  const held = useMemo(() => deleted.filter((id) => todos.some((t) => t.id === id)), [deleted, todos]);
+  const remaining = useMemo(() => held.reduce((list, id) => applyTodoChange(list, { type: "delete", id }), todos), [held, todos]);
+  useEffect(() => {
+    const gone = deleted.filter((id) => !held.includes(id));
+    if (gone.length) setDeleted((ids) => ids.filter((id) => !gone.includes(id)));
+  }, [deleted, held]);
   const [shown, addChange] = useOptimistic(remaining, applyTodoChange);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,6 +78,10 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
   // The To-dos whose strike is drawing, and the state they show meanwhile.
   const [previews, setPreviews] = useState<Record<string, Todo["state"]>>({});
   const striking = useRef(new Set<string>());
+  // What the rows read of `previews` and `errors`, one To-do at a time (todo-status.tsx). The commit that changes them
+  // tells the rows, so they show it before the browser paints.
+  const [status] = useState(createTodoStatusStore);
+  useLayoutEffect(() => status.set({ previews, errors }), [status, previews, errors]);
 
   /**
    * Closing or reopening a To-do (from its check, the "…" menu or the details panel) draws the strike first (about
@@ -138,10 +144,8 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
       },
     );
 
-  const actions: TodoActions = {
-    today,
-    timeZone,
-    update(todo, patch) {
+  const writes = {
+    update(todo: Todo, patch: TodoPatch) {
       if (patch.day === null && hasPendingReminder(todo) && patch.time === undefined) {
         setConfirm({ kind: "anytime", todo, patch });
         return Promise.resolve();
@@ -151,8 +155,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
       const send = () => write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
       return patch.state !== undefined && patch.state !== todo.state ? strike(todo, patch.state, send) : send();
     },
-    previewOf: (id) => previews[id],
-    move(todo, move) {
+    move(todo: Todo, move: TodoMove) {
       return run(
         todo,
         { type: "move", id: todo.id, ...move },
@@ -160,7 +163,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
         (result) => setError(todo.id, `Couldn't reorder it. ${firstError(result)}`),
       );
     },
-    deleteTodo(todo) {
+    deleteTodo(todo: Todo) {
       startTransition(async () => {
         setError(todo.id, null);
         addChange({ type: "delete", id: todo.id });
@@ -175,9 +178,24 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
         });
       });
     },
-    errorFor: (id) => errors[id],
-    dismissError: (id) => setError(id, null),
+    dismissError: (id: string) => setError(id, null),
   };
+  // The newest render's writes, behind an object that doesn't change with it.
+  const latest = useRef(writes);
+  useLayoutEffect(() => {
+    latest.current = writes;
+  });
+  const actions = useMemo<TodoActions>(
+    () => ({
+      today,
+      timeZone,
+      update: (todo, patch) => latest.current.update(todo, patch),
+      move: (todo, move) => latest.current.move(todo, move),
+      deleteTodo: (todo) => latest.current.deleteTodo(todo),
+      dismissError: (id) => latest.current.dismissError(id),
+    }),
+    [today, timeZone],
+  );
 
   const accept = () => {
     if (!confirm) return;
@@ -200,7 +218,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
 
   const dialog = <ConfirmDialog confirm={confirm} onAccept={accept} onCancel={() => setConfirm(null)} />;
   const notice = <DeleteNotices notices={notices} onUndo={(n) => void undo(n)} onDismiss={(id) => setNotices((list) => list.filter((n) => n.id !== id))} />;
-  return { todos: shown, actions, dialog, notice };
+  return { todos: shown, actions, status, dialog, notice };
 }
 
 /** One line per delete that can still be undone (docs/personal-space.md §7.5), above the lists, until dismissed. */

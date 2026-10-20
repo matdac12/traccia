@@ -16,6 +16,7 @@ import { ProjectOptionsProvider } from "./projects-context";
 import { type TodoSelection, TodoSelectionProvider, usePersonalUrl } from "./selection";
 import { TodayList } from "./today-list";
 import { TodoActionsProvider, useTodoWrites } from "./todo-actions";
+import { TodoStatusProvider } from "./todo-status";
 import { UpcomingList } from "./upcoming-list";
 
 const NO_TODOS: Todo[] = [];
@@ -83,7 +84,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   // then the Logbook's pages, whose To-dos closed today the poll holds in full.
   const all = useMemo(() => mergeById(data.todos, extra, logbook.items.filter((t) => closedDay(t, timeZone) !== today)), [data.todos, extra, logbook.items, timeZone, today]);
   // What the page shows: the data with the writes still on their way applied.
-  const { todos, actions, dialog, notice } = useTodoWrites(all, today, timeZone, projects, logbook);
+  const { todos, actions, status, dialog, notice } = useTodoWrites(all, today, timeZone, projects, logbook);
 
   // The URL's list, else the one a link's To-do belongs to, else Today.
   const linked = !url.list && selectedId ? linkedList(selectedId, todos, today) : null;
@@ -92,7 +93,8 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   useEffect(() => {
     if (linked) go({ list: linked }, "replace");
   }, [linked, go]);
-  const selection: TodoSelection = { selectedId, select: (id) => go({ todo: id, list }) };
+  // Unchanged by a write's state, so the rows (which read it) aren't rendered again for it.
+  const selection = useMemo<TodoSelection>(() => ({ selectedId, select: (id) => go({ todo: id, list }) }), [selectedId, go, list]);
 
   // A selection that needs a read: now, rather than at the next poll.
   const { refresh } = sync;
@@ -105,27 +107,29 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   return (
     <ProjectOptionsProvider value={projects}>
       <TodoActionsProvider value={actions}>
-        <TodoSelectionProvider value={selection}>
-          <PageHeader title="Personal">
-            <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
-          </PageHeader>
-          <DeliveryBanner delivery={data.delivery} />
-          {notice}
-          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-            <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={(next) => go({ list: next })} />
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="mx-auto max-w-[680px] px-4 pb-24 pt-6 md:px-8 md:pt-10">
-                {list === "today" ? <TodayList todos={todos} today={today} timeZone={timeZone} /> : null}
-                {list === "upcoming" ? <UpcomingList todos={todos} today={today} /> : null}
-                {list === "anytime" ? <AnytimeList todos={todos} today={today} /> : null}
-                {list === "logbook" ? <LogbookList todos={todos} today={today} timeZone={timeZone} logbook={logbook} /> : null}
-                {projectKey ? <ProjectList todos={todos} projectKey={projectKey} /> : null}
+        <TodoStatusProvider value={status}>
+          <TodoSelectionProvider value={selection}>
+            <PageHeader title="Personal">
+              <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
+            </PageHeader>
+            <DeliveryBanner delivery={data.delivery} />
+            {notice}
+            <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+              <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={(next) => go({ list: next })} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="mx-auto max-w-[680px] px-4 pb-24 pt-6 md:px-8 md:pt-10">
+                  {list === "today" ? <TodayList todos={todos} today={today} timeZone={timeZone} /> : null}
+                  {list === "upcoming" ? <UpcomingList todos={todos} today={today} /> : null}
+                  {list === "anytime" ? <AnytimeList todos={todos} today={today} /> : null}
+                  {list === "logbook" ? <LogbookList todos={todos} today={today} timeZone={timeZone} logbook={logbook} /> : null}
+                  {projectKey ? <ProjectList todos={todos} projectKey={projectKey} /> : null}
+                </div>
               </div>
+              {panel ? <DetailsPanel content={panel} onClose={() => selection.select(null)} /> : null}
             </div>
-            {panel ? <DetailsPanel content={panel} onClose={() => selection.select(null)} /> : null}
-          </div>
-          {dialog}
-        </TodoSelectionProvider>
+            {dialog}
+          </TodoSelectionProvider>
+        </TodoStatusProvider>
       </TodoActionsProvider>
     </ProjectOptionsProvider>
   );

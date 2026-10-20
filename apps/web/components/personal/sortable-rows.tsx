@@ -10,6 +10,10 @@ import { RowOrderProvider } from "./row-order";
 import { useTodoActions } from "./todo-actions";
 import { TodoRow } from "./todo-row";
 
+// Constants, so the sensors (and with them every row's drag listeners and handle) stay the same while the page renders.
+const POINTER_OPTIONS = { activationConstraint: { distance: 4 } };
+const KEYBOARD_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
+
 /** The bucket of the row being dragged: rows of any other bucket are no place to drop it. */
 const DraggingBucket = createContext<string | null>(null);
 
@@ -23,7 +27,7 @@ const DraggingBucket = createContext<string | null>(null);
 export function SortableRows({ id, rows, children }: { id: string; rows: Todo[]; children: ReactNode }) {
   const actions = useTodoActions();
   const [dragging, setDragging] = useState<string | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(useSensor(PointerSensor, POINTER_OPTIONS), useSensor(KeyboardSensor, KEYBOARD_OPTIONS));
   const rowOf = (rowId: string | number) => rows.find((t) => t.id === rowId);
   const title = (rowId: string | number) => `“${rowOf(rowId)?.title ?? "To-do"}”`;
   const announcements: Announcements = {
