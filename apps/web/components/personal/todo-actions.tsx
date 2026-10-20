@@ -1,8 +1,9 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { AlertDialog } from "radix-ui";
-import { createContext, type ReactNode, startTransition, useContext, useOptimistic, useRef, useState } from "react";
-import { deleteTodoAction, moveTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
+import { Undo2, X } from "lucide-react";
+import { createContext, type ReactNode, startTransition, useContext, useMemo, useOptimistic, useRef, useState } from "react";
+import { deleteTodoAction, moveTodoAction, restoreTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
 import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
 import type { ActionResult } from "@/lib/action-result";
@@ -41,8 +42,11 @@ export function useTodoActions(): TodoActions {
 /** A write waiting for a yes: the patch to send then, and what to ask. */
 type Confirm = { todo: Todo; patch: TodoPatch } & ({ kind: "close"; state: "done" | "dropped"; count: number } | { kind: "anytime" });
 
-/** Told about each write the API took: the To-do as it saved it, or the id it deleted (with its Sub-to-dos). */
-export type WriteListener = { saved?: (todo: Todo) => void; deleted?: (id: string) => void };
+/** Told about each write the API took: the To-do as it saved it. */
+export type WriteListener = { saved?: (todo: Todo) => void };
+
+/** A delete the page offers to undo: the To-do's id and title, and why the last Undo failed. */
+type Notice = { id: string; title: string; error?: string };
 
 type WriteResult = ActionResult<{ todo: Todo }> | TodoWriteFailure;
 
@@ -57,7 +61,16 @@ const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.
  * Sub-to-dos (its 409 `openSubTodos`), which is retried with `closeSubTodos: true` once confirmed.
  */
 export function useTodoWrites(todos: Todo[], today: string, timeZone: string, listener: WriteListener = {}) {
-  const [shown, addChange] = useOptimistic(todos, applyTodoChange);
+  // The deletes the API took, applied to whatever copies of those To-dos the page still holds (a Logbook page read
+  // before the delete), with the same cascade as the optimistic delete. An id leaves once no copy is left.
+  const [deleted, setDeleted] = useState<string[]>([]);
+  const { held, remaining } = useMemo(() => {
+    const held = deleted.filter((id) => todos.some((t) => t.id === id));
+    return { held, remaining: held.reduce((list, id) => applyTodoChange(list, { type: "delete", id }), todos) };
+  }, [deleted, todos]);
+  if (held.length !== deleted.length) setDeleted(held);
+  const [shown, addChange] = useOptimistic(remaining, applyTodoChange);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   // The To-dos whose strike is drawing, and the state they show meanwhile.
@@ -155,8 +168,12 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
         addChange({ type: "delete", id: todo.id });
         const result = await deleteTodoAction(todo.id);
         startTransition(() => {
-          if (result.ok) listener.deleted?.(todo.id);
-          else setError(todo.id, result.error);
+          if (result.ok) {
+            setDeleted((ids) => [...ids, todo.id]);
+            setNotices((list) => [...list.filter((n) => n.id !== todo.id), { id: todo.id, title: todo.title }]);
+          } else {
+            setError(todo.id, result.error);
+          }
         });
       });
     },
@@ -170,8 +187,44 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
     void write(confirm.todo, confirm.patch, true);
   };
 
+  /** The undo of a delete: the To-do comes back with the Sub-to-dos deleted with it. */
+  const undo = async (notice: Notice) => {
+    const result = await restoreTodoAction(notice.id);
+    startTransition(() => {
+      if (result.ok) {
+        setDeleted((ids) => ids.filter((id) => id !== notice.id));
+        setNotices((list) => list.filter((n) => n.id !== notice.id));
+      } else {
+        setNotices((list) => list.map((n) => (n.id === notice.id ? { ...n, error: result.error } : n)));
+      }
+    });
+  };
+
   const dialog = <ConfirmDialog confirm={confirm} onAccept={accept} onCancel={() => setConfirm(null)} />;
-  return { todos: shown, actions, dialog };
+  const notice = <DeleteNotices notices={notices} onUndo={(n) => void undo(n)} onDismiss={(id) => setNotices((list) => list.filter((n) => n.id !== id))} />;
+  return { todos: shown, actions, dialog, notice };
+}
+
+/** One line per delete that can still be undone (docs/personal-space.md §7.5), above the lists, until dismissed. */
+function DeleteNotices({ notices, onUndo, onDismiss }: { notices: Notice[]; onUndo: (notice: Notice) => void; onDismiss: (id: string) => void }) {
+  return notices.map((n) => (
+    <div key={n.id} role="status" className="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-xs">
+      <span className="min-w-0 flex-1">
+        <span className="font-medium">“{n.title}”</span> moved to the Trash.
+        {n.error ? (
+          <span role="alert" className="ml-2 text-destructive">
+            Undo failed: {n.error}
+          </span>
+        ) : null}
+      </span>
+      <Button type="button" size="sm" variant="outline" className="h-6 gap-1 text-xs" aria-label={`Undo delete of “${n.title}”`} onClick={() => onUndo(n)}>
+        <Undo2 className="size-3.5" aria-hidden /> Undo
+      </Button>
+      <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => onDismiss(n.id)}>
+        <X className="size-3.5" aria-hidden />
+      </Button>
+    </div>
+  ));
 }
 
 function confirmText(confirm: Confirm): { title: string; body: ReactNode; action: string } {

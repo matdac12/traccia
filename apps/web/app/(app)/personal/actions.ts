@@ -5,6 +5,7 @@ import { z } from "zod";
 import { type ActionFailure, failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
 import { ApiError } from "@/lib/api/client";
 import { createTodo, deleteTodo, moveTodo, updateTodo } from "@/lib/api/todos";
+import { restoreItem } from "@/lib/api/trash";
 import { REF } from "@/lib/documentation";
 import { neighbourOf, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 
@@ -82,6 +83,18 @@ export async function deleteTodoAction(id: string): Promise<ActionResult> {
   if (!idSchema.safeParse(id).success) return failure("Not a valid To-do id.");
   try {
     await deleteTodo(id);
+    revalidatePath("/personal");
+    return success(undefined);
+  } catch (err) {
+    return toFailure(err);
+  }
+}
+
+/** The undo of a delete: brings the To-do (and the Sub-to-dos deleted with it) back from the Trash. Re-renders `/personal`. */
+export async function restoreTodoAction(id: string): Promise<ActionResult> {
+  if (!idSchema.safeParse(id).success) return failure("Not a valid To-do id.");
+  try {
+    await restoreItem("todo", id);
     revalidatePath("/personal");
     return success(undefined);
   } catch (err) {

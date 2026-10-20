@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TooltipProvider } from "../components/ui/tooltip";
 
-const { updateTodoAction, deleteTodoAction } = vi.hoisted(() => ({ updateTodoAction: vi.fn(), deleteTodoAction: vi.fn() }));
-vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction: vi.fn(), updateTodoAction, deleteTodoAction }));
+const { updateTodoAction, deleteTodoAction, restoreTodoAction } = vi.hoisted(() => ({ updateTodoAction: vi.fn(), deleteTodoAction: vi.fn(), restoreTodoAction: vi.fn() }));
+vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction: vi.fn(), updateTodoAction, deleteTodoAction, restoreTodoAction }));
 
 // Saturday 17 October 2026, 15:00 in Rome.
 const TODAY = "2026-10-17";
@@ -76,6 +76,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   updateTodoAction.mockReset();
   deleteTodoAction.mockReset();
+  restoreTodoAction.mockReset();
 });
 afterEach(async () => {
   await act(async () => {
@@ -351,5 +352,55 @@ describe("the … menu", () => {
     expect(deleteTodoAction).toHaveBeenCalledWith(t.id);
     expect(screen.queryByText("Old idea")).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("the undo notice after a delete", () => {
+  async function deleteFromMenu(user: ReturnType<typeof userEvent.setup>, title: string) {
+    await user.click(screen.getByRole("button", { name: `Actions for ${title}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
+  }
+
+  it("says the To-do moved to the Trash once the API took it, and Undo restores it", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    restoreTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    // What the delete's revalidation sends: the page without it.
+    serverSends([]);
+    const notice = (await screen.findByText(/moved to the Trash/)).closest("div") as HTMLElement;
+    expect(notice).toHaveTextContent("“Old idea” moved to the Trash.");
+    expect(screen.queryByText("Nothing planned for today")).not.toBeNull();
+
+    await user.click(within(notice).getByRole("button", { name: "Undo delete of “Old idea”" }));
+    expect(restoreTodoAction).toHaveBeenCalledWith(t.id);
+    await waitFor(() => expect(screen.queryByText(/moved to the Trash/)).toBeNull());
+    // What the restore's revalidation sends: the To-do is back.
+    serverSends([t]);
+    expect(await screen.findByText("Old idea")).toBeInTheDocument();
+  });
+
+  it("keeps the notice, with the reason, when the Undo fails; Dismiss closes it", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    restoreTodoAction.mockResolvedValue({ ok: false, error: "Could not reach the API.", fieldErrors: {} });
+    const { user, serverSends } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    serverSends([]);
+    await user.click(await screen.findByRole("button", { name: "Undo delete of “Old idea”" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Undo failed: Could not reach the API.");
+    await user.click(within((screen.getByText(/moved to the Trash/)).closest("div") as HTMLElement).getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/moved to the Trash/)).toBeNull();
+  });
+
+  it("shows no notice when the delete is refused, and the error stays under the row", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: false, error: "To-do not found", fieldErrors: {} });
+    const { user } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    await screen.findByText("Old idea");
+    expect(within(row("Old idea")).getByRole("alert")).toHaveTextContent("To-do not found");
+    expect(screen.queryByText(/moved to the Trash/)).toBeNull();
   });
 });

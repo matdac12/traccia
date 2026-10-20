@@ -283,6 +283,24 @@ describe("Logbook", () => {
     expect(screen.getByText("Nothing done yet")).toBeInTheDocument();
   });
 
+  it("drops a deleted To-do and its Sub-to-dos from the pages it holds, and keeps them out", async () => {
+    const parent = closed("Fix the kitchen", "2026-10-16T09:00:00.000Z");
+    const sub = { ...closed("Buy tiles", "2026-10-16T09:00:00.000Z"), parentId: parent.id };
+    const other = closed("Booked the dentist", "2026-10-16T08:00:00.000Z");
+    serveRoutes({ logbook: { "": { items: [parent, sub, other], nextCursor: null } } });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup(page([]), "/personal?list=logbook");
+    await screen.findByText("Fix the kitchen");
+    await user.click(screen.getByRole("button", { name: "Actions for Fix the kitchen" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByText("Fix the kitchen")).toBeNull());
+    expect(screen.queryByText("Buy tiles")).toBeNull();
+    // A render with the same data (the delete's revalidation) doesn't bring them back.
+    serverSends(page([]));
+    expect(screen.queryByText("Fix the kitchen")).toBeNull();
+    expect(screen.getByText("Booked the dentist")).toBeInTheDocument();
+  });
+
   it("says when a page could not be read, and tries again", async () => {
     serveRoutes({ logbook: {} });
     const { user } = setup(page([]), "/personal?list=logbook");

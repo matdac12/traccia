@@ -17,7 +17,7 @@ const noPages = (today: string): LogbookPages => ({ today, items: [], nextCursor
 /**
  * The Logbook's own read (docs/personal-space.md §7.3): `GET /v1/todos?state=closed` a page at a time, newest first,
  * only when asked (the list shown, or scrolled to its end). The page's poll never re-reads it: the To-dos closed today
- * come with the poll itself, which wins for them, and a write's answer (or a delete) updates the copy held here. A new
+ * come with the poll itself, which wins for them, and a write's answer updates the copy held here. A new
  * day starts over, since the pages may lack what was closed yesterday after they were read.
  */
 export function useLogbook(today: string) {
@@ -55,15 +55,11 @@ export function useLogbook(today: string) {
   const saved = useCallback((todo: Todo) => {
     setPages((p) => (p.items.some((t) => t.id === todo.id) ? { ...p, items: todo.state === "open" ? p.items.filter((t) => t.id !== todo.id) : p.items.map((t) => (t.id === todo.id ? todo : t)) } : p));
   }, []);
-  /** A delete the API took: the To-do and its Sub-to-dos leave. */
-  const deleted = useCallback((id: string) => {
-    setPages((p) => ({ ...p, items: p.items.filter((t) => t.id !== id && t.parentId !== id) }));
-  }, []);
 
   const last = pages.items.at(-1);
   // Where the loaded pages end, while more are left to read.
   const end: LogbookEnd | null = pages.nextCursor && last?.closedAt ? { closedAt: last.closedAt, id: last.id } : null;
-  return { items: pages.items, loaded: pages.loaded, hasMore: !pages.loaded || pages.nextCursor !== null, end, status, loadMore, saved, deleted };
+  return { items: pages.items, loaded: pages.loaded, hasMore: !pages.loaded || pages.nextCursor !== null, end, status, loadMore, saved };
 }
 
 export type Logbook = ReturnType<typeof useLogbook>;
