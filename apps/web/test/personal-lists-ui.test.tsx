@@ -241,17 +241,15 @@ describe("By project", () => {
 describe("Logbook", () => {
   const closed = (title: string, closedAt: string) => todo({ title, state: "done", closedAt });
 
-  it("reads its own pages: grouped by close day, newest first, the next page on demand, and never on the poll", async () => {
+  it("reads its own pages: grouped by close day, newest first, the next page on demand", async () => {
     vi.useRealTimers();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(NOW);
     const today = closed("Paid the bill", "2026-10-17T08:00:00.000Z");
     const yesterday = closed("Booked the dentist", "2026-10-16T09:00:00.000Z");
     const older = closed("Renewed the passport", "2026-10-02T09:00:00.000Z");
-    const fetchMock = serveRoutes({
-      poll: page([today]),
-      logbook: { "": { items: [today, yesterday], nextCursor: "c2" }, c2: { items: [older], nextCursor: null } },
-    });
+    const logbookRoutes: Record<string, LogbookPage> = { "": { items: [today, yesterday], nextCursor: "c2" }, c2: { items: [older], nextCursor: null } };
+    const fetchMock = serveRoutes({ poll: page([today]), logbook: logbookRoutes });
     const { user } = setup(page([today]), "/personal?list=logbook");
     expect(await screen.findByRole("region", { name: "Today" })).toHaveTextContent("Paid the bill");
     expect(section("Yesterday")).toHaveTextContent("Booked the dentist");
@@ -263,11 +261,37 @@ describe("Logbook", () => {
     const logbookReads = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/todos/logbook"));
     expect(logbookReads()).toEqual(["/api/todos/logbook", "/api/todos/logbook?cursor=c2"]);
 
+    // The poll lands while the Logbook is shown: the pages held are read again, so what changed elsewhere shows.
+    logbookRoutes[""] = { items: [today, { ...yesterday, title: "Booked the dentist, moved" }], nextCursor: "c2" };
+    logbookRoutes.c2 = { items: [], nextCursor: null };
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/todos", expect.anything());
-    expect(logbookReads()).toHaveLength(2);
+    expect(await screen.findByText("Booked the dentist, moved")).toBeInTheDocument();
+    expect(screen.queryByText("Renewed the passport")).toBeNull();
+    expect(logbookReads()).toEqual(["/api/todos/logbook", "/api/todos/logbook?cursor=c2", "/api/todos/logbook", "/api/todos/logbook?cursor=c2"]);
+  });
+
+  it("leaves its pages alone while another list is shown, and reads them again when it is shown again", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
+    const yesterday = closed("Booked the dentist", "2026-10-16T09:00:00.000Z");
+    const fetchMock = serveRoutes({ poll: page([]), logbook: { "": { items: [yesterday], nextCursor: null } } });
+    const logbookReads = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/todos/logbook")).length;
+    const { user } = setup(page([]), "/personal?list=logbook");
+    await screen.findByText("Booked the dentist");
+    expect(logbookReads()).toBe(1);
+
+    await user.click(within(menu()).getByRole("button", { name: /^Today/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_000);
+    });
+    expect(logbookReads()).toBe(1);
+
+    await user.click(within(menu()).getByRole("button", { name: "Logbook" }));
+    await waitFor(() => expect(logbookReads()).toBe(2));
   });
 
   it("reopens a row closed on an earlier day, which then leaves the Logbook", async () => {

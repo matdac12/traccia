@@ -78,7 +78,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   // The read for the selected To-do, once it is the one selected.
   const read = selectedId && data.selected?.id === selectedId ? data.selected : undefined;
   const extra = read?.extra ?? NO_TODOS;
-  const logbook = useLogbook(today);
+  const logbook = useLogbook(today, { active: url.list === "logbook", tick: sync.lastUpdated });
   // One write path for every list and the panel. The freshest copy of a To-do wins: the poll's, then the panel's read,
   // then the Logbook's pages, whose To-dos closed today the poll holds in full.
   const all = useMemo(() => mergeById(data.todos, extra, logbook.items.filter((t) => closedDay(t, timeZone) !== today)), [data.todos, extra, logbook.items, timeZone, today]);
