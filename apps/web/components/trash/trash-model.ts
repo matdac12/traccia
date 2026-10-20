@@ -1,4 +1,5 @@
 import type { RestoreResult, TrashItem, TrashType } from "@/lib/api/schemas";
+import { plural } from "@/lib/utils";
 
 /** Pure helpers for the Trash view (no React, no server imports) so they can be unit-tested. */
 
@@ -24,7 +25,7 @@ const PLURAL: Record<Counted, [string, string]> = {
   subtodo: ["sub-to-do", "sub-to-dos"],
 };
 
-export const pluralize = (type: Counted, n: number) => `${n} ${PLURAL[type][n === 1 ? 0 : 1]}`;
+export const pluralize = (type: Counted, n: number) => plural(n, ...PLURAL[type]);
 
 /** "2 comments and 1 attachment" */
 function describeCounts(byType: Partial<Record<Counted, number>>): string {

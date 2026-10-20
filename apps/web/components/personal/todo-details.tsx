@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { dayLabel, shortDate } from "@/lib/personal/days";
 import { reminderNote } from "@/lib/personal/delivery";
-import { isFromParla, isOverdue } from "@/lib/personal/lists";
+import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { MentionInput } from "./mention-input";
@@ -14,6 +14,7 @@ import { ReminderPicker } from "./reminder-picker";
 import { reminderDescription, ReminderTime } from "./reminder-time";
 import { useTodoSelection } from "./selection";
 import { useTodoActions } from "./todo-actions";
+import { TodoMenu } from "./todo-menu";
 import { SubTodoCount, TodoCheck, TodoError, TodoRow, useCheckToggle } from "./todo-row";
 import { TodoTitle } from "./todo-title";
 
@@ -29,7 +30,8 @@ function dayText(day: string, today: string) {
 }
 
 /**
- * The details panel's body (docs/personal-space.md §7.6): the check and the editable title, the Planned day and
+ * The details panel's body (docs/personal-space.md §7.6): the check, the editable title and the "…" menu (the row's
+ * actions, for a To-do with no row on screen), the Planned day and
  * Reminder fields (the row's pickers), where it was created, Details, and for a top-level To-do its Sub-to-dos with
  * their own rows and an "Add a Sub-to-do" line. Every write goes through the page's `useTodoActions`. Edits in progress
  * are local state, so the poll and the revalidation after a write never reset them.
@@ -57,12 +59,15 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
           <TodoCheck state={shown.state} title={todo.title} onToggle={toggle} />
         </div>
         <EditableTitle todo={todo} state={shown.state} />
+        <div className="pt-0.5">
+          <TodoMenu todo={todo} panel />
+        </div>
       </div>
       <TodoError todo={todo} />
       <dl className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-y-1 text-[12px]">
         <dt className="text-muted-foreground">Planned day</dt>
         <dd>
-          <DayPicker day={todo.day} today={today} hasReminder={todo.reminder !== null} align="start" onSelect={(day) => void actions.update(todo, { day })}>
+          <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} align="start" onSelect={(day) => void actions.update(todo, { day })}>
             <button
               type="button"
               aria-label={`Planned day: ${todo.day ? dayText(todo.day, today) : "Anytime"}`}

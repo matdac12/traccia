@@ -10,17 +10,25 @@ import { getJson } from "@/lib/polling/fetch-json";
 import { DaySection, ListHeading } from "./list-heading";
 import { TodoRow } from "./todo-row";
 
-/** The pages read so far on `today`, in one list; `loaded` once the first came. */
-type LogbookPages = { today: string; items: Todo[]; nextCursor: string | null; loaded: boolean };
-const noPages = (today: string): LogbookPages => ({ today, items: [], nextCursor: null, loaded: false });
+/** The pages read so far on `today` (`count` of them), in one list; `loaded` once the first came. */
+type LogbookPages = { today: string; items: Todo[]; nextCursor: string | null; loaded: boolean; count: number };
+const noPages = (today: string): LogbookPages => ({ today, items: [], nextCursor: null, loaded: false, count: 0 });
+
+/** The most pages one re-read goes back over. */
+const MAX_REREAD_PAGES = 20;
+
+/** One page of the Logbook: the newest, or the one `cursor` reads. */
+const readPage = (cursor: string | null) => getJson<LogbookPage>(`/api/todos/logbook${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
 
 /**
  * The Logbook's own read (docs/personal-space.md §7.3): `GET /v1/todos?state=closed` a page at a time, newest first,
- * only when asked (the list shown, or scrolled to its end). The page's poll never re-reads it: the To-dos closed today
- * come with the poll itself, which wins for them, and a write's answer (or a delete) updates the copy held here. A new
- * day starts over, since the pages may lack what was closed yesterday after they were read.
+ * only when asked (the list shown, or scrolled to its end). The To-dos closed today come with the page's poll, which
+ * wins for them; the older ones are only here, so while the Logbook is `active` each poll (`tick`) re-reads the pages
+ * held, and so does showing it again: a To-do closed on an earlier day and then edited, reopened or deleted elsewhere
+ * doesn't stay stale. A write's answer updates the copy held here at once. A new day starts over, since the pages may
+ * lack what was closed yesterday after they were read.
  */
-export function useLogbook(today: string) {
+export function useLogbook(today: string, { active, tick }: { active: boolean; tick: number | null }) {
   const [pages, setPages] = useState(() => noPages(today));
   const [status, setStatus] = useState<"idle" | "loading" | "failed">("idle");
   if (pages.today !== today) {
@@ -33,6 +41,7 @@ export function useLogbook(today: string) {
     current.current = pages;
   }, [pages]);
   const loading = useRef(false);
+  const rereading = useRef(false);
 
   const loadMore = useCallback(async () => {
     const asked = current.current;
@@ -40,9 +49,9 @@ export function useLogbook(today: string) {
     loading.current = true;
     setStatus("loading");
     try {
-      const page = await getJson<LogbookPage>(`/api/todos/logbook${asked.nextCursor ? `?cursor=${encodeURIComponent(asked.nextCursor)}` : ""}`);
+      const page = await readPage(asked.nextCursor);
       // A read the new day overtook is dropped.
-      setPages((p) => (p.today === asked.today ? { ...p, items: mergeById(p.items, page.items), nextCursor: page.nextCursor, loaded: true } : p));
+      setPages((p) => (p.today === asked.today ? { ...p, items: mergeById(p.items, page.items), nextCursor: page.nextCursor, loaded: true, count: p.count + 1 } : p));
       setStatus("idle");
     } catch {
       setStatus("failed");
@@ -51,19 +60,47 @@ export function useLogbook(today: string) {
     }
   }, []);
 
+  /** The pages held, read again from the newest, silently. A failed re-read keeps what is held. */
+  const reread = useCallback(async () => {
+    const asked = current.current;
+    // One at a time: a poll that comes while a chain of pages is still being read waits for the next one.
+    if (!asked.loaded || rereading.current) return;
+    rereading.current = true;
+    try {
+      const items: Todo[] = [];
+      let cursor: string | null = null;
+      let count = 0;
+      do {
+        const page: LogbookPage = await readPage(cursor);
+        items.push(...page.items);
+        cursor = page.nextCursor;
+        count++;
+      } while (cursor && count < Math.min(asked.count, MAX_REREAD_PAGES));
+      const fresh = mergeById(items);
+      // Dropped when the new day, or a page `loadMore` added meanwhile, overtook it; when nothing changed it is the same
+      // state, so nothing renders.
+      setPages((p) => (p.today !== asked.today || p.count !== asked.count || (p.nextCursor === cursor && JSON.stringify(p.items) === JSON.stringify(fresh)) ? p : { ...p, items: fresh, nextCursor: cursor, count }));
+    } catch {
+      // The next poll tries again.
+    } finally {
+      rereading.current = false;
+    }
+  }, []);
+  // Changes when the Logbook is shown, and with each poll while it is.
+  const trigger = active ? (tick ?? 0) : null;
+  useEffect(() => {
+    if (trigger !== null) void reread();
+  }, [trigger, reread]);
+
   /** A write the API took: the saved copy replaces the held one, and a reopened To-do leaves (the open list has it). */
   const saved = useCallback((todo: Todo) => {
     setPages((p) => (p.items.some((t) => t.id === todo.id) ? { ...p, items: todo.state === "open" ? p.items.filter((t) => t.id !== todo.id) : p.items.map((t) => (t.id === todo.id ? todo : t)) } : p));
-  }, []);
-  /** A delete the API took: the To-do and its Sub-to-dos leave. */
-  const deleted = useCallback((id: string) => {
-    setPages((p) => ({ ...p, items: p.items.filter((t) => t.id !== id && t.parentId !== id) }));
   }, []);
 
   const last = pages.items.at(-1);
   // Where the loaded pages end, while more are left to read.
   const end: LogbookEnd | null = pages.nextCursor && last?.closedAt ? { closedAt: last.closedAt, id: last.id } : null;
-  return { items: pages.items, loaded: pages.loaded, hasMore: !pages.loaded || pages.nextCursor !== null, end, status, loadMore, saved, deleted };
+  return { items: pages.items, loaded: pages.loaded, hasMore: !pages.loaded || pages.nextCursor !== null, end, status, loadMore, saved };
 }
 
 export type Logbook = ReturnType<typeof useLogbook>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, dayInZone, dayLabel, isMomentPast, longDate, monthGrid, monthLabel, nextMonday, timeInZone, weekdayName } from "../lib/personal/days";
+import { addDays, addMonths, dayInZone, dayLabel, isMomentPast, latestInstantOn, longDate, monthGrid, monthLabel, nextMonday, timeInZone, weekdayName } from "../lib/personal/days";
 import { isTimeZone } from "../lib/time-zone";
 
 describe("dayInZone", () => {
@@ -13,6 +13,21 @@ describe("dayInZone", () => {
   it("follows the DST change (Rome is UTC+1 after 25 Oct 2026)", () => {
     expect(dayInZone("2026-10-25T22:30:00Z", "Europe/Rome")).toBe("2026-10-25");
     expect(dayInZone("2026-10-25T23:30:00Z", "Europe/Rome")).toBe("2026-10-26");
+  });
+});
+
+describe("latestInstantOn", () => {
+  it("is now while it is still on the day, else the last moment of the day", () => {
+    const now = new Date("2026-10-17T15:00:00Z");
+    expect(latestInstantOn("2026-10-17", "Europe/Rome", now)).toBe(now);
+    // 22:00:05Z on the 17th is 00:00:05 on the 18th in Rome: the 17th ended at 21:59:59.999Z.
+    expect(latestInstantOn("2026-10-17", "Europe/Rome", new Date("2026-10-17T22:00:05Z")).toISOString()).toBe("2026-10-17T21:59:59.999Z");
+  });
+
+  it("follows the DST change and a page a day or two behind", () => {
+    // Rome goes back to UTC+1 on 25 Oct: that day ends at 22:59:59.999Z.
+    expect(latestInstantOn("2026-10-25", "Europe/Rome", new Date("2026-10-25T23:00:01Z")).toISOString()).toBe("2026-10-25T22:59:59.999Z");
+    expect(latestInstantOn("2026-10-17", "Europe/Rome", new Date("2026-10-19T09:00:00Z")).toISOString()).toBe("2026-10-17T21:59:59.999Z");
   });
 });
 

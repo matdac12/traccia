@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalSpace } from "../components/personal/personal-space";
 import { TooltipProvider } from "../components/ui/tooltip";
 
-const { updateTodoAction, deleteTodoAction } = vi.hoisted(() => ({ updateTodoAction: vi.fn(), deleteTodoAction: vi.fn() }));
-vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction: vi.fn(), updateTodoAction, deleteTodoAction }));
+const { updateTodoAction, deleteTodoAction, restoreTodoAction } = vi.hoisted(() => ({ updateTodoAction: vi.fn(), deleteTodoAction: vi.fn(), restoreTodoAction: vi.fn() }));
+vi.mock("../app/(app)/personal/actions", () => ({ createTodoAction: vi.fn(), updateTodoAction, deleteTodoAction, restoreTodoAction }));
 
 // Saturday 17 October 2026, 15:00 in Rome.
 const TODAY = "2026-10-17";
@@ -74,6 +74,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   updateTodoAction.mockReset();
   deleteTodoAction.mockReset();
+  restoreTodoAction.mockReset();
 });
 afterEach(async () => {
   await act(async () => {
@@ -112,6 +113,92 @@ describe("the check", () => {
     await waitFor(() => expect(within(row("Call Luca")).getByRole("alert")).toHaveTextContent("Could not reach the API."));
     expect(within(region(/^Today/)).getByRole("button", { name: "Mark “Call Luca” done" })).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Closed today" })).toBeNull();
+  });
+});
+
+describe("a close just after midnight", () => {
+  it("stays in Closed today until the page's data rolls over, instead of vanishing", async () => {
+    // 00:00:05 on the 18th in Rome: the page still says it is the 17th.
+    vi.setSystemTime(new Date("2026-10-17T22:00:05Z"));
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const { user } = setup([t]);
+    await user.click(screen.getByRole("button", { name: "Mark “Pay the bill” done" }));
+    expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Holds the strike's 300 ms timer until `release()`, so a test can look at the page while the line draws however slow
+ * the machine is (user-event's own delays can outlast 300 ms under load).
+ */
+function holdStrike() {
+  const held: (() => void)[] = [];
+  const real = globalThis.setTimeout;
+  const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, ms?: number, ...args: unknown[]) => {
+    if (ms !== 300) return real(fn, ms, ...args);
+    held.push(fn);
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout);
+  return {
+    release: () =>
+      act(async () => {
+        for (const fn of held.splice(0)) fn();
+      }),
+    restore: () => spy.mockRestore(),
+  };
+}
+
+describe("the … menu strikes like the check", () => {
+  it.each([
+    ["Mark done", "done"],
+    ["Drop", "dropped"],
+  ] as const)("%s draws the strike in place, then sends the write", async (item, state) => {
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const strike = holdStrike();
+    try {
+      const { user } = setup([t]);
+      await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
+      await user.click(await screen.findByRole("menuitem", { name: item }));
+      // The line draws in place first: the row is still in Today, struck, and nothing is sent yet.
+      expect(screen.getByText("Pay the bill").parentElement).toHaveAttribute("data-struck", "true");
+      expect(within(region(/^Today/)).getByText("Pay the bill")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Closed today" })).toBeNull();
+      expect(updateTodoAction).not.toHaveBeenCalled();
+      await strike.release();
+      expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state }, UPDATED);
+      expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+    } finally {
+      strike.restore();
+    }
+  });
+
+  it("sends the write once when it is asked again while the strike draws", async () => {
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValue(hang());
+    const strike = holdStrike();
+    try {
+      const { user } = setup([t]);
+      const check = row("Pay the bill").querySelector("[data-todo-check]") as HTMLElement;
+      await user.click(check);
+      // While the strike draws the check already shows the new state: a second click on it changes nothing.
+      await user.click(check);
+      await strike.release();
+      expect(updateTodoAction).toHaveBeenCalledTimes(1);
+    } finally {
+      strike.restore();
+    }
+  });
+
+  it("sends at once, with no preview, under reduced motion", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: true, media: query, addEventListener() {}, removeEventListener() {} }));
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const { user } = setup([t]);
+    await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Mark done" }));
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state: "done" }, UPDATED);
   });
 });
 
@@ -176,9 +263,59 @@ describe("the day picker", () => {
     await user.click(within(confirm).getByRole("button", { name: "Move and remove Reminder" }));
     expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: null }, UPDATED);
   });
+
+  it("moves a To-do whose Reminder was sent, failed or skipped to Anytime without asking", async () => {
+    const t = todo({ title: "Water plants", reminder: { time: "09:00", status: "sent", failure: null, sentAt: UPDATED } });
+    updateTodoAction.mockReturnValue(hang());
+    const { user } = setup([t]);
+    await user.click(within(row("Water plants")).getByRole("button", { name: "Change Planned day" }));
+    // No "removes the Reminder" hint either: nothing is lost.
+    await user.click(within(await screen.findByRole("dialog", { name: "Planned day" })).getByRole("button", { name: /^Anytime$/ }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: null }, UPDATED);
+  });
+
+  it.each([
+    ["pending", pending("18:00"), true],
+    ["sent", { time: "09:00", status: "sent" as const, failure: null, sentAt: UPDATED }, false],
+    ["skipped", { time: "09:00", status: "skipped" as const, failure: null, sentAt: null }, false],
+  ])("hints 'removes the Reminder' in the row menu only for a pending one (%s)", async (_, reminder, hinted) => {
+    const { user } = setup([todo({ title: "Water plants", reminder })]);
+    await user.click(screen.getByRole("button", { name: "Actions for Water plants" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move to" }));
+    const anytime = (await screen.findAllByRole("menuitem")).find((i) => i.textContent?.includes("Anytime"));
+    expect(anytime?.textContent?.includes("removes the Reminder")).toBe(hinted);
+  });
 });
 
 describe("the Reminder picker", () => {
+  it("says why a preset is disabled: a tooltip on it and a line under the presets", async () => {
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(within(row("Gym")).getByRole("button", { name: "Add a Reminder" }));
+    const picker = await screen.findByRole("dialog", { name: "Reminder" });
+    const note = within(picker).getByText("Times that have already passed are disabled.");
+    // 15:00 in Rome now: 12:30 has passed, 18:00 has not.
+    expect(within(picker).getByRole("button", { name: "12:30" })).toHaveAccessibleDescription(note.textContent as string);
+    expect(within(picker).getByRole("button", { name: "18:00" })).not.toHaveAttribute("aria-describedby");
+    await user.hover(within(picker).getByRole("button", { name: "12:30" }).parentElement as HTMLElement);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("That time has already passed");
+  });
+
+  it("shows no such line while every preset is still ahead", async () => {
+    vi.setSystemTime(new Date("2026-10-17T05:00:00Z"));
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(within(row("Gym")).getByRole("button", { name: "Add a Reminder" }));
+    const picker = await screen.findByRole("dialog", { name: "Reminder" });
+    expect(within(picker).queryByText(/already passed are disabled/)).toBeNull();
+  });
+
+  it("repeats the line in the row menu's Reminder submenu", async () => {
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(screen.getByRole("button", { name: "Actions for Gym" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Reminder" }));
+    expect(await screen.findByText("Times that have already passed are disabled.")).toBeInTheDocument();
+  });
+
   it("disables the moments already past and sets a Reminder from a preset or an exact time", async () => {
     const t = todo({ title: "Gym" });
     updateTodoAction.mockReturnValue(hang());
@@ -244,5 +381,55 @@ describe("the … menu", () => {
     expect(deleteTodoAction).toHaveBeenCalledWith(t.id);
     expect(screen.queryByText("Old idea")).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("the undo notice after a delete", () => {
+  async function deleteFromMenu(user: ReturnType<typeof userEvent.setup>, title: string) {
+    await user.click(screen.getByRole("button", { name: `Actions for ${title}` }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
+  }
+
+  it("says the To-do moved to the Trash once the API took it, and Undo restores it", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    restoreTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    // What the delete's revalidation sends: the page without it.
+    serverSends([]);
+    const notice = (await screen.findByText(/moved to the Trash/)).closest("div") as HTMLElement;
+    expect(notice).toHaveTextContent("“Old idea” moved to the Trash.");
+    expect(screen.queryByText("Nothing planned for today")).not.toBeNull();
+
+    await user.click(within(notice).getByRole("button", { name: "Undo delete of “Old idea”" }));
+    expect(restoreTodoAction).toHaveBeenCalledWith(t.id);
+    await waitFor(() => expect(screen.queryByText(/moved to the Trash/)).toBeNull());
+    // What the restore's revalidation sends: the To-do is back.
+    serverSends([t]);
+    expect(await screen.findByText("Old idea")).toBeInTheDocument();
+  });
+
+  it("keeps the notice, with the reason, when the Undo fails; Dismiss closes it", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    restoreTodoAction.mockResolvedValue({ ok: false, error: "Could not reach the API.", fieldErrors: {} });
+    const { user, serverSends } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    serverSends([]);
+    await user.click(await screen.findByRole("button", { name: "Undo delete of “Old idea”" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Undo failed: Could not reach the API.");
+    await user.click(within((screen.getByText(/moved to the Trash/)).closest("div") as HTMLElement).getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText(/moved to the Trash/)).toBeNull();
+  });
+
+  it("shows no notice when the delete is refused, and the error stays under the row", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: false, error: "To-do not found", fieldErrors: {} });
+    const { user } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    await screen.findByText("Old idea");
+    expect(within(row("Old idea")).getByRole("alert")).toHaveTextContent("To-do not found");
+    expect(screen.queryByText(/moved to the Trash/)).toBeNull();
   });
 });

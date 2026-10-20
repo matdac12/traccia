@@ -1,12 +1,14 @@
 "use client";
-import type { Todo } from "@traccia/shared";
-import { AlertDialog } from "radix-ui";
-import { createContext, type ReactNode, startTransition, useContext, useOptimistic, useState } from "react";
-import { deleteTodoAction, moveTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
+import type { ProjectOption, Todo } from "@traccia/shared";
+import { Undo2, X } from "lucide-react";
+import { createContext, type ReactNode, startTransition, useContext, useMemo, useOptimistic, useRef, useState } from "react";
+import { deleteTodoAction, moveTodoAction, restoreTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
 import type { ActionResult } from "@/lib/action-result";
-import { ownerNow } from "@/lib/personal/days";
+import { latestInstantOn, ownerNow } from "@/lib/personal/days";
+import { hasPendingReminder } from "@/lib/personal/lists";
 import { applyTodoChange, isClosing, type TodoChange, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { plural } from "@/lib/utils";
 
@@ -21,6 +23,8 @@ export type TodoActions = {
   move: (todo: Todo, move: TodoMove) => Promise<void>;
   /** Deletes a To-do (and its Sub-to-dos): it goes to the Trash. */
   deleteTodo: (todo: Todo) => void;
+  /** The state a To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */
+  previewOf: (id: string) => Todo["state"] | undefined;
   /** The last refused write on this To-do, shown under its row. */
   errorFor: (id: string) => string | undefined;
   dismissError: (id: string) => void;
@@ -38,10 +42,17 @@ export function useTodoActions(): TodoActions {
 /** A write waiting for a yes: the patch to send then, and what to ask. */
 type Confirm = { todo: Todo; patch: TodoPatch } & ({ kind: "close"; state: "done" | "dropped"; count: number } | { kind: "anytime" });
 
-/** Told about each write the API took: the To-do as it saved it, or the id it deleted (with its Sub-to-dos). */
-export type WriteListener = { saved?: (todo: Todo) => void; deleted?: (id: string) => void };
+/** Told about each write the API took: the To-do as it saved it. */
+export type WriteListener = { saved?: (todo: Todo) => void };
+
+/** A delete the page offers to undo: the To-do's id and title, and why the last Undo failed. */
+type Notice = { id: string; title: string; error?: string };
 
 type WriteResult = ActionResult<{ todo: Todo }> | TodoWriteFailure;
+
+/** How long the strike takes to draw (TodoTitle's transition): the row stays in place until it is done. */
+const STRIKE_MS = 300;
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * The Personal Space's writes (docs/personal-space.md §7.5): edits, position moves (drag) and deletes. Each one shows
@@ -49,10 +60,46 @@ type WriteResult = ActionResult<{ todo: Todo }> | TodoWriteFailure;
  * Two edits ask first: moving a To-do with a Reminder to Anytime, and closing a parent the API says still has open
  * Sub-to-dos (its 409 `openSubTodos`), which is retried with `closeSubTodos: true` once confirmed.
  */
-export function useTodoWrites(todos: Todo[], today: string, timeZone: string, listener: WriteListener = {}) {
-  const [shown, addChange] = useOptimistic(todos, applyTodoChange);
+export function useTodoWrites(todos: Todo[], today: string, timeZone: string, projects: readonly ProjectOption[], listener: WriteListener = {}) {
+  // The deletes the API took, applied to whatever copies of those To-dos the page still holds (a Logbook page read
+  // before the delete), with the same cascade as the optimistic delete. An id leaves once no copy is left.
+  const [deleted, setDeleted] = useState<string[]>([]);
+  const { held, remaining } = useMemo(() => {
+    const held = deleted.filter((id) => todos.some((t) => t.id === id));
+    return { held, remaining: held.reduce((list, id) => applyTodoChange(list, { type: "delete", id }), todos) };
+  }, [deleted, todos]);
+  if (held.length !== deleted.length) setDeleted(held);
+  const [shown, addChange] = useOptimistic(remaining, applyTodoChange);
+  const [notices, setNotices] = useState<Notice[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // The To-dos whose strike is drawing, and the state they show meanwhile.
+  const [previews, setPreviews] = useState<Record<string, Todo["state"]>>({});
+  const striking = useRef(new Set<string>());
+
+  /**
+   * Closing or reopening a To-do (from its check, the "…" menu or the details panel) draws the strike first (about
+   * 300 ms, none under reduced motion), then sends the write. The preview is cleared with the write's own render, so
+   * the check never flashes back before the new state shows. A second try while it draws is ignored.
+   */
+  const strike = async (todo: Todo, state: Todo["state"], save: () => Promise<void>) => {
+    if (striking.current.has(todo.id)) return;
+    if (reducedMotion()) return save();
+    striking.current.add(todo.id);
+    setPreviews((current) => ({ ...current, [todo.id]: state }));
+    await new Promise((resolve) => setTimeout(resolve, STRIKE_MS));
+    try {
+      await save();
+    } finally {
+      striking.current.delete(todo.id);
+      startTransition(() =>
+        setPreviews((current) => {
+          const { [todo.id]: _, ...rest } = current;
+          return rest;
+        }),
+      );
+    }
+  };
 
   const setError = (id: string, message: string | null) =>
     setErrors((current) => {
@@ -80,7 +127,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
   const write = (todo: Todo, patch: TodoPatch, optimistic: boolean) =>
     run(
       todo,
-      optimistic ? { type: "update", id: todo.id, patch, at: new Date().toISOString(), now: ownerNow(timeZone) } : null,
+      optimistic ? { type: "update", id: todo.id, patch, at: latestInstantOn(today, timeZone).toISOString(), now: ownerNow(timeZone), projects } : null,
       () => updateTodoAction(todo.id, patch, todo.updatedAt),
       (result) => {
         if (result.openSubTodos && isClosing(patch)) {
@@ -95,14 +142,16 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
     today,
     timeZone,
     update(todo, patch) {
-      if (patch.day === null && todo.reminder && patch.time === undefined) {
+      if (patch.day === null && hasPendingReminder(todo) && patch.time === undefined) {
         setConfirm({ kind: "anytime", todo, patch });
         return Promise.resolve();
       }
       // A parent known to have open Sub-to-dos stays as it is until the API answers: its 409 opens the confirm.
       const openSubTodos = todo.subTodos ? todo.subTodos.total - todo.subTodos.done : 0;
-      return write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
+      const send = () => write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
+      return patch.state !== undefined && patch.state !== todo.state ? strike(todo, patch.state, send) : send();
     },
+    previewOf: (id) => previews[id],
     move(todo, move) {
       return run(
         todo,
@@ -117,8 +166,12 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
         addChange({ type: "delete", id: todo.id });
         const result = await deleteTodoAction(todo.id);
         startTransition(() => {
-          if (result.ok) listener.deleted?.(todo.id);
-          else setError(todo.id, result.error);
+          if (result.ok) {
+            setDeleted((ids) => [...ids, todo.id]);
+            setNotices((list) => [...list.filter((n) => n.id !== todo.id), { id: todo.id, title: todo.title }]);
+          } else {
+            setError(todo.id, result.error);
+          }
         });
       });
     },
@@ -132,8 +185,44 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
     void write(confirm.todo, confirm.patch, true);
   };
 
+  /** The undo of a delete: the To-do comes back with the Sub-to-dos deleted with it. */
+  const undo = async (notice: Notice) => {
+    const result = await restoreTodoAction(notice.id);
+    startTransition(() => {
+      if (result.ok) {
+        setDeleted((ids) => ids.filter((id) => id !== notice.id));
+        setNotices((list) => list.filter((n) => n.id !== notice.id));
+      } else {
+        setNotices((list) => list.map((n) => (n.id === notice.id ? { ...n, error: result.error } : n)));
+      }
+    });
+  };
+
   const dialog = <ConfirmDialog confirm={confirm} onAccept={accept} onCancel={() => setConfirm(null)} />;
-  return { todos: shown, actions, dialog };
+  const notice = <DeleteNotices notices={notices} onUndo={(n) => void undo(n)} onDismiss={(id) => setNotices((list) => list.filter((n) => n.id !== id))} />;
+  return { todos: shown, actions, dialog, notice };
+}
+
+/** One line per delete that can still be undone (docs/personal-space.md §7.5), above the lists, until dismissed. */
+function DeleteNotices({ notices, onUndo, onDismiss }: { notices: Notice[]; onUndo: (notice: Notice) => void; onDismiss: (id: string) => void }) {
+  return notices.map((n) => (
+    <div key={n.id} role="status" className="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-xs">
+      <span className="min-w-0 flex-1">
+        <span className="font-medium">“{n.title}”</span> moved to the Trash.
+        {n.error ? (
+          <span role="alert" className="ml-2 text-destructive">
+            Undo failed: {n.error}
+          </span>
+        ) : null}
+      </span>
+      <Button type="button" size="sm" variant="outline" className="h-6 gap-1 text-xs" aria-label={`Undo delete of “${n.title}”`} onClick={() => onUndo(n)}>
+        <Undo2 className="size-3.5" aria-hidden /> Undo
+      </Button>
+      <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => onDismiss(n.id)}>
+        <X className="size-3.5" aria-hidden />
+      </Button>
+    </div>
+  ));
 }
 
 function confirmText(confirm: Confirm): { title: string; body: ReactNode; action: string } {
@@ -160,34 +249,31 @@ function ConfirmDialog({ confirm, onAccept, onCancel }: { confirm: Confirm | nul
   if (confirm && confirm !== last) setLast(confirm);
   const text = last ? confirmText(last) : null;
   return (
-    <AlertDialog.Root open={confirm !== null} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <AlertDialog.Content
-          // The picker or menu it came from has closed: focus goes back to the To-do's row (its check).
-          onCloseAutoFocus={(e) => {
-            const check = last && document.querySelector<HTMLElement>(`[data-todo-id="${last.todo.id}"] [data-todo-check]`);
-            if (!check) return;
-            e.preventDefault();
-            check.focus();
-          }}
-          className="fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-3 rounded-lg border bg-background p-5 shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-          <AlertDialog.Title className="text-sm font-semibold">{text?.title}</AlertDialog.Title>
-          <AlertDialog.Description className="text-[13px] text-muted-foreground">{text?.body}</AlertDialog.Description>
-          <div className="flex justify-end gap-2">
-            <AlertDialog.Cancel asChild>
-              <Button variant="ghost" size="sm">
-                Cancel
-              </Button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action asChild>
-              <Button size="sm" onClick={onAccept}>
-                {text?.action}
-              </Button>
-            </AlertDialog.Action>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent
+        // The picker or menu it came from has closed: focus goes back to the To-do's row (its check).
+        onCloseAutoFocus={(e) => {
+          const check = last && document.querySelector<HTMLElement>(`[data-todo-id="${last.todo.id}"] [data-todo-check]`);
+          if (!check) return;
+          e.preventDefault();
+          check.focus();
+        }}
+      >
+        <AlertDialogTitle>{text?.title}</AlertDialogTitle>
+        <AlertDialogDescription>{text?.body}</AlertDialogDescription>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="ghost" size="sm">
+              Cancel
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button size="sm" onClick={onAccept}>
+              {text?.action}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

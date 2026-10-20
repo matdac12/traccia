@@ -38,6 +38,23 @@ export function ownerNow(timeZone: string, now = new Date()): OwnerNow {
 }
 
 /**
+ * The latest instant up to `now` that still falls on `day` in `timeZone`: `now` itself while it does. A page whose
+ * "today" is `day` shows a To-do closed just past midnight as closed on that day until its data rolls over, rather
+ * than letting it vanish from the list (the page's day is at most three days behind the clock).
+ */
+export function latestInstantOn(day: string, timeZone: string, now = new Date()): Date {
+  if (dayInZone(now, timeZone) <= day) return now;
+  let [lo, hi] = [now.getTime() - 3 * 86_400_000, now.getTime()];
+  // `lo` is on or before `day`, `hi` after it: close in on the last millisecond of `day`.
+  while (hi - lo > 1) {
+    const mid = lo + Math.floor((hi - lo) / 2);
+    if (dayInZone(new Date(mid), timeZone) <= day) lo = mid;
+    else hi = mid;
+  }
+  return new Date(lo);
+}
+
+/**
  * Whether a Reminder at `time` on `day` is no longer in the future, as the API judges it: an earlier day, or today
  * at or before the current minute.
  */

@@ -1,9 +1,9 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { Bell, CalendarDays, Check, X } from "lucide-react";
-import { type CSSProperties, type ReactNode, type Ref, startTransition, useState } from "react";
+import { type CSSProperties, memo, type ReactNode, type Ref } from "react";
 import { dayLabel } from "@/lib/personal/days";
-import { isFromParla, isOverdue } from "@/lib/personal/lists";
+import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { ReminderPicker } from "./reminder-picker";
@@ -16,28 +16,19 @@ import { TodoTitle } from "./todo-title";
 /** What a sortable row needs from dnd-kit: the item's ref and transform, whether it is the one dragged, and its handle. */
 export type RowDrag = { ref: Ref<HTMLLIElement>; style: CSSProperties; dragging: boolean; handle: ReactNode };
 
-/** How long the strike takes to draw (TodoTitle's transition): the row stays in place until it is done. */
-const STRIKE_MS = 300;
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
 /**
- * What the check does: a click on an open To-do marks it done, on a closed one reopens it. `shown` is the To-do with the
- * state the check shows while the strike draws (about 300 ms, none under reduced motion), before the write moves it.
+ * The To-do as it shows: with the state its strike is drawing while a close (or reopen) from the check, the "…" menu or
+ * the panel waits to be sent (`useTodoWrites` times it).
  */
+function useShownTodo(todo: Todo): Todo {
+  const preview = useTodoActions().previewOf(todo.id);
+  return preview ? { ...todo, state: preview } : todo;
+}
+
+/** What the check does: a click on an open To-do marks it done, on a closed one reopens it. */
 export function useCheckToggle(todo: Todo) {
   const actions = useTodoActions();
-  const [preview, setPreview] = useState<Todo["state"] | null>(null);
-  const shown = preview ? { ...todo, state: preview } : todo;
-  const toggle = () => {
-    if (preview) return;
-    const next = todo.state === "open" ? "done" : "open";
-    setPreview(next);
-    // Cleared with the write's own render, so the check never flashes back before the new state shows.
-    const save = () => actions.update(todo, { state: next }).then(() => startTransition(() => setPreview(null)));
-    if (reducedMotion()) void save();
-    else setTimeout(save, STRIKE_MS);
-  };
-  return { shown, toggle };
+  return { shown: useShownTodo(todo), toggle: () => void actions.update(todo, { state: todo.state === "open" ? "done" : "open" }) };
 }
 
 /** A refused write on a To-do, with a way to dismiss it: under its row, and in the details panel. */
@@ -93,22 +84,22 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
   );
 }
 
+/** What a row shows besides its To-do: the day (where the list mixes days), a wrapping title, the parent in front. */
+type RowProps = { todo: Todo; showDay?: boolean; wrap?: boolean; parentTitle?: string };
+
 /**
  * One To-do line (docs/personal-space.md §7.4): check, Reminder time (opens the Reminder picker; `––:––` on hover
  * when there is none), title with Project chips, a dot when it has Details, the Sub-to-do count, "via Parla", the
  * Planned day where the list mixes days (red when Overdue; a calendar icon on hover otherwise), both opening the day
  * picker, and the "…" menu. A refused write shows under the row. On the page, a click anywhere else on the row (an
  * "Open" button stretched under the controls) selects it for the details panel. `wrap` lets a long title wrap instead
- * of cutting it short (the narrow panel's Sub-to-dos). `drag` makes it sortable (its handle shows on hover, left of the
+ * of cutting it short (the narrow panel's Sub-to-dos, which also put their day under the title); `parentTitle` puts a Sub-to-do's parent in front of its title
+ * (Today's second block). `drag` makes it sortable (its handle shows on hover, left of the
  * check); `children` go under it, inside the item (Anytime's indented Sub-to-dos, which move with their parent).
  */
-export function TodoRow({ todo, showDay = false, wrap = false, drag, children }: { todo: Todo; showDay?: boolean; wrap?: boolean; drag?: RowDrag; children?: ReactNode }) {
-  const actions = useTodoActions();
-  const selection = useTodoSelection();
-  const { today } = actions;
-  const { shown, toggle } = useCheckToggle(todo);
-  const selected = selection?.selectedId === todo.id;
-
+export function TodoRow({ showDay = false, wrap = false, drag, children, ...row }: RowProps & { drag?: RowDrag; children?: ReactNode }) {
+  const { todo } = row;
+  const selected = useTodoSelection()?.selectedId === todo.id;
   return (
     <li
       ref={drag?.ref}
@@ -117,8 +108,49 @@ export function TodoRow({ todo, showDay = false, wrap = false, drag, children }:
       data-selected={selected || undefined}
       className={cn("rounded-md text-[13px]", drag?.dragging && "relative z-10 bg-card shadow-sm ring-1 ring-border")}
     >
+      <RowBody {...row} showDay={showDay} wrap={wrap} selected={selected} handle={drag?.handle} />
+      {children}
+    </li>
+  );
+}
+
+/**
+ * The row inside its item. Memoised: dragging re-renders every sortable item (dnd-kit's context), and this is the part
+ * that costs, so it only renders again when its own To-do, flags or handle change.
+ */
+const RowBody = memo(function RowBody({ todo, showDay, wrap, parentTitle, selected, handle }: Required<Pick<RowProps, "showDay" | "wrap">> & Omit<RowProps, "showDay" | "wrap"> & { selected: boolean; handle?: ReactNode }) {
+  const actions = useTodoActions();
+  const selection = useTodoSelection();
+  const { today } = actions;
+  const { shown, toggle } = useCheckToggle(todo);
+  // In the narrow panel a dated row's day goes under its title: beside it, the title would wrap a few letters wide.
+  const dayUnderTitle = wrap && showDay && todo.day !== null;
+  const dayPicker = (
+    <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} onSelect={(day) => void actions.update(todo, { day })}>
+      {showDay && todo.day ? (
+        <button
+          type="button"
+          aria-label={`Change Planned day (${dayLabel(todo.day, today)})`}
+          className={cn(
+            "relative z-[1] shrink-0 rounded-md px-1.5 py-1 text-[11px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent",
+            dayUnderTitle && "-ml-1.5 -mt-1 self-start py-0.5",
+            isOverdue(todo, today) ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {dayLabel(todo.day, today)}
+        </button>
+      ) : (
+        <button type="button" aria-label="Change Planned day" className={ROW_ICON_BUTTON}>
+          <CalendarDays className="size-3.5" aria-hidden />
+        </button>
+      )}
+    </DayPicker>
+  );
+
+  return (
+    <>
       <div className={cn("group/row relative flex min-h-11 items-center gap-3 rounded-md px-2 md:min-h-9", selection && "hover:bg-accent/60", selected && "bg-accent hover:bg-accent")}>
-        {drag?.handle}
+        {handle}
         <TodoCheck state={shown.state} title={todo.title} onToggle={toggle} />
         <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
           <button
@@ -148,34 +180,24 @@ export function TodoRow({ todo, showDay = false, wrap = false, drag, children }:
             className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         ) : null}
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          <TodoTitle todo={shown} className={wrap ? "break-words py-1" : "truncate"} />
-          {todo.details ? <span role="img" aria-label="Has details" className="size-1 shrink-0 rounded-full bg-muted-foreground/50" /> : null}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 items-center gap-2">
+            {parentTitle ? (
+              <span className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground" title={`Sub-to-do of ${parentTitle}`}>
+                {parentTitle} ›
+              </span>
+            ) : null}
+            <TodoTitle todo={shown} className={wrap ? "break-words py-1" : "truncate"} />
+            {todo.details ? <span role="img" aria-label="Has details" className="size-1 shrink-0 rounded-full bg-muted-foreground/50" /> : null}
+          </span>
+          {dayUnderTitle ? dayPicker : null}
         </span>
         <SubTodoCount todo={todo} className="text-[10.5px] text-muted-foreground" />
         {isFromParla(todo.source) ? <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">via Parla</span> : null}
-        <DayPicker day={todo.day} today={today} hasReminder={todo.reminder !== null} onSelect={(day) => void actions.update(todo, { day })}>
-          {showDay && todo.day ? (
-            <button
-              type="button"
-              aria-label={`Change Planned day (${dayLabel(todo.day, today)})`}
-              className={cn(
-                "relative z-[1] shrink-0 rounded-md px-1.5 py-1 text-[11px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent",
-                isOverdue(todo, today) ? "text-destructive" : "text-muted-foreground",
-              )}
-            >
-              {dayLabel(todo.day, today)}
-            </button>
-          ) : (
-            <button type="button" aria-label="Change Planned day" className={ROW_ICON_BUTTON}>
-              <CalendarDays className="size-3.5" aria-hidden />
-            </button>
-          )}
-        </DayPicker>
+        {dayUnderTitle ? null : dayPicker}
         <TodoMenu todo={todo} />
       </div>
       <TodoError todo={todo} className="pb-1.5 pl-[84px] pr-2" />
-      {children}
-    </li>
+    </>
   );
-}
+});

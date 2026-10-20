@@ -1,6 +1,6 @@
 import type { Todo } from "@traccia/shared";
 import { describe, expect, it } from "vitest";
-import { applyTodoChange, dropMove } from "../lib/personal/todo-changes";
+import { applyTodoChange, dropMove, stepMove } from "../lib/personal/todo-changes";
 
 const TODAY = "2026-10-17";
 const AT = "2026-10-17T13:00:00.000Z";
@@ -109,6 +109,33 @@ describe("applyTodoChange: the optimistic copy of a write", () => {
   });
 });
 
+describe("applyTodoChange: a new title's @KEYs", () => {
+  const projects = [
+    { id: "p-crm", key: "CRM", name: "CRM rebuild", status: "active" as const },
+    { id: "p-trc", key: "TRC", name: "Traccia", status: "paused" as const },
+  ];
+  const refs = (t: Todo | undefined) => t?.references.map((r) => r.key);
+
+  it("gives the chips of the Projects the new title names, and takes away the ones it no longer does", () => {
+    const t = todo({ title: "Call @CRM", references: [{ key: "CRM", projectId: "p-crm", projectDeleted: false }] });
+    const named = applyTodoChange([t], { ...update(t.id, { title: "Call Luca @trc, @crm" }), projects });
+    expect(refs(byId(named, t.id))).toEqual(["CRM", "TRC"]);
+    expect(refs(byId(applyTodoChange([t], { ...update(t.id, { title: "Call Luca" }), projects }), t.id))).toEqual([]);
+  });
+
+  it("keeps the greyed reference to a deleted Project the title still names, and ignores an unknown key or an email", () => {
+    const t = todo({ title: "Call @OLD", references: [{ key: "OLD", projectId: "p-old", projectDeleted: true }] });
+    const out = applyTodoChange([t], { ...update(t.id, { title: "Call @OLD @NOPE bob@crm.com" }), projects });
+    expect(byId(out, t.id)?.references).toEqual([{ key: "OLD", projectId: "p-old", projectDeleted: true }]);
+  });
+
+  it("leaves the references alone without the Projects, or when the title doesn't change", () => {
+    const t = todo({ title: "Call @CRM", references: [{ key: "CRM", projectId: "p-crm", projectDeleted: false }] });
+    expect(refs(byId(applyTodoChange([t], update(t.id, { title: "Call Luca" })), t.id))).toEqual(["CRM"]);
+    expect(refs(byId(applyTodoChange([t], { ...update(t.id, { details: "x" }), projects }), t.id))).toEqual(["CRM"]);
+  });
+});
+
 describe("applyTodoChange: a position move", () => {
   const order = (todos: Todo[], ids: string[]) => todos.filter((t) => ids.includes(t.id)).sort((a, b) => a.position - b.position).map((t) => t.id);
 
@@ -124,6 +151,27 @@ describe("applyTodoChange: a position move", () => {
     expect(order(applyTodoChange(all, { type: "move", id: a.id, afterId: c.id }), ids)).toEqual([b.id, c.id, a.id]);
     expect(byId(applyTodoChange(all, { type: "move", id: c.id, afterId: a.id }), c.id)?.position).toBe(1536);
     expect(byId(applyTodoChange(all, { type: "move", id: a.id, afterId: b.id }), sub.id)).toBe(sub);
+  });
+});
+
+describe("stepMove: Move up and Move down", () => {
+  it("steps past the neighbour in the list order, and stops at the ends", () => {
+    const [a, b, c] = [todo(), todo(), todo()];
+    expect(stepMove([a, b, c], b.id, "up")).toEqual({ beforeId: a.id });
+    expect(stepMove([a, b, c], b.id, "down")).toEqual({ afterId: c.id });
+    expect(stepMove([a, b, c], a.id, "up")).toBeNull();
+    expect(stepMove([a, b, c], c.id, "down")).toBeNull();
+    expect(stepMove([a, b, c], "missing", "up")).toBeNull();
+  });
+
+  it("only counts rows of its own bucket", () => {
+    const a = todo();
+    const sub = todo({ parentId: "p" });
+    const b = todo();
+    expect(stepMove([a, sub, b], b.id, "up")).toEqual({ beforeId: a.id });
+    expect(stepMove([a, sub, b], a.id, "down")).toEqual({ afterId: b.id });
+    expect(stepMove([a, sub, b], sub.id, "up")).toBeNull();
+    expect(stepMove([a, sub, b], sub.id, "down")).toBeNull();
   });
 });
 

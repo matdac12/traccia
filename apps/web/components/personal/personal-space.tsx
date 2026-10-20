@@ -78,12 +78,12 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   // The read for the selected To-do, once it is the one selected.
   const read = selectedId && data.selected?.id === selectedId ? data.selected : undefined;
   const extra = read?.extra ?? NO_TODOS;
-  const logbook = useLogbook(today);
+  const logbook = useLogbook(today, { active: url.list === "logbook", tick: sync.lastUpdated });
   // One write path for every list and the panel. The freshest copy of a To-do wins: the poll's, then the panel's read,
   // then the Logbook's pages, whose To-dos closed today the poll holds in full.
   const all = useMemo(() => mergeById(data.todos, extra, logbook.items.filter((t) => closedDay(t, timeZone) !== today)), [data.todos, extra, logbook.items, timeZone, today]);
   // What the page shows: the data with the writes still on their way applied.
-  const { todos, actions, dialog } = useTodoWrites(all, today, timeZone, logbook);
+  const { todos, actions, dialog, notice } = useTodoWrites(all, today, timeZone, projects, logbook);
 
   // The URL's list, else the one a link's To-do belongs to, else Today.
   const linked = !url.list && selectedId ? linkedList(selectedId, todos, today) : null;
@@ -110,6 +110,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
             <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
           </PageHeader>
           <DeliveryBanner delivery={data.delivery} />
+          {notice}
           <div className="flex min-h-0 flex-1 flex-col md:flex-row">
             <ListMenu active={list} counts={listMenuCounts(todos, today)} onSelect={(next) => go({ list: next })} />
             <div className="min-h-0 flex-1 overflow-y-auto">

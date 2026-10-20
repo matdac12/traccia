@@ -64,6 +64,9 @@ const byClosedAt = (a: Todo, b: Todo) => (a.closedAt ?? "").localeCompare(b.clos
 /** Open with a Planned day that has passed: it shows in Today until it is moved or closed. */
 export const isOverdue = (t: Pick<Todo, "state" | "day">, today: string) => t.state === "open" && t.day !== null && t.day < today;
 
+/** Whether a Reminder is still to come: only a pending one is lost by moving the To-do to Anytime (§7.5). */
+export const hasPendingReminder = (t: Pick<Todo, "reminder">) => t.reminder?.status === "pending";
+
 /** An open To-do the Today list shows: Overdue, or planned for today. */
 const isOnToday = (t: Todo, today: string) => t.state === "open" && ownRow(t) && t.day !== null && t.day <= today;
 
@@ -71,19 +74,25 @@ const isOnToday = (t: Todo, today: string) => t.state === "open" && ownRow(t) &&
 export const closedDay = (t: Pick<Todo, "closedAt">, timeZone: string) => (t.closedAt ? dayInZone(t.closedAt, timeZone) : null);
 
 /**
- * The Today list (docs/personal-space.md §7.3): Overdue (oldest day first), today's open To-dos by Position, then the
- * done and dropped ones closed today (in `timeZone`), in the order they were closed. Whatever else `todos` holds
- * (the Logbook's pages, the details panel's reads) stays out.
+ * The Today list (docs/personal-space.md §7.3): Overdue (oldest day first), today's open top-level To-dos by Position,
+ * then today's dated Sub-to-dos as a block of their own, then the done and dropped ones closed today (in `timeZone`),
+ * in the order they were closed. Position only compares within a bucket (one day under one parent), so the two blocks
+ * never mix, and the Sub-to-dos sit together by parent (in their parents' order), each parent's by Position: a drag
+ * stays among rows of its own bucket and a drop lands where it was released (TRC-181). Whatever else `todos` holds (the
+ * Logbook's pages, the details panel's reads) stays out.
  */
 export function todayList<T extends Todo>(todos: T[], today: string, timeZone: string) {
   const rows = todos.filter(ownRow);
   const onToday = rows.filter((t) => isOnToday(t, today));
-  const todayOpen = onToday.filter((t) => t.day === today).sort(byPosition);
+  const todayOpen = onToday.filter((t) => t.day === today);
+  const parentPosition = new Map(todos.map((t) => [t.id, t.position]));
+  const byParent = (a: T, b: T) => (parentPosition.get(a.parentId as string) ?? 0) - (parentPosition.get(b.parentId as string) ?? 0) || (a.parentId as string).localeCompare(b.parentId as string) || byPosition(a, b);
   return {
     overdue: onToday.filter((t) => t.day !== today).sort(byDayThenPosition),
-    today: todayOpen,
+    today: todayOpen.filter((t) => t.parentId === null).sort(byPosition),
+    subTodos: todayOpen.filter((t) => t.parentId !== null).sort(byParent),
     closed: rows.filter((t) => t.state !== "open" && closedDay(t, timeZone) === today).sort(byClosedAt),
-    remindersToCome: todayOpen.filter((t) => t.reminder?.status === "pending").length,
+    remindersToCome: todayOpen.filter(hasPendingReminder).length,
   };
 }
 

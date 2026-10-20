@@ -33,7 +33,7 @@ const todo = {
 const SEEN = "2026-10-17T12:00:00.000Z";
 const calls = () => fetchMock.mock.calls.map(([url, init]) => ({ url: String(url), method: (init as RequestInit).method, body: JSON.parse(((init as RequestInit).body as string) ?? "null") }));
 
-const { updateTodoAction, deleteTodoAction, moveTodoAction } = await import("../app/(app)/personal/actions");
+const { updateTodoAction, deleteTodoAction, moveTodoAction, restoreTodoAction } = await import("../app/(app)/personal/actions");
 
 beforeEach(() => {
   fetchMock.mockReset();
@@ -87,6 +87,23 @@ describe("deleteTodoAction", () => {
   it("reports a refusal", async () => {
     fetchMock.mockResolvedValueOnce(apiError(404, "not_found", "To-do not found"));
     expect(await deleteTodoAction("01TODO")).toMatchObject({ ok: false, error: "To-do not found" });
+  });
+});
+
+describe("restoreTodoAction", () => {
+  it("brings the To-do back from the Trash and re-renders /personal", async () => {
+    fetchMock.mockResolvedValueOnce(json({ type: "todo", id: "01TODO", counts: { projects: 0, milestones: 0, issues: 0, comments: 0, attachments: 0, todos: 3 } }));
+    expect(await restoreTodoAction("01TODO")).toEqual({ ok: true, data: undefined });
+    expect(calls()).toEqual([{ url: "http://api/v1/restore", method: "POST", body: { type: "todo", id: "01TODO" } }]);
+    expect(revalidatePath).toHaveBeenCalledWith("/personal");
+  });
+
+  it("reports a refusal, and refuses a bad id before calling the API", async () => {
+    fetchMock.mockResolvedValueOnce(apiError(404, "not_found", "To-do not found"));
+    expect(await restoreTodoAction("01TODO")).toMatchObject({ ok: false, error: "To-do not found" });
+    fetchMock.mockReset();
+    expect(await restoreTodoAction("../x")).toMatchObject({ ok: false });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

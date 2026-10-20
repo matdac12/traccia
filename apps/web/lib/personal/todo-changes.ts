@@ -1,6 +1,7 @@
-import type { Todo, UpdateTodoInput } from "@traccia/shared";
+import type { ProjectOption, Todo, UpdateTodoInput } from "@traccia/shared";
 import { isMomentPast, type OwnerNow } from "./days";
 import { byPosition } from "./lists";
+import { referencesIn } from "./title";
 
 /** What a write changes: a `PATCH /v1/todos/:id` body without `expectedUpdatedAt`, which the write adds itself. */
 export type TodoPatch = Omit<UpdateTodoInput, "expectedUpdatedAt">;
@@ -16,10 +17,10 @@ export const neighbourOf = (move: TodoMove) => ("afterId" in move ? move.afterId
 
 /**
  * A write the page shows before the API confirms it. `at` stands in for `closedAt`; `now` (Owner timezone) dates a
- * Reminder.
+ * Reminder; `projects` (the Projects a title can name) turn a new title's `@KEY`s into chips.
  */
 export type TodoChange =
-  | { type: "update"; id: string; patch: TodoPatch; at: string; now: OwnerNow }
+  | { type: "update"; id: string; patch: TodoPatch; at: string; now: OwnerNow; projects?: readonly ProjectOption[] }
   | ({ type: "move"; id: string } & TodoMove)
   | { type: "delete"; id: string };
 
@@ -45,6 +46,21 @@ export function dropMove(rows: Todo[], activeId: string, overId: string): TodoMo
   return to > 0 ? { afterId: moved[to - 1] as string } : { beforeId: moved[1] as string };
 }
 
+/**
+ * One step of "Move up" or "Move down" (the single-pointer alternative to drag, WCAG 2.5.7): the move that puts `id`
+ * past its neighbour in the list order, among `rows` of its own bucket. Null at the edge of the bucket, or when `id`
+ * is not among the rows.
+ */
+export function stepMove(rows: Todo[], id: string, direction: "up" | "down"): TodoMove | null {
+  const target = rows.find((t) => t.id === id);
+  if (!target) return null;
+  const bucket = rows.filter((t) => bucketOf(t) === bucketOf(target));
+  const at = bucket.findIndex((t) => t.id === id);
+  const neighbour = bucket[direction === "up" ? at - 1 : at + 1];
+  if (!neighbour) return null;
+  return direction === "up" ? { beforeId: neighbour.id } : { afterId: neighbour.id };
+}
+
 /** The Position a move gives, as the API computes it: the midpoint of the new neighbours, or a step past the end. */
 function movedPosition(todos: Todo[], target: Todo, move: TodoMove): number {
   const bucket = todos.filter((t) => t.id !== target.id && bucketOf(t) === bucketOf(target)).sort(byPosition);
@@ -64,12 +80,16 @@ const counted = (state: Todo["state"]) => ({ done: state === "done" ? 1 : 0, tot
 /**
  * The API's update rules (docs/rest-todos.md "Editing", "Reminders"), applied locally: a new day goes to the bottom
  * of its bucket and re-arms the Reminder, Anytime drops it, a `time` on an Anytime To-do dates it today (at the bottom),
- * closing sets `closedAt`, reopening skips a pending Reminder whose moment has passed. The server's copy replaces this
+ * closing sets `closedAt`, reopening skips a pending Reminder whose moment has passed, a new title gets the chips of
+ * its `@KEY`s. The server's copy replaces this
  * one as soon as the write returns.
  */
-function patched(todo: Todo, patch: TodoPatch, change: { at: string; now: OwnerNow }, bottom: number): Todo {
+function patched(todo: Todo, patch: TodoPatch, change: { at: string; now: OwnerNow; projects?: readonly ProjectOption[] }, bottom: number): Todo {
   const next = { ...todo };
-  if (patch.title !== undefined) next.title = patch.title;
+  if (patch.title !== undefined) {
+    next.title = patch.title;
+    if (change.projects) next.references = referencesIn(patch.title, change.projects, todo.references);
+  }
   if (patch.details !== undefined) next.details = patch.details || null;
   if (patch.day !== undefined && patch.day !== todo.day) {
     next.day = patch.day;

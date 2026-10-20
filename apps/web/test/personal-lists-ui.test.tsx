@@ -241,17 +241,15 @@ describe("By project", () => {
 describe("Logbook", () => {
   const closed = (title: string, closedAt: string) => todo({ title, state: "done", closedAt });
 
-  it("reads its own pages: grouped by close day, newest first, the next page on demand, and never on the poll", async () => {
+  it("reads its own pages: grouped by close day, newest first, the next page on demand", async () => {
     vi.useRealTimers();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(NOW);
     const today = closed("Paid the bill", "2026-10-17T08:00:00.000Z");
     const yesterday = closed("Booked the dentist", "2026-10-16T09:00:00.000Z");
     const older = closed("Renewed the passport", "2026-10-02T09:00:00.000Z");
-    const fetchMock = serveRoutes({
-      poll: page([today]),
-      logbook: { "": { items: [today, yesterday], nextCursor: "c2" }, c2: { items: [older], nextCursor: null } },
-    });
+    const logbookRoutes: Record<string, LogbookPage> = { "": { items: [today, yesterday], nextCursor: "c2" }, c2: { items: [older], nextCursor: null } };
+    const fetchMock = serveRoutes({ poll: page([today]), logbook: logbookRoutes });
     const { user } = setup(page([today]), "/personal?list=logbook");
     expect(await screen.findByRole("region", { name: "Today" })).toHaveTextContent("Paid the bill");
     expect(section("Yesterday")).toHaveTextContent("Booked the dentist");
@@ -263,11 +261,37 @@ describe("Logbook", () => {
     const logbookReads = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/todos/logbook"));
     expect(logbookReads()).toEqual(["/api/todos/logbook", "/api/todos/logbook?cursor=c2"]);
 
+    // The poll lands while the Logbook is shown: the pages held are read again, so what changed elsewhere shows.
+    logbookRoutes[""] = { items: [today, { ...yesterday, title: "Booked the dentist, moved" }], nextCursor: "c2" };
+    logbookRoutes.c2 = { items: [], nextCursor: null };
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);
     });
     expect(fetchMock).toHaveBeenCalledWith("/api/todos", expect.anything());
-    expect(logbookReads()).toHaveLength(2);
+    expect(await screen.findByText("Booked the dentist, moved")).toBeInTheDocument();
+    expect(screen.queryByText("Renewed the passport")).toBeNull();
+    expect(logbookReads()).toEqual(["/api/todos/logbook", "/api/todos/logbook?cursor=c2", "/api/todos/logbook", "/api/todos/logbook?cursor=c2"]);
+  });
+
+  it("leaves its pages alone while another list is shown, and reads them again when it is shown again", async () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
+    const yesterday = closed("Booked the dentist", "2026-10-16T09:00:00.000Z");
+    const fetchMock = serveRoutes({ poll: page([]), logbook: { "": { items: [yesterday], nextCursor: null } } });
+    const logbookReads = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/todos/logbook")).length;
+    const { user } = setup(page([]), "/personal?list=logbook");
+    await screen.findByText("Booked the dentist");
+    expect(logbookReads()).toBe(1);
+
+    await user.click(within(menu()).getByRole("button", { name: /^Today/ }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(12_000);
+    });
+    expect(logbookReads()).toBe(1);
+
+    await user.click(within(menu()).getByRole("button", { name: "Logbook" }));
+    await waitFor(() => expect(logbookReads()).toBe(2));
   });
 
   it("reopens a row closed on an earlier day, which then leaves the Logbook", async () => {
@@ -281,6 +305,24 @@ describe("Logbook", () => {
     serverSends(page([reopened]));
     await waitFor(() => expect(screen.queryByText("Booked the dentist")).toBeNull());
     expect(screen.getByText("Nothing done yet")).toBeInTheDocument();
+  });
+
+  it("drops a deleted To-do and its Sub-to-dos from the pages it holds, and keeps them out", async () => {
+    const parent = closed("Fix the kitchen", "2026-10-16T09:00:00.000Z");
+    const sub = { ...closed("Buy tiles", "2026-10-16T09:00:00.000Z"), parentId: parent.id };
+    const other = closed("Booked the dentist", "2026-10-16T08:00:00.000Z");
+    serveRoutes({ logbook: { "": { items: [parent, sub, other], nextCursor: null } } });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup(page([]), "/personal?list=logbook");
+    await screen.findByText("Fix the kitchen");
+    await user.click(screen.getByRole("button", { name: "Actions for Fix the kitchen" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    await waitFor(() => expect(screen.queryByText("Fix the kitchen")).toBeNull());
+    expect(screen.queryByText("Buy tiles")).toBeNull();
+    // A render with the same data (the delete's revalidation) doesn't bring them back.
+    serverSends(page([]));
+    expect(screen.queryByText("Fix the kitchen")).toBeNull();
+    expect(screen.getByText("Booked the dentist")).toBeInTheDocument();
   });
 
   it("says when a page could not be read, and tries again", async () => {
@@ -331,18 +373,95 @@ describe("drag to reorder", () => {
     expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id]);
   });
 
-  it("never drops a row in another bucket: a Sub-to-do planned today is skipped", async () => {
+  it("keeps today's Sub-to-dos in a block after the top-level rows, so the top-level rows drag among themselves", async () => {
     const parent = todo({ day: null, title: "Kitchen" });
-    const a = todo({ title: "Alpha", position: 1 });
-    const sub = todo({ title: "Buy tiles", parentId: parent.id, position: 2, subTodos: null });
+    const sub = todo({ title: "Buy tiles", parentId: parent.id, position: 1, subTodos: null });
+    const a = todo({ title: "Alpha", position: 2 });
     const b = todo({ title: "Bravo", position: 3 });
     moveTodoAction.mockImplementation(hang);
-    const { user } = setup(page([parent, a, sub, b]));
+    const { user } = setup(page([parent, sub, a, b]));
+    // Position can't be compared across buckets: the Sub-to-do's 1 doesn't put it first.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id, sub.id]);
+    expect(within(section(/^Today/)).getByRole("button", { name: "Open “Buy tiles”" }).closest("li")).toHaveTextContent("Kitchen ›");
     screen.getByRole("button", { name: "Reorder “Alpha”" }).focus();
     await user.keyboard(" ");
     await user.keyboard("{ArrowDown}");
     await user.keyboard(" ");
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(a.id, { afterId: b.id }));
+    // Dragged past the end of its block, the row lands where it was released: the Sub-to-do's block doesn't count.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([b.id, a.id, sub.id]);
+  });
+
+  it("drags a Sub-to-do among its own parent's, in a block of its own", async () => {
+    const [p1, p2] = [todo({ day: null, title: "Kitchen", position: 1 }), todo({ day: null, title: "Garden", position: 2 })];
+    const s1 = todo({ title: "Buy tiles", parentId: p1.id, position: 5, subTodos: null });
+    const s2 = todo({ title: "Grout", parentId: p1.id, position: 6, subTodos: null });
+    const s3 = todo({ title: "Mow", parentId: p2.id, position: 1, subTodos: null });
+    moveTodoAction.mockImplementation(hang);
+    const { user } = setup(page([p2, p1, s3, s2, s1]));
+    // By parent (Kitchen, then Garden), each parent's by Position.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([s1.id, s2.id, s3.id]);
+    screen.getByRole("button", { name: "Reorder “Buy tiles”" }).focus();
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard(" ");
+    await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(s1.id, { afterId: s2.id }));
+  });
+
+  describe("Move up and Move down in the … menu", () => {
+    const items = (section: HTMLElement) => within(section).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"));
+    const openMenu = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
+      await user.click(screen.getByRole("button", { name: `Actions for ${title}` }));
+      await screen.findByRole("menu");
+    };
+
+    it("moves a Today row one step, through the position endpoint with its neighbour", async () => {
+      const [a, b, c] = [todo({ title: "Alpha" }), todo({ title: "Bravo" }), todo({ title: "Charlie" })];
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([a, b, c]));
+      await openMenu(user, "Bravo");
+      await user.click(screen.getByRole("menuitem", { name: "Move down" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(b.id, { afterId: c.id });
+      await waitFor(() => expect(items(section(/^Today/))).toEqual([a.id, c.id, b.id]));
+    });
+
+    it("disables Move up on the first row and Move down on the last", async () => {
+      const [a, b] = [todo({ title: "Alpha" }), todo({ title: "Bravo" })];
+      const { user } = setup(page([a, b]));
+      await openMenu(user, "Alpha");
+      expect(screen.getByRole("menuitem", { name: "Move up" })).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("menuitem", { name: "Move down" })).not.toHaveAttribute("aria-disabled");
+      await user.keyboard("{Escape}");
+      await openMenu(user, "Bravo");
+      expect(screen.getByRole("menuitem", { name: "Move down" })).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("steps a Sub-to-do among its parent's only, and offers none on an Overdue row", async () => {
+      const parent = todo({ day: null, title: "Kitchen" });
+      const s1 = todo({ title: "Buy tiles", parentId: parent.id, subTodos: null });
+      const s2 = todo({ title: "Grout", parentId: parent.id, subTodos: null });
+      const late = todo({ title: "Old one", day: "2026-10-15" });
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([parent, s1, s2, late]));
+      await openMenu(user, "Grout");
+      await user.click(screen.getByRole("menuitem", { name: "Move up" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(s2.id, { beforeId: s1.id });
+      await openMenu(user, "Old one");
+      expect(screen.queryByRole("menuitem", { name: "Move up" })).toBeNull();
+    });
+
+    it("works in Anytime, and not on a dated Sub-to-do shown under its parent", async () => {
+      const p = todo({ day: null, title: "Plan the trip", subTodos: { done: 0, total: 1 } });
+      const q = todo({ day: null, title: "Read the manual" });
+      const dated = todo({ day: "2026-10-20", parentId: p.id, title: "Call the hotel", subTodos: null });
+      moveTodoAction.mockImplementation(hang);
+      const { user } = setup(page([p, q, dated]), "/personal?list=anytime");
+      await openMenu(user, "Read the manual");
+      await user.click(screen.getByRole("menuitem", { name: "Move up" }));
+      expect(moveTodoAction).toHaveBeenCalledWith(q.id, { beforeId: p.id });
+      await openMenu(user, "Call the hotel");
+      expect(screen.queryByRole("menuitem", { name: "Move down" })).toBeNull();
+    });
   });
 
   it("reorders Anytime, and a parent's undated Sub-to-dos among themselves", async () => {

@@ -70,7 +70,7 @@ afterEach(() => {
 describe("the wording", () => {
   it("names each failure in plain words, a network give-up apart from a refusal", () => {
     expect(FAILURE_TEXT.telegram_rejected).toBe("Telegram refused it. Check the bot settings.");
-    expect(FAILURE_TEXT.gave_up).toBe("Telegram couldn't be reached all day.");
+    expect(FAILURE_TEXT.gave_up).toBe("Telegram couldn't be reached before the day ended.");
     expect(new Set(Object.values(FAILURE_TEXT)).size).toBe(4);
   });
 
@@ -157,7 +157,7 @@ describe("Reminder time on a row", () => {
 
   it("names a network give-up as one, not as a refusal", () => {
     setup(page([todo({ title: "Call the bank", reminder: reminder("failed", "gave_up") })]));
-    expect(timeOf("Call the bank").getAttribute("title")).toContain("Telegram couldn't be reached all day.");
+    expect(timeOf("Call the bank").getAttribute("title")).toContain("Telegram couldn't be reached before the day ended.");
   });
 
   it("shows a skipped one dimmed, saying the day had passed", () => {
