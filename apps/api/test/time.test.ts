@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  instantIn,
-  todayIn,
-  wallClockIn,
-} from "../src/time.js";
+import { instantIn, todayIn, wallClockIn } from "../src/time.js";
 
 const ROME = "Europe/Rome";
 

@@ -1,9 +1,4 @@
-import {
-  ACTIVITY_TYPES,
-  ISSUE_STATUSES,
-  PROJECT_STATUSES,
-  ACTORS,
-} from "@traccia/shared";
+import { ACTIVITY_TYPES, ISSUE_STATUSES, PROJECT_STATUSES, ACTORS } from "@traccia/shared";
 import { z } from "zod";
 
 /**
@@ -28,8 +23,7 @@ export const projectSchema = z.object({
 });
 export type Project = z.infer<typeof projectSchema>;
 
-export const pageOf = <T extends z.ZodType>(item: T) =>
-  z.object({ items: z.array(item), nextCursor: z.string().nullable() });
+export const pageOf = <T extends z.ZodType>(item: T) => z.object({ items: z.array(item), nextCursor: z.string().nullable() });
 
 export const errorBodySchema = z.object({
   error: z.object({

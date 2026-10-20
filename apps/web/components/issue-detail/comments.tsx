@@ -41,7 +41,9 @@ function Thread({ identifier, comment }: { identifier: string; comment: Comment 
           {comment.replies.map((r) => (
             <CommentCard key={r.id} identifier={identifier} comment={r} />
           ))}
-          {replying && <Composer identifier={identifier} parentId={comment.id} placeholder="Write a reply…" submitLabel="Reply" autoFocus onDone={() => setReplying(false)} onCancel={() => setReplying(false)} />}
+          {replying && (
+            <Composer identifier={identifier} parentId={comment.id} placeholder="Write a reply…" submitLabel="Reply" autoFocus onDone={() => setReplying(false)} onCancel={() => setReplying(false)} />
+          )}
         </div>
       )}
     </div>
@@ -79,40 +81,99 @@ function CommentCard({ identifier, comment, onReply }: { identifier: string; com
         {!editing && (
           <span className="ml-auto flex items-center gap-0.5 text-muted-foreground">
             {onReply && (
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-xs" onClick={onReply}><CornerDownRight className="size-3" />Reply</Button>
+              <Button variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-xs" onClick={onReply}>
+                <CornerDownRight className="size-3" />
+                Reply
+              </Button>
             )}
             {own && (
-              <Button variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-xs" onClick={() => { setDraft(comment.body); setEditing(true); }}><Pencil className="size-3" />Edit</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-1.5 text-xs"
+                onClick={() => {
+                  setDraft(comment.body);
+                  setEditing(true);
+                }}
+              >
+                <Pencil className="size-3" />
+                Edit
+              </Button>
             )}
             {confirmDelete ? (
               <span className="flex items-center gap-1 pl-1">
                 Delete?
-                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-destructive" disabled={busy} onClick={() => run(() => deleteCommentAction(identifier, comment.id))}>Yes</Button>
-                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setConfirmDelete(false)}>No</Button>
+                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-destructive" disabled={busy} onClick={() => run(() => deleteCommentAction(identifier, comment.id))}>
+                  Yes
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => setConfirmDelete(false)}>
+                  No
+                </Button>
               </span>
             ) : (
-              <Button variant="ghost" size="sm" aria-label="Delete comment" className="h-6 px-1.5 text-xs hover:text-destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="size-3" /></Button>
+              <Button variant="ghost" size="sm" aria-label="Delete comment" className="h-6 px-1.5 text-xs hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="size-3" />
+              </Button>
             )}
           </span>
         )}
       </div>
       {editing ? (
         <div className="space-y-2">
-          <MarkdownEditor label="Edit comment" value={draft} onChange={setDraft} minHeight="min-h-20" autoFocus onSubmit={() => draft.trim() && run(() => updateCommentAction(identifier, comment.id, draft), () => setEditing(false))} />
+          <MarkdownEditor
+            label="Edit comment"
+            value={draft}
+            onChange={setDraft}
+            minHeight="min-h-20"
+            autoFocus
+            onSubmit={() =>
+              draft.trim() &&
+              run(
+                () => updateCommentAction(identifier, comment.id, draft),
+                () => setEditing(false),
+              )
+            }
+          />
           <div className="flex gap-2">
-            <Button size="sm" disabled={busy || !draft.trim()} onClick={() => run(() => updateCommentAction(identifier, comment.id, draft), () => setEditing(false))}><Check className="size-3.5" />Save</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              disabled={busy || !draft.trim()}
+              onClick={() =>
+                run(
+                  () => updateCommentAction(identifier, comment.id, draft),
+                  () => setEditing(false),
+                )
+              }
+            >
+              <Check className="size-3.5" />
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
           </div>
         </div>
       ) : (
         <Markdown>{comment.body}</Markdown>
       )}
-      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
-function Composer({ identifier, parentId, placeholder, submitLabel, autoFocus, onDone, onCancel }: {
+function Composer({
+  identifier,
+  parentId,
+  placeholder,
+  submitLabel,
+  autoFocus,
+  onDone,
+  onCancel,
+}: {
   identifier: string;
   parentId: string | null;
   placeholder: string;
@@ -137,11 +198,29 @@ function Composer({ identifier, parentId, placeholder, submitLabel, autoFocus, o
   };
   return (
     <div className="space-y-2">
-      <MarkdownEditor label={submitLabel === "Reply" ? "Reply" : "New comment"} value={body} onChange={setBody} onSubmit={submit} placeholder={placeholder} autoFocus={autoFocus} minHeight="min-h-16" />
-      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+      <MarkdownEditor
+        label={submitLabel === "Reply" ? "Reply" : "New comment"}
+        value={body}
+        onChange={setBody}
+        onSubmit={submit}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        minHeight="min-h-16"
+      />
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
       <div className="flex justify-end gap-2">
-        {onCancel && <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>}
-        <Button size="sm" disabled={!body.trim() || busy} onClick={submit}>{submitLabel}</Button>
+        {onCancel && (
+          <Button size="sm" variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button size="sm" disabled={!body.trim() || busy} onClick={submit}>
+          {submitLabel}
+        </Button>
       </div>
     </div>
   );

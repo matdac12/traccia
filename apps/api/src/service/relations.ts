@@ -100,9 +100,7 @@ function relatedExists(db: DbHandle, aId: string, bId: string) {
   return !!db
     .select()
     .from(issueRelated)
-    .where(
-      and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)),
-    )
+    .where(and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)))
     .get();
 }
 
@@ -190,8 +188,22 @@ export function addRelatedTx(
   tx.insert(issueRelated)
     .values({ issueAId: lo, issueBId: hi, createdAt: now })
     .run();
-  recordActivity(tx, a.id, actor, "related_added", { related: b.identifier }, now);
-  recordActivity(tx, b.id, actor, "related_added", { related: a.identifier }, now);
+  recordActivity(
+    tx,
+    a.id,
+    actor,
+    "related_added",
+    { related: b.identifier },
+    now,
+  );
+  recordActivity(
+    tx,
+    b.id,
+    actor,
+    "related_added",
+    { related: a.identifier },
+    now,
+  );
   return true;
 }
 
@@ -215,8 +227,22 @@ export function removeRelatedTx(
     .where(and(eq(issueRelated.issueAId, lo), eq(issueRelated.issueBId, hi)))
     .run();
   const now = nowIso();
-  recordActivity(tx, a.id, actor, "related_removed", { related: b.identifier }, now);
-  recordActivity(tx, b.id, actor, "related_removed", { related: a.identifier }, now);
+  recordActivity(
+    tx,
+    a.id,
+    actor,
+    "related_removed",
+    { related: b.identifier },
+    now,
+  );
+  recordActivity(
+    tx,
+    b.id,
+    actor,
+    "related_removed",
+    { related: a.identifier },
+    now,
+  );
   return true;
 }
 

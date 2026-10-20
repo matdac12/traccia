@@ -19,9 +19,7 @@ export type CreateIssueValues = {
   labels: string[];
 };
 
-export type ParsedCreateIssue =
-  | { ok: true; input: ReturnType<typeof createIssueInputSchema.parse>; labels: string[] }
-  | { ok: false; fieldErrors: Record<string, string> };
+export type ParsedCreateIssue = { ok: true; input: ReturnType<typeof createIssueInputSchema.parse>; labels: string[] } | { ok: false; fieldErrors: Record<string, string> };
 
 /** Validates the form with the same schema the API uses, so errors match before and after the round trip. */
 export function parseCreateIssue(values: CreateIssueValues): ParsedCreateIssue {

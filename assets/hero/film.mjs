@@ -16,22 +16,64 @@ const fps = 30;
 const XFADE = 0.7;
 
 const beats = [
-  { name: "issues", scene: "app-scene.html", ui: "shots/issues-table.png", caption: "Issues, grouped by status.", kicker: "Issues", duration: 6 },
-  { name: "board", scene: "app-scene.html", ui: "shots/issues-board.png", caption: "Or a board you drag across.", kicker: "Board", duration: 6 },
-  { name: "search", scene: "app-scene.html", ui: "shots/issues-search.png", caption: "Search across every issue.", kicker: "Search", duration: 5 },
-  { name: "agent", scene: "app-scene.html", ui: "shots/board-before.png", ui2: "shots/board-after.png", caption: "Your agents file their own work.", kicker: "Agents", duration: 7 },
+  {
+    name: "issues",
+    scene: "app-scene.html",
+    ui: "shots/issues-table.png",
+    caption: "Issues, grouped by status.",
+    kicker: "Issues",
+    duration: 6,
+  },
+  {
+    name: "board",
+    scene: "app-scene.html",
+    ui: "shots/issues-board.png",
+    caption: "Or a board you drag across.",
+    kicker: "Board",
+    duration: 6,
+  },
+  {
+    name: "search",
+    scene: "app-scene.html",
+    ui: "shots/issues-search.png",
+    caption: "Search across every issue.",
+    kicker: "Search",
+    duration: 5,
+  },
+  {
+    name: "agent",
+    scene: "app-scene.html",
+    ui: "shots/board-before.png",
+    ui2: "shots/board-after.png",
+    caption: "Your agents file their own work.",
+    kicker: "Agents",
+    duration: 7,
+  },
   { name: "title", scene: "titlecard.html", duration: 5 },
 ];
 
 const work = mkdtempSync(join(tmpdir(), "traccia-film-"));
 const clips = [];
 for (const beat of beats) {
-  const { work: beatWork, pattern, meta } = await renderFrames({ ...beat, frame: "dark", width: 1920, height: 1080, fps, duration: beat.duration });
+  const {
+    work: beatWork,
+    pattern,
+    meta,
+  } = await renderFrames({
+    ...beat,
+    frame: "dark",
+    width: 1920,
+    height: 1080,
+    fps,
+    duration: beat.duration,
+  });
   const clip = join(work, `${beat.name}.mp4`);
   encodeH264(pattern, fps, clip);
   clips.push({ file: clip, duration: beat.duration });
   rmSync(beatWork, { recursive: true, force: true });
-  console.log(`beat ${beat.name}: ${meta.width}x${meta.height}, ${beat.duration}s`);
+  console.log(
+    `beat ${beat.name}: ${meta.width}x${meta.height}, ${beat.duration}s`,
+  );
 }
 
 // Crossfade the clips: offset of transition i is the summed duration of earlier beats minus i gaps.
@@ -48,10 +90,49 @@ for (let i = 1; i < clips.length; i++) {
 filter = filter.replace(/;$/, "");
 
 const film = join(outDir, "film.mp4");
-ffmpeg([...inputs, "-filter_complex", filter, "-map", previous, "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", film]);
-ffmpeg(["-i", film, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "33", "-pix_fmt", "yuv420p", join(outDir, "film.webm")]);
-ffmpeg(["-ss", "2", "-i", film, "-frames:v", "1", join(outDir, "film-still.png")]);
+ffmpeg([
+  ...inputs,
+  "-filter_complex",
+  filter,
+  "-map",
+  previous,
+  "-c:v",
+  "libx264",
+  "-preset",
+  "slow",
+  "-crf",
+  "18",
+  "-pix_fmt",
+  "yuv420p",
+  "-movflags",
+  "+faststart",
+  film,
+]);
+ffmpeg([
+  "-i",
+  film,
+  "-c:v",
+  "libvpx-vp9",
+  "-b:v",
+  "0",
+  "-crf",
+  "33",
+  "-pix_fmt",
+  "yuv420p",
+  join(outDir, "film.webm"),
+]);
+ffmpeg([
+  "-ss",
+  "2",
+  "-i",
+  film,
+  "-frames:v",
+  "1",
+  join(outDir, "film-still.png"),
+]);
 rmSync(work, { recursive: true, force: true });
 
-const total = clips.reduce((sum, clip) => sum + clip.duration, 0) - XFADE * (clips.length - 1);
+const total =
+  clips.reduce((sum, clip) => sum + clip.duration, 0) -
+  XFADE * (clips.length - 1);
 console.log(`film.mp4 / film.webm (${total.toFixed(1)}s), film-still.png`);

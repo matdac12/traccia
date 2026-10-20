@@ -34,9 +34,7 @@ export function parseLogins(raw: string | undefined): string[] {
 }
 
 /** Builds the config from raw env. `DASHBOARD_DEV_LOGIN` is only honoured outside production. */
-export function accessConfigFromEnv(
-  env: Record<string, string | undefined>,
-): AccessConfig {
+export function accessConfigFromEnv(env: Record<string, string | undefined>): AccessConfig {
   return {
     allowedLogins: parseLogins(env.DASHBOARD_ALLOWED_LOGINS),
     devLogin: env.DASHBOARD_DEV_LOGIN?.trim() || undefined,
@@ -44,10 +42,7 @@ export function accessConfigFromEnv(
   };
 }
 
-export function checkAccess(
-  header: string | null | undefined,
-  config: AccessConfig,
-): AccessDecision {
+export function checkAccess(header: string | null | undefined, config: AccessConfig): AccessDecision {
   if (config.devLogin) {
     // Fail closed: a leftover dev flag must never open a production deployment.
     if (config.production) return { ok: false, reason: "dev_login_in_production" };
@@ -55,7 +50,6 @@ export function checkAccess(
   }
   const login = header?.trim();
   if (!login) return { ok: false, reason: "missing_header" };
-  if (!config.allowedLogins.includes(login.toLowerCase()))
-    return { ok: false, reason: "not_allowed" };
+  if (!config.allowedLogins.includes(login.toLowerCase())) return { ok: false, reason: "not_allowed" };
   return { ok: true, login, via: "header" };
 }

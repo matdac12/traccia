@@ -82,7 +82,17 @@ describe("collapsible description", () => {
   it("re-measures when the text grows (ResizeObserver), e.g. after an image loads", async () => {
     contentHeight(40);
     let notify: () => void = () => {};
-    vi.stubGlobal("ResizeObserver", class { constructor(cb: () => void) { notify = cb; } observe() {} unobserve() {} disconnect() {} });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          notify = cb;
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
     render(<ProjectDescription projectId="p1" description="text" updatedAt="T1" />);
     expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
     contentHeight(500);
@@ -92,7 +102,7 @@ describe("collapsible description", () => {
 
   it("renders through the sanitised markdown: raw HTML and foreign images never reach the page", () => {
     contentHeight(40);
-    const { container } = render(<ProjectDescription projectId="p1" description={'<script>alert(1)</script>\n\n![x](https://evil.example/a.png)\n\n[l](javascript:alert(1))'} updatedAt="T1" />);
+    const { container } = render(<ProjectDescription projectId="p1" description={"<script>alert(1)</script>\n\n![x](https://evil.example/a.png)\n\n[l](javascript:alert(1))"} updatedAt="T1" />);
     expect(container.querySelector("script")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector('a[href^="javascript"]')).toBeNull();

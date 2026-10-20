@@ -2,12 +2,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../lib/api/client";
 
 const m = {
-  createLabel: vi.fn(), updateLabel: vi.fn(), deleteLabel: vi.fn(),
-  createMilestone: vi.fn(), updateMilestone: vi.fn(), deleteMilestone: vi.fn(),
+  createLabel: vi.fn(),
+  updateLabel: vi.fn(),
+  deleteLabel: vi.fn(),
+  createMilestone: vi.fn(),
+  updateMilestone: vi.fn(),
+  deleteMilestone: vi.fn(),
   updateProject: vi.fn(),
 };
-vi.mock("@/lib/api/labels", () => ({ createLabel: (...a: unknown[]) => m.createLabel(...a), updateLabel: (...a: unknown[]) => m.updateLabel(...a), deleteLabel: (...a: unknown[]) => m.deleteLabel(...a) }));
-vi.mock("@/lib/api/milestones", () => ({ createMilestone: (...a: unknown[]) => m.createMilestone(...a), updateMilestone: (...a: unknown[]) => m.updateMilestone(...a), deleteMilestone: (...a: unknown[]) => m.deleteMilestone(...a) }));
+vi.mock("@/lib/api/labels", () => ({
+  createLabel: (...a: unknown[]) => m.createLabel(...a),
+  updateLabel: (...a: unknown[]) => m.updateLabel(...a),
+  deleteLabel: (...a: unknown[]) => m.deleteLabel(...a),
+}));
+vi.mock("@/lib/api/milestones", () => ({
+  createMilestone: (...a: unknown[]) => m.createMilestone(...a),
+  updateMilestone: (...a: unknown[]) => m.updateMilestone(...a),
+  deleteMilestone: (...a: unknown[]) => m.deleteMilestone(...a),
+}));
 vi.mock("@/lib/api/projects", () => ({ updateProject: (...a: unknown[]) => m.updateProject(...a) }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePath(...a) }));

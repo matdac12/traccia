@@ -10,7 +10,19 @@ import type { ActivityFeedItem } from "@/lib/api/schemas";
 import { actorLabel, describeActivity } from "@/lib/issue-detail/activity";
 
 /** The project's activity feed, newest first. Names for milestone and project ids come from the page; "Load more" pages with the API's cursor. */
-export function ProjectActivity({ projectId, initial, nextCursor, milestoneNames, projectNames }: { projectId: string; initial: ActivityFeedItem[]; nextCursor: string | null; milestoneNames: Record<string, string>; projectNames: Record<string, string> }) {
+export function ProjectActivity({
+  projectId,
+  initial,
+  nextCursor,
+  milestoneNames,
+  projectNames,
+}: {
+  projectId: string;
+  initial: ActivityFeedItem[];
+  nextCursor: string | null;
+  milestoneNames: Record<string, string>;
+  projectNames: Record<string, string>;
+}) {
   const [items, setItems] = useState(initial);
   const [cursor, setCursor] = useState(nextCursor);
   const [loading, setLoading] = useState(false);
@@ -37,13 +49,20 @@ export function ProjectActivity({ projectId, initial, nextCursor, milestoneNames
     }
   };
 
-  if (items.length === 0) return <EmptyState icon={Activity} title="No activity yet">Changes to this project's issues show up here.</EmptyState>;
+  if (items.length === 0)
+    return (
+      <EmptyState icon={Activity} title="No activity yet">
+        Changes to this project's issues show up here.
+      </EmptyState>
+    );
   return (
     <section aria-label="Activity" className="px-4 py-3 sm:px-6">
       <ol className="max-w-3xl divide-y">
         {items.map((row) => (
           <li key={row.id} className="flex items-start gap-2.5 py-2.5 text-[13px]">
-            <span className="mt-0.5 shrink-0"><ActorAvatar who={row.actor} size={18} /></span>
+            <span className="mt-0.5 shrink-0">
+              <ActorAvatar who={row.actor} size={18} />
+            </span>
             <div className="min-w-0 flex-1">
               <p>
                 <span className="font-medium">{actorLabel(row.actor)}</span> <span className="text-muted-foreground">{describeActivity(row, lookups)}</span>
@@ -52,7 +71,9 @@ export function ProjectActivity({ projectId, initial, nextCursor, milestoneNames
                 <span className="font-mono">{row.identifier}</span> {row.title}
               </Link>
             </div>
-            <span className="shrink-0 pt-0.5 text-xs text-muted-foreground"><TimeAgo iso={row.createdAt} /></span>
+            <span className="shrink-0 pt-0.5 text-xs text-muted-foreground">
+              <TimeAgo iso={row.createdAt} />
+            </span>
           </li>
         ))}
       </ol>
@@ -63,7 +84,11 @@ export function ProjectActivity({ projectId, initial, nextCursor, milestoneNames
               {loading && <Loader2 className="size-3.5 animate-spin" />}Load more
             </Button>
           ) : null}
-          {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
+          {error ? (
+            <span role="alert" className="text-xs text-destructive">
+              {error}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </section>

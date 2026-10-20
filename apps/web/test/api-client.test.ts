@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { ApiError, createApiClient } from "../lib/api/client";
 
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 function client(res: Response) {
   const fetchMock = vi.fn(async () => res);
@@ -82,7 +81,13 @@ describe("api client", () => {
     await expect(api.request("/x", { schema: z.object({ n: z.number() }) })).rejects.toMatchObject({ code: "bad_response" });
   });
   it("reports an unreachable API", async () => {
-    const api = createApiClient({ baseUrl: "http://api:8787", token: "t", fetch: (async () => { throw new Error("ECONNREFUSED"); }) as never });
+    const api = createApiClient({
+      baseUrl: "http://api:8787",
+      token: "t",
+      fetch: (async () => {
+        throw new Error("ECONNREFUSED");
+      }) as never,
+    });
     const err = (await api.request("/x", { schema: z.unknown() }).catch((e) => e)) as ApiError;
     expect(err).toBeInstanceOf(ApiError);
     expect(err.code).toBe("unreachable");

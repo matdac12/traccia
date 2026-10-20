@@ -86,7 +86,8 @@ export function todayList<T extends Todo>(todos: T[], today: string, timeZone: s
   const onToday = rows.filter((t) => isOnToday(t, today));
   const todayOpen = onToday.filter((t) => t.day === today);
   const parentPosition = new Map(todos.map((t) => [t.id, t.position]));
-  const byParent = (a: T, b: T) => (parentPosition.get(a.parentId as string) ?? 0) - (parentPosition.get(b.parentId as string) ?? 0) || (a.parentId as string).localeCompare(b.parentId as string) || byPosition(a, b);
+  const byParent = (a: T, b: T) =>
+    (parentPosition.get(a.parentId as string) ?? 0) - (parentPosition.get(b.parentId as string) ?? 0) || (a.parentId as string).localeCompare(b.parentId as string) || byPosition(a, b);
   return {
     overdue: onToday.filter((t) => t.day !== today).sort(byDayThenPosition),
     today: todayOpen.filter((t) => t.parentId === null).sort(byPosition),
@@ -119,7 +120,10 @@ export function upcomingList<T extends Todo>(todos: T[], today: string) {
   const group = (day: string): DayGroup<T> => ({ day, todos: (byDay.get(day) ?? []).sort(byPosition) });
   return {
     days: Array.from({ length: UPCOMING_DAYS }, (_, i) => group(addDays(today, i + 1))),
-    later: [...byDay.keys()].filter((day) => day > last).sort().map(group),
+    later: [...byDay.keys()]
+      .filter((day) => day > last)
+      .sort()
+      .map(group),
   };
 }
 

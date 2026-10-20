@@ -236,7 +236,11 @@ function confirmText(confirm: Confirm): { title: string; body: ReactNode; action
   if (confirm.kind === "anytime") {
     return {
       title: "Move to Anytime?",
-      body: <>{name} loses its {confirm.todo.reminder?.time} Reminder: an Anytime To-do has no Reminder.</>,
+      body: (
+        <>
+          {name} loses its {confirm.todo.reminder?.time} Reminder: an Anytime To-do has no Reminder.
+        </>
+      ),
       action: "Move and remove Reminder",
     };
   }
@@ -244,7 +248,11 @@ function confirmText(confirm: Confirm): { title: string; body: ReactNode; action
   const done = confirm.state === "done";
   return {
     title: done ? `Mark ${subTodos} done too?` : `Drop ${subTodos} too?`,
-    body: <>{name} has {subTodos}. A parent never closes on its own.</>,
+    body: (
+      <>
+        {name} has {subTodos}. A parent never closes on its own.
+      </>
+    ),
     action: done ? "Mark all done" : "Drop all",
   };
 }

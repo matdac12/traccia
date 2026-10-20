@@ -34,11 +34,7 @@ export function TrashList({ items, all, group = true }: { items: TrashItem[]; al
     start(async () => {
       const out = await restoreAction(item.type, item.id);
       setBusyId(null);
-      setNotice(
-        out.ok
-          ? { kind: "ok", text: `${restoreSummary(out.result)} “${item.label}”`, href: itemHref(item) }
-          : { kind: "error", text: out.message },
-      );
+      setNotice(out.ok ? { kind: "ok", text: `${restoreSummary(out.result)} “${item.label}”`, href: itemHref(item) } : { kind: "error", text: out.message });
     });
   };
 
@@ -87,10 +83,7 @@ export function TrashList({ items, all, group = true }: { items: TrashItem[]; al
                 {t.type !== "project" && t.projectName ? <span className="ml-2 text-xs text-muted-foreground">in {t.projectName}</span> : null}
               </span>
               {together.length > 0 ? (
-                <span
-                  className="shrink-0 rounded-full border px-2 text-[11px] text-muted-foreground"
-                  title={`Deleted together: ${summarize(together)}. Restoring brings the whole batch back.`}
-                >
+                <span className="shrink-0 rounded-full border px-2 text-[11px] text-muted-foreground" title={`Deleted together: ${summarize(together)}. Restoring brings the whole batch back.`}>
                   {togetherText(together)}
                 </span>
               ) : null}
@@ -98,14 +91,7 @@ export function TrashList({ items, all, group = true }: { items: TrashItem[]; al
                 {[ago(t.deletedAt), deletedByText(t)].filter(Boolean).join(" ")}
               </time>
               <div className="flex shrink-0 gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs"
-                  disabled={pending}
-                  onClick={() => restore(t)}
-                  title="Restores this item and everything deleted with it"
-                >
+                <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs" disabled={pending} onClick={() => restore(t)} title="Restores this item and everything deleted with it">
                   {busyId === t.id ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
                   Restore
                 </Button>

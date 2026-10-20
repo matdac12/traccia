@@ -84,7 +84,8 @@ export function Attachments({ identifier, attachments }: { identifier: string; a
   return (
     <section className="mt-8" aria-label="Attachments" data-slot="attachments">
       <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium">
-        <Paperclip className="size-3.5 text-muted-foreground" />Attachments <span className="text-xs font-normal text-muted-foreground">{live.length}</span>
+        <Paperclip className="size-3.5 text-muted-foreground" />
+        Attachments <span className="text-xs font-normal text-muted-foreground">{live.length}</span>
       </h3>
 
       <div className="flex flex-wrap gap-2">
@@ -93,18 +94,30 @@ export function Attachments({ identifier, attachments }: { identifier: string; a
         ))}
         {uploading.map((name) => (
           <div key={name} role="status" className="flex h-[54px] w-44 items-center gap-2 rounded-lg border bg-card p-2 text-xs text-muted-foreground">
-            <Upload className="size-3.5 shrink-0 animate-pulse" /><span className="truncate">Uploading {name}…</span>
+            <Upload className="size-3.5 shrink-0 animate-pulse" />
+            <span className="truncate">Uploading {name}…</span>
           </div>
         ))}
         <button
           type="button"
           onClick={() => input.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDrag(true);
+          }}
           onDragLeave={() => setDrag(false)}
-          onDrop={(e) => { e.preventDefault(); setDrag(false); void send([...e.dataTransfer.files]); }}
-          className={cn("flex h-[54px] w-44 items-center justify-center gap-2 rounded-lg border border-dashed text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground", drag && "border-primary bg-primary/5 text-primary")}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDrag(false);
+            void send([...e.dataTransfer.files]);
+          }}
+          className={cn(
+            "flex h-[54px] w-44 items-center justify-center gap-2 rounded-lg border border-dashed text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground",
+            drag && "border-primary bg-primary/5 text-primary",
+          )}
         >
-          <Upload className="size-3.5" />Drop files or click to attach
+          <Upload className="size-3.5" />
+          Drop files or click to attach
         </button>
         <input
           ref={input}
@@ -113,21 +126,34 @@ export function Attachments({ identifier, attachments }: { identifier: string; a
           hidden
           aria-label="Attach files"
           accept={ALLOWED_TYPES.map((t) => t.mime).join(",") + ",.md,.txt,.json"}
-          onChange={(e) => { void send([...(e.target.files ?? [])]); e.target.value = ""; }}
+          onChange={(e) => {
+            void send([...(e.target.files ?? [])]);
+            e.target.value = "";
+          }}
         />
       </div>
       <p className="mt-1.5 text-[11px] text-muted-foreground">{ALLOWED_HINT}.</p>
 
       {removed.map((a) => (
         <p key={a.id} role="status" className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <Trash2 className="size-3.5" />{a.filename} moved to Trash.
-          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-xs" onClick={() => undo(a)}><Undo2 className="size-3" />Undo</Button>
+          <Trash2 className="size-3.5" />
+          {a.filename} moved to Trash.
+          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-xs" onClick={() => undo(a)}>
+            <Undo2 className="size-3" />
+            Undo
+          </Button>
         </p>
       ))}
       {problems.map((p) => (
-        <p key={p.name + p.message} role="alert" className="mt-2 text-xs text-destructive">{p.message}</p>
+        <p key={p.name + p.message} role="alert" className="mt-2 text-xs text-destructive">
+          {p.message}
+        </p>
       ))}
-      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
 
       <Dialog open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
         <DialogContent className="max-w-[min(92vw,1100px)] sm:max-w-[min(92vw,1100px)]">
@@ -171,17 +197,30 @@ function AttachmentCard({ a, onPreview, onDelete }: { a: Attachment; onPreview: 
   return (
     <div className="group relative flex w-56 items-center gap-2 rounded-lg border bg-card p-2" data-attachment-id={a.id}>
       {kind === "image" ? (
-        <button type="button" className={cls} onClick={onPreview} aria-label={`Preview ${a.filename}`}>{body}</button>
+        <button type="button" className={cls} onClick={onPreview} aria-label={`Preview ${a.filename}`}>
+          {body}
+        </button>
       ) : kind === "pdf" ? (
-        <a className={cls} href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${a.filename} in a new tab`}>{body}</a>
+        <a className={cls} href={url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${a.filename} in a new tab`}>
+          {body}
+        </a>
       ) : (
-        <a className={cls} href={url} download={a.filename} aria-label={`Download ${a.filename}`}>{body}</a>
+        <a className={cls} href={url} download={a.filename} aria-label={`Download ${a.filename}`}>
+          {body}
+        </a>
       )}
       <span className="flex shrink-0 flex-col items-center text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-        <a href={url} {...(kind === "pdf" ? { target: "_blank", rel: "noopener noreferrer" } : { download: a.filename })} aria-label={kind === "pdf" ? "Open in new tab" : "Download"} className="rounded p-0.5 hover:text-foreground">
+        <a
+          href={url}
+          {...(kind === "pdf" ? { target: "_blank", rel: "noopener noreferrer" } : { download: a.filename })}
+          aria-label={kind === "pdf" ? "Open in new tab" : "Download"}
+          className="rounded p-0.5 hover:text-foreground"
+        >
           {kind === "pdf" ? <ExternalLink className="size-3.5" /> : <Download className="size-3.5" />}
         </a>
-        <button type="button" aria-label={`Delete ${a.filename}`} onClick={onDelete} className="rounded p-0.5 hover:text-destructive"><Trash2 className="size-3.5" /></button>
+        <button type="button" aria-label={`Delete ${a.filename}`} onClick={onDelete} className="rounded p-0.5 hover:text-destructive">
+          <Trash2 className="size-3.5" />
+        </button>
       </span>
     </div>
   );

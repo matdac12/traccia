@@ -10,8 +10,7 @@ const PAGE_SIZE = 100;
 const MAX_PAGES = 10;
 
 /** Drop empty filters: the API's `query` is `.min(1)`, so an absent search must be omitted, not sent as `?query=`. */
-const definedFilters = (query: object) =>
-  Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)));
+const definedFilters = (query: object) => Object.fromEntries(Object.entries(query).filter(([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0)));
 
 const listAll = <S extends z.ZodType, QS extends z.ZodType>(path: string, schema: S, querySchema: QS, query: Parameters<typeof listAllPages<S, QS>>[3]) =>
   listAllPages(path, schema, querySchema, definedFilters(query) as typeof query, { pageSize: PAGE_SIZE, maxPages: MAX_PAGES });
@@ -41,5 +40,4 @@ export const updateDocument = (id: string, body: UpdateDocumentBody & { expected
 export const deleteDocument = (id: string) => api().request(`/documents/${encodeURIComponent(id)}`, { schema: deletedResultSchema, method: "DELETE" });
 
 /** Undo of a delete. `restoreItem` in `trash.ts` only knows the Trash page's types, so memories and documents restore here. */
-export const restoreDocumentation = (type: "memory" | "document", id: string) =>
-  api().request("/restore", { schema: z.unknown(), method: "POST", bodySchema: restoreBodySchema, body: { type, id } });
+export const restoreDocumentation = (type: "memory" | "document", id: string) => api().request("/restore", { schema: z.unknown(), method: "POST", bodySchema: restoreBodySchema, body: { type, id } });

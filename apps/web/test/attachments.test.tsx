@@ -16,7 +16,14 @@ vi.mock("../app/(app)/issues/[identifier]/actions", () => ({
 
 const ID = (c: string) => `01J9ZZZZZZZZZZZZZZZZZZZZZ${c}`;
 const att = (c: string, filename: string, mimeType: string, over: Partial<Attachment> = {}): Attachment => ({
-  id: ID(c), filename, mimeType, sizeBytes: 2048, commentId: null, actor: "agent", createdAt: "2026-01-01T00:00:00.000Z", ...over,
+  id: ID(c),
+  filename,
+  mimeType,
+  sizeBytes: 2048,
+  commentId: null,
+  actor: "agent",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  ...over,
 });
 const list = [att("A", "shot.png", "image/png"), att("B", "spec.pdf", "application/pdf"), att("C", "notes.txt", "text/plain")];
 

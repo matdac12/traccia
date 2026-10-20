@@ -1,5 +1,14 @@
 import { type Actor, ServiceError } from "@traccia/shared";
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { canPurge } from "../auth/permissions.js";
@@ -648,10 +657,7 @@ function restoreBatch(
       .where(inArray(documents.id, sets.documentIds))
       .run();
   if (sets.todoIds.length)
-    tx.update(todos)
-      .set(revived)
-      .where(inArray(todos.id, sets.todoIds))
-      .run();
+    tx.update(todos).set(revived).where(inArray(todos.id, sets.todoIds)).run();
 
   // A restored issue gets `issue_restored`; a restored comment/attachment
   // records its own type on the owning issue with the ids in `data` (the issue

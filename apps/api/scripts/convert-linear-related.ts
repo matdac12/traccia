@@ -64,7 +64,11 @@ export function parseRelatedDescription(description: string): {
 }
 
 export type LinkOutcome = "created" | "already" | "missing" | "self";
-export type LinkReport = { source: string; target: string; outcome: LinkOutcome };
+export type LinkReport = {
+  source: string;
+  target: string;
+  outcome: LinkOutcome;
+};
 export type ConversionReport = {
   scanned: number;
   candidates: number;
@@ -94,15 +98,23 @@ export function convertLinearRelated(
   for (const source of rows) {
     if (!source.description.includes(RELATED_PREFIX)) continue;
     report.candidates++;
-    const { identifiers, stripped } = parseRelatedDescription(source.description);
+    const { identifiers, stripped } = parseRelatedDescription(
+      source.description,
+    );
     if (identifiers.length === 0) continue;
     const current = new Set(
-      loadRelations(db, source.id).related.map((r) => r.identifier.toUpperCase()),
+      loadRelations(db, source.id).related.map((r) =>
+        r.identifier.toUpperCase(),
+      ),
     );
     let allResolved = true;
     for (const identifier of identifiers) {
       if (identifier === source.identifier) {
-        report.links.push({ source: source.identifier, target: identifier, outcome: "self" });
+        report.links.push({
+          source: source.identifier,
+          target: identifier,
+          outcome: "self",
+        });
         allResolved = false;
         continue;
       }
@@ -110,7 +122,11 @@ export function convertLinearRelated(
       try {
         target = resolveIssue(db, identifier);
       } catch {
-        report.links.push({ source: source.identifier, target: identifier, outcome: "missing" });
+        report.links.push({
+          source: source.identifier,
+          target: identifier,
+          outcome: "missing",
+        });
         allResolved = false;
         continue;
       }
@@ -128,7 +144,9 @@ export function convertLinearRelated(
     // Keep the line when any id could not be turned into a relation, so its
     // text is not lost.
     if (apply && allResolved && stripped !== source.description) {
-      services.issues.update("agent", source.identifier, { description: stripped });
+      services.issues.update("agent", source.identifier, {
+        description: stripped,
+      });
       report.stripped.push(source.identifier);
     }
   }
@@ -149,9 +167,13 @@ export function formatReport(report: ConversionReport): string {
     }
   }
   if (report.applied) {
-    lines.push(`Stripped the line from ${report.stripped.length} description(s).`);
+    lines.push(
+      `Stripped the line from ${report.stripped.length} description(s).`,
+    );
   } else {
-    lines.push("Dry run: nothing written. Re-run with --apply to create the relations and strip the lines.");
+    lines.push(
+      "Dry run: nothing written. Re-run with --apply to create the relations and strip the lines.",
+    );
   }
   return lines.join("\n");
 }

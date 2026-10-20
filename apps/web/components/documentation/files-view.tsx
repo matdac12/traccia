@@ -105,14 +105,38 @@ export function FilesView({ projectId, documents, query }: { projectId: string; 
     <div className="px-4 py-4 sm:px-6">
       <fieldset
         aria-label="Upload documents"
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
         onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); void send([...e.dataTransfer.files]); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          void send([...e.dataTransfer.files]);
+        }}
         className={cn("mb-3 flex items-center gap-3 rounded-lg border border-dashed px-3 py-2.5 text-xs text-muted-foreground transition-colors", drag && "border-primary bg-primary/5 text-primary")}
       >
         <Upload className="size-3.5 shrink-0" />
-        <span>Drop files here or <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => input.current?.click()}>choose files</button>. {ALLOWED_HINT}.</span>
-        <input ref={input} type="file" multiple hidden aria-label="Choose documents to upload" accept={ACCEPT} onChange={(e) => { void send([...(e.target.files ?? [])]); e.target.value = ""; }} />
+        <span>
+          Drop files here or{" "}
+          <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => input.current?.click()}>
+            choose files
+          </button>
+          . {ALLOWED_HINT}.
+        </span>
+        <input
+          ref={input}
+          type="file"
+          multiple
+          hidden
+          aria-label="Choose documents to upload"
+          accept={ACCEPT}
+          onChange={(e) => {
+            void send([...(e.target.files ?? [])]);
+            e.target.value = "";
+          }}
+        />
         <input
           ref={replaceInput}
           type="file"
@@ -129,16 +153,31 @@ export function FilesView({ projectId, documents, query }: { projectId: string; 
       </fieldset>
 
       {uploading.map((name) => (
-        <p key={name} role="status" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Upload className="size-3.5 animate-pulse" />Uploading {name}…</p>
+        <p key={name} role="status" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Upload className="size-3.5 animate-pulse" />
+          Uploading {name}…
+        </p>
       ))}
       {removed.map((d) => (
         <p key={d.id} role="status" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-          <Trash2 className="size-3.5" />{d.filename} moved to Trash.
-          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-xs" onClick={() => undo(d)}><Undo2 className="size-3" />Undo</Button>
+          <Trash2 className="size-3.5" />
+          {d.filename} moved to Trash.
+          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-xs" onClick={() => undo(d)}>
+            <Undo2 className="size-3" />
+            Undo
+          </Button>
         </p>
       ))}
-      {problems.map((p) => <p key={p.name + p.message} role="alert" className="mb-2 text-xs text-destructive">{p.message}</p>)}
-      {error ? <p role="alert" className="mb-2 text-xs text-destructive">{error}</p> : null}
+      {problems.map((p) => (
+        <p key={p.name + p.message} role="alert" className="mb-2 text-xs text-destructive">
+          {p.message}
+        </p>
+      ))}
+      {error ? (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
 
       {live.length === 0 ? (
         <EmptyState icon={Files} title={query ? "No matching documents" : "No documents yet"}>
@@ -151,7 +190,10 @@ export function FilesView({ projectId, documents, query }: { projectId: string; 
               key={d.id}
               d={d}
               onEdit={() => setEditing(d)}
-              onReplace={() => { replacing.current = d; replaceInput.current?.click(); }}
+              onReplace={() => {
+                replacing.current = d;
+                replaceInput.current?.click();
+              }}
               onDelete={() => remove(d)}
             />
           ))}
@@ -178,7 +220,9 @@ function DocumentRow({ d, onEdit, onReplace, onDelete }: { d: ProjectDocument; o
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <a href={url} {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : { download: d.filename })} className="block truncate text-[13px] font-medium hover:underline">{d.filename}</a>
+        <a href={url} {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : { download: d.filename })} className="block truncate text-[13px] font-medium hover:underline">
+          {d.filename}
+        </a>
         {d.description ? <p className="line-clamp-2 text-xs text-muted-foreground">{d.description}</p> : null}
         <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
           {formatBytes(d.sizeBytes)} · {d.mimeType} · <ActorAvatar who={d.createdBy} size={12} /> <TimeAgo iso={d.updatedAt} />
@@ -186,11 +230,19 @@ function DocumentRow({ d, onEdit, onReplace, onDelete }: { d: ProjectDocument; o
       </div>
       <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
         <Button asChild variant="ghost" size="xs" aria-label={newTab ? `Open ${d.filename} in a new tab` : `Download ${d.filename}`}>
-          <a href={url} {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : { download: d.filename })}>{newTab ? <ExternalLink /> : <Download />}</a>
+          <a href={url} {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : { download: d.filename })}>
+            {newTab ? <ExternalLink /> : <Download />}
+          </a>
         </Button>
-        <Button variant="ghost" size="xs" aria-label={`Edit ${d.filename}`} onClick={onEdit}><Pencil /></Button>
-        <Button variant="ghost" size="xs" aria-label={`Replace ${d.filename}`} onClick={onReplace}><RefreshCw /></Button>
-        <ConfirmButton onConfirm={onDelete} label={`Delete ${d.filename}`} confirmLabel="Move to Trash"><Trash2 /></ConfirmButton>
+        <Button variant="ghost" size="xs" aria-label={`Edit ${d.filename}`} onClick={onEdit}>
+          <Pencil />
+        </Button>
+        <Button variant="ghost" size="xs" aria-label={`Replace ${d.filename}`} onClick={onReplace}>
+          <RefreshCw />
+        </Button>
+        <ConfirmButton onConfirm={onDelete} label={`Delete ${d.filename}`} confirmLabel="Move to Trash">
+          <Trash2 />
+        </ConfirmButton>
       </div>
     </li>
   );
@@ -232,14 +284,33 @@ function EditDialog({ projectId, doc, onClose, onSaved }: { projectId: string; d
         <div className="space-y-2 px-4 pb-3 pt-2">
           <Input autoFocus aria-label="Name" aria-invalid={fieldErrors.filename ? true : undefined} value={filename} onChange={(e) => setFilename(e.target.value)} className="h-8 text-[13px]" />
           {fieldErrors.filename ? <p className="text-xs text-destructive">{fieldErrors.filename}</p> : null}
-          <Textarea aria-label="Description" value={description} maxLength={DOCUMENT_DESCRIPTION_MAX} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" className="min-h-24 text-[13px]" />
+          <Textarea
+            aria-label="Description"
+            value={description}
+            maxLength={DOCUMENT_DESCRIPTION_MAX}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            className="min-h-24 text-[13px]"
+          />
           {fieldErrors.description ? <p className="text-xs text-destructive">{fieldErrors.description}</p> : null}
         </div>
-        {conflict ? <div className="px-4 pb-2"><ConflictNotice what="This document"> Your changes are kept; Save again to overwrite the latest version.</ConflictNotice></div> : null}
-        {error ? <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">{error}</p> : null}
+        {conflict ? (
+          <div className="px-4 pb-2">
+            <ConflictNotice what="This document"> Your changes are kept; Save again to overwrite the latest version.</ConflictNotice>
+          </div>
+        ) : null}
+        {error ? (
+          <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
         <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={save} disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={save} disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

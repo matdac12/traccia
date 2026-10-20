@@ -24,16 +24,38 @@ vi.mock("../app/(app)/issues/[identifier]/actions", () => ({
 const bug = { id: "l1", name: "bug", color: "#f00", projectId: null };
 const T0 = "2026-01-01T00:00:00.000Z";
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", key: "TRK", number: n, description: "", parentId: null, createdAt: T0, identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: 3, assignee: "you" as const,
-  milestoneId: null, createdBy: "you" as const, updatedAt: T0, labels: [bug], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  key: "TRK",
+  number: n,
+  description: "",
+  parentId: null,
+  createdAt: T0,
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 2,
+  estimate: 3,
+  assignee: "you" as const,
+  milestoneId: null,
+  createdBy: "you" as const,
+  updatedAt: T0,
+  labels: [bug],
+  ...over,
 });
 const project = (id: string, name: string) => ({ id, key: "TRK", name, description: "", status: "active", createdBy: "you", createdAt: T0, updatedAt: T0 });
 const data = (): IssuesData => ({
   groups: ["backlog", "todo", "in_progress", "in_review", "done", "canceled"].map((status) => ({
-    status, items: status === "todo" ? [issue(1, "todo")] : [], nextCursor: null,
+    status,
+    items: status === "todo" ? [issue(1, "todo")] : [],
+    nextCursor: null,
   })) as IssuesData["groups"],
-  projects: [project("p1", "Alpha"), project("p2", "Beta")] as IssuesData["projects"], labels: [bug],
-  milestones: [{ id: "m1", projectId: "p1", name: "Launch", targetDate: null, updatedAt: T0 }, { id: "m2", projectId: "p2", name: "Elsewhere", targetDate: null, updatedAt: T0 }],
+  projects: [project("p1", "Alpha"), project("p2", "Beta")] as IssuesData["projects"],
+  labels: [bug],
+  milestones: [
+    { id: "m1", projectId: "p1", name: "Launch", targetDate: null, updatedAt: T0 },
+    { id: "m2", projectId: "p2", name: "Elsewhere", targetDate: null, updatedAt: T0 },
+  ],
 });
 const setup = (filters: Partial<IssueFilters> = {}) => render(<IssuesView filters={{ ...DEFAULT_FILTERS, ...filters }} data={data()} />);
 const rowOf = () => screen.getByRole("link", { name: "Issue 1" }).closest("[data-depth]")!;
@@ -45,7 +67,12 @@ const submenu = async (user: ReturnType<typeof userEvent.setup>, name: string, i
   fireEvent.click(await screen.findByRole("menuitem", { name: item }));
 };
 
-beforeEach(() => { update.mockReset(); del.mockReset(); restore.mockReset(); subIssue.mockReset(); });
+beforeEach(() => {
+  update.mockReset();
+  del.mockReset();
+  restore.mockReset();
+  subIssue.mockReset();
+});
 
 describe("row helpers", () => {
   const g = (status: string, ids: string[]) => ({ status, items: ids.map((id) => ({ id, status })), nextCursor: null }) as never;

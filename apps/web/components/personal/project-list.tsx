@@ -20,7 +20,10 @@ export function ProjectList({ todos, projectKey }: { todos: Todo[]; projectKey: 
         <span className="flex flex-wrap items-baseline gap-3">
           <span className="rounded-md border bg-surface px-2 font-mono text-[24px] font-medium tracking-normal">{projectKey}</span>
           {project ? (
-            <Link href={`/projects/${project.id}`} className="rounded text-[20px] font-medium tracking-[-0.02em] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+            <Link
+              href={`/projects/${project.id}`}
+              className="rounded text-[20px] font-medium tracking-[-0.02em] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
               {project.name}
             </Link>
           ) : null}

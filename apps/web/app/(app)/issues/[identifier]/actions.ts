@@ -34,11 +34,7 @@ function refresh(identifier: string) {
  * Applies a partial update. `expectedUpdatedAt` (the `updatedAt` the user last saw) goes out as
  * `If-Match`; a stale value comes back as `conflict` with the current issue and nothing is saved.
  */
-export async function updateIssueAction(
-  identifier: string,
-  patch: unknown,
-  expectedUpdatedAt: string,
-): Promise<ActionResult<{ issue: Issue }>> {
+export async function updateIssueAction(identifier: string, patch: unknown, expectedUpdatedAt: string): Promise<ActionResult<{ issue: Issue }>> {
   const ref = refSchema.safeParse(identifier);
   const parsed = patchSchema.safeParse(patch);
   if (!ref.success) return invalid(ref.error.issues[0]!.message);
@@ -98,11 +94,7 @@ export async function linkSubIssueAction(parentIdentifier: string, childIdentifi
   }
 }
 
-export async function createCommentAction(
-  identifier: string,
-  body: string,
-  parentId: string | null,
-): Promise<ActionResult<{ comment: Comment | Reply }>> {
+export async function createCommentAction(identifier: string, body: string, parentId: string | null): Promise<ActionResult<{ comment: Comment | Reply }>> {
   const ref = refSchema.safeParse(identifier);
   const input = createCommentInputSchema.safeParse({ body, parentId });
   if (!ref.success || !input.success) return invalid("A comment cannot be empty");

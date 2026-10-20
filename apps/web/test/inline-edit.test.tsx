@@ -10,21 +10,47 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), use
 vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 vi.mock("../app/(app)/issues/actions", () => ({ loadMoreIssues: vi.fn() }));
 const update = vi.fn();
-vi.mock("../app/(app)/issues/[identifier]/actions", () => ({ updateIssueAction: (...a: unknown[]) => update(...a), deleteIssueAction: vi.fn(), restoreIssueAction: vi.fn(), createSubIssueAction: vi.fn(), searchIssuesAction: vi.fn() }));
+vi.mock("../app/(app)/issues/[identifier]/actions", () => ({
+  updateIssueAction: (...a: unknown[]) => update(...a),
+  deleteIssueAction: vi.fn(),
+  restoreIssueAction: vi.fn(),
+  createSubIssueAction: vi.fn(),
+  searchIssuesAction: vi.fn(),
+}));
 
 const bug = { id: "l1", name: "bug", color: "#f00", projectId: null };
 const ux = { id: "l2", name: "ux", color: "#0f0", projectId: "p1" };
 const other = { id: "l3", name: "other-project", color: "#00f", projectId: "p2" };
 const T0 = "2026-01-01T00:00:00.000Z";
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", key: "TRK", number: n, description: "", parentId: null, createdAt: T0, identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: 3, assignee: "you" as const,
-  milestoneId: null, createdBy: "you" as const, updatedAt: T0, labels: [bug], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  key: "TRK",
+  number: n,
+  description: "",
+  parentId: null,
+  createdAt: T0,
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 2,
+  estimate: 3,
+  assignee: "you" as const,
+  milestoneId: null,
+  createdBy: "you" as const,
+  updatedAt: T0,
+  labels: [bug],
+  ...over,
 });
 const data = (): IssuesData => ({
   groups: ["backlog", "todo", "in_progress", "in_review", "done", "canceled"].map((status) => ({
-    status, items: status === "todo" ? [issue(1, "todo")] : [], nextCursor: null,
+    status,
+    items: status === "todo" ? [issue(1, "todo")] : [],
+    nextCursor: null,
   })) as IssuesData["groups"],
-  projects: [], labels: [bug, ux, other], milestones: [],
+  projects: [],
+  labels: [bug, ux, other],
+  milestones: [],
 });
 const setup = (filters: Partial<IssueFilters> = {}) => render(<IssuesView filters={{ ...DEFAULT_FILTERS, ...filters }} data={data()} />);
 const pick = async (user: ReturnType<typeof userEvent.setup>, trigger: string, item: string | RegExp) => {
@@ -35,7 +61,7 @@ const pick = async (user: ReturnType<typeof userEvent.setup>, trigger: string, i
 beforeEach(() => update.mockReset());
 
 describe("upsertRow", () => {
-  const g = (status: string, ids: string[]) => ({ status, items: ids.map((id) => ({ id })) , nextCursor: null }) as never;
+  const g = (status: string, ids: string[]) => ({ status, items: ids.map((id) => ({ id })), nextCursor: null }) as never;
   it("replaces in place, or moves a changed status to the top of its group", () => {
     const groups = [g("todo", ["a", "b"]), g("done", ["c"])] as never[];
     expect((upsertRow(groups, { id: "b", status: "todo", title: "x" } as never)[0] as { items: { title?: string }[] }).items[1]!.title).toBe("x");
@@ -48,7 +74,11 @@ describe("upsertRow", () => {
 describe("inline edit in the table", () => {
   it("changes the status optimistically with the row's updatedAt as the concurrency token", async () => {
     let resolve!: (v: unknown) => void;
-    update.mockReturnValue(new Promise((r) => { resolve = r; }));
+    update.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
     const user = userEvent.setup();
     setup();
     await pick(user, "Change status of TRK-1", /In Progress/);

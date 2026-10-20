@@ -71,7 +71,10 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   // The poll stays quiet.
-  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise(() => {})),
+  );
   updateTodoAction.mockReset();
   deleteTodoAction.mockReset();
   restoreTodoAction.mockReset();
@@ -356,9 +359,7 @@ describe("the … menu", () => {
     const { user } = setup([t]);
     await user.click(screen.getByRole("button", { name: "Actions for Book the car" }));
     await user.click(await screen.findByRole("menuitem", { name: "Move to" }));
-    expect(screen.getAllByRole("menuitem").map((i) => i.textContent?.trim())).toEqual(
-      expect.arrayContaining(["Today", "Tomorrow", "Mon 19 Oct", "Fri 23 Oct", "Anytime"]),
-    );
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent?.trim())).toEqual(expect.arrayContaining(["Today", "Tomorrow", "Mon 19 Oct", "Fri 23 Oct", "Anytime"]));
     fireEvent.click(screen.getByRole("menuitem", { name: "Mon 19 Oct" }));
     expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: "2026-10-19" }, UPDATED);
 
@@ -430,7 +431,7 @@ describe("the undo notice after a delete", () => {
     serverSends([]);
     await user.click(await screen.findByRole("button", { name: "Undo delete of “Old idea”" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Undo failed: Could not reach the API.");
-    await user.click(within((screen.getByText(/moved to the Trash/)).closest("div") as HTMLElement).getByRole("button", { name: "Dismiss" }));
+    await user.click(within(screen.getByText(/moved to the Trash/).closest("div") as HTMLElement).getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText(/moved to the Trash/)).toBeNull();
   });
 

@@ -81,7 +81,12 @@ describe("TodayList", () => {
 
 describe("TodoRow", () => {
   const renderRow = (t: Todo, showDay = false) =>
-    render(<ul><TodoRow todo={t} showDay={showDay} /></ul>, { wrapper: Providers }).container;
+    render(
+      <ul>
+        <TodoRow todo={t} showDay={showDay} />
+      </ul>,
+      { wrapper: Providers },
+    ).container;
 
   it("shows the Reminder time by status: pending in the accent, sent dimmed, failed red with a crossed bell", () => {
     renderRow(todo({ reminder: reminder("pending", "15:00") }));
@@ -101,7 +106,15 @@ describe("TodoRow", () => {
 
   it("renders Project chips, the Details dot, the Sub-to-do count and via Parla", () => {
     renderRow({
-      ...todo({ title: "Ship @crm with @OLD", references: [{ key: "CRM", projectId: "p1", projectDeleted: false }, { key: "OLD", projectId: "p2", projectDeleted: true }], details: "notes", source: "parla" }),
+      ...todo({
+        title: "Ship @crm with @OLD",
+        references: [
+          { key: "CRM", projectId: "p1", projectDeleted: false },
+          { key: "OLD", projectId: "p2", projectDeleted: true },
+        ],
+        details: "notes",
+        source: "parla",
+      }),
       subTodos: { done: 1, total: 3 },
     });
     expect(screen.getByText("CRM")).not.toHaveClass("border-dashed");
@@ -151,7 +164,12 @@ describe("PersonalSpace", () => {
   });
 
   it("counts Today and Anytime in the list menu and opens the other lists", async () => {
-    render(<PersonalSpace initial={{ today: TODAY, timeZone: "Europe/Rome", todos: [todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })] }} projects={[]} />);
+    render(
+      <PersonalSpace
+        initial={{ today: TODAY, timeZone: "Europe/Rome", todos: [todo(), todo({ day: "2026-10-10" }), todo({ day: null, references: [{ key: "CRM", projectId: "p1", projectDeleted: false }] })] }}
+        projects={[]}
+      />,
+    );
     const menu = screen.getByRole("navigation", { name: "Personal lists" });
     expect(within(menu).getByRole("button", { name: /Today/ })).toHaveTextContent("Today2");
     expect(within(menu).getByRole("button", { name: /Anytime/ })).toHaveTextContent("Anytime1");

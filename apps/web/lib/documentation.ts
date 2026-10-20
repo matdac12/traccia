@@ -8,7 +8,14 @@ export const DOCUMENT_DESCRIPTION_MAX = 2000;
 
 /** Splits comma- or newline-separated text into trimmed, non-empty, de-duplicated tags (first-seen order). */
 export function parseTags(text: string): string[] {
-  return [...new Set(text.split(/[,\n]/).map((t) => t.trim()).filter(Boolean))];
+  return [
+    ...new Set(
+      text
+        .split(/[,\n]/)
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 /** A server-action id or project reference: ULIDs and keys only, since the value ends up in an API path. */
@@ -16,6 +23,10 @@ export const REF = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** First line of markdown with the heading/list syntax stripped, for the memory list. */
 export function snippetOf(body: string, max = 180): string {
-  const text = body.replace(/```[\s\S]*?```/g, " ").replace(/[#>*_`~[\]-]+/g, " ").replace(/\s+/g, " ").trim();
+  const text = body
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#>*_`~[\]-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }

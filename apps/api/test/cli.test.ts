@@ -438,22 +438,24 @@ describe("traccia db snapshot", () => {
   // file read-only flag, which directories ignore), so there is no way to
   // provoke a write failure this way there.
   it.skipIf(process.platform === "win32")(
-    "fails clearly on a non-writable --out and removes nothing", async () => {
-    const e = await migrated();
-    const out = join(e.DATA_DIR, "ro");
-    mkdirSync(out);
-    writeFileSync(join(out, "traccia-20200101T000000Z.db"), "old");
-    chmodSync(out, 0o500);
-    try {
-      if (process.getuid?.() === 0) return; // root ignores permissions
-      const r = await run(e, "--out", out);
-      expect(r.code).toBe(1);
-      expect(r.err).toMatch(/Cannot write snapshots to .*--out/);
-      expect(snapshots(out)).toEqual(["traccia-20200101T000000Z.db"]);
-    } finally {
-      chmodSync(out, 0o700);
-    }
-  });
+    "fails clearly on a non-writable --out and removes nothing",
+    async () => {
+      const e = await migrated();
+      const out = join(e.DATA_DIR, "ro");
+      mkdirSync(out);
+      writeFileSync(join(out, "traccia-20200101T000000Z.db"), "old");
+      chmodSync(out, 0o500);
+      try {
+        if (process.getuid?.() === 0) return; // root ignores permissions
+        const r = await run(e, "--out", out);
+        expect(r.code).toBe(1);
+        expect(r.err).toMatch(/Cannot write snapshots to .*--out/);
+        expect(snapshots(out)).toEqual(["traccia-20200101T000000Z.db"]);
+      } finally {
+        chmodSync(out, 0o700);
+      }
+    },
+  );
 
   it("fails when --out is a file", async () => {
     const e = await migrated();

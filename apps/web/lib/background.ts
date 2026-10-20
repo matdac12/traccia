@@ -26,9 +26,14 @@ export function parseBackground(value: string | null): BackgroundPreferences {
   try {
     const data = JSON.parse(value ?? "null");
     if (data?.version !== 1) return DEFAULT_BACKGROUND;
-    const image = data.image && typeof data.image.name === "string" && typeof data.image.src === "string"
-      && data.image.src.length <= MAX_IMAGE_LENGTH && /^data:image\/(png|jpeg|webp|avif);base64,[A-Za-z0-9+/]+=*$/.test(data.image.src)
-      ? { name: data.image.name.slice(0, 255), src: data.image.src } : null;
+    const image =
+      data.image &&
+      typeof data.image.name === "string" &&
+      typeof data.image.src === "string" &&
+      data.image.src.length <= MAX_IMAGE_LENGTH &&
+      /^data:image\/(png|jpeg|webp|avif);base64,[A-Za-z0-9+/]+=*$/.test(data.image.src)
+        ? { name: data.image.name.slice(0, 255), src: data.image.src }
+        : null;
     return {
       version: 1,
       image,

@@ -79,7 +79,9 @@ export function useLogbook(today: string, { active, tick }: { active: boolean; t
       const fresh = mergeById(items);
       // Dropped when the new day, or a page `loadMore` added meanwhile, overtook it; when nothing changed it is the same
       // state, so nothing renders.
-      setPages((p) => (p.today !== asked.today || p.count !== asked.count || (p.nextCursor === cursor && JSON.stringify(p.items) === JSON.stringify(fresh)) ? p : { ...p, items: fresh, nextCursor: cursor, count }));
+      setPages((p) =>
+        p.today !== asked.today || p.count !== asked.count || (p.nextCursor === cursor && JSON.stringify(p.items) === JSON.stringify(fresh)) ? p : { ...p, items: fresh, nextCursor: cursor, count },
+      );
     } catch {
       // The next poll tries again.
     } finally {

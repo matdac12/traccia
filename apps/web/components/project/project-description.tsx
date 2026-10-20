@@ -62,10 +62,27 @@ export function ProjectDescription({ projectId, description, updatedAt }: { proj
       <section aria-label="Description" className="space-y-2">
         <Textarea aria-label="Description" value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-48 font-mono text-[13px]" autoFocus />
         {conflict ? <ConflictNotice what="This project"> Your draft is kept below; Save again to overwrite the latest version.</ConflictNotice> : null}
-        {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
         <div className="flex gap-2">
-          <Button size="sm" onClick={save} disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
-          <Button size="sm" variant="ghost" onClick={() => { setDraft(description); setError(null); setConflict(false); setEditing(false); }}>Cancel</Button>
+          <Button size="sm" onClick={save} disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setDraft(description);
+              setError(null);
+              setConflict(false);
+              setEditing(false);
+            }}
+          >
+            Cancel
+          </Button>
         </div>
       </section>
     );
@@ -73,22 +90,34 @@ export function ProjectDescription({ projectId, description, updatedAt }: { proj
   const collapsed = overflowing && !expanded;
   const toggle = (
     <Button type="button" variant="ghost" size="xs" className="text-muted-foreground" aria-expanded={!collapsed} aria-controls={bodyId} onClick={() => setExpanded(!expanded)}>
-      {collapsed ? <ChevronDown /> : <ChevronUp />}{collapsed ? "Show more" : "Show less"}
+      {collapsed ? <ChevronDown /> : <ChevronUp />}
+      {collapsed ? "Show more" : "Show less"}
     </Button>
   );
   return (
     <section aria-label="Description">
       <div className="mb-1.5 flex h-6 items-center">
         <h2 className="text-[13px] font-medium">Description</h2>
-        <Button variant="ghost" size="xs" className="ml-auto text-muted-foreground" onClick={() => { setDraft(description); setEditing(true); }}>
-          <Pencil />Edit
+        <Button
+          variant="ghost"
+          size="xs"
+          className="ml-auto text-muted-foreground"
+          onClick={() => {
+            setDraft(description);
+            setEditing(true);
+          }}
+        >
+          <Pencil />
+          Edit
         </Button>
       </div>
       {description.trim() ? (
         <div className="relative">
           {/* Clipped before hydration too (the style is static), so a long text never flashes at full height. */}
           <div id={bodyId} className="overflow-hidden" style={expanded ? undefined : { maxHeight: COLLAPSED_HEIGHT }}>
-            <div ref={content} className="max-w-3xl"><Markdown>{description}</Markdown></div>
+            <div ref={content} className="max-w-3xl">
+              <Markdown>{description}</Markdown>
+            </div>
           </div>
           {collapsed ? (
             <div data-testid="description-fade" className="pointer-events-none absolute inset-x-0 bottom-0 flex h-16 items-end bg-gradient-to-t from-background from-40% to-transparent">

@@ -140,12 +140,31 @@ export function CreateIssueDialog({
         {created ? (
           <div className="space-y-3 px-4 py-6 text-[13px]" role="status">
             <p>
-              Created <Link href={`/issues/${created.identifier}`} className="font-mono font-medium underline underline-offset-2" onClick={() => onOpenChange(false)}>{created.identifier}</Link>.
+              Created{" "}
+              <Link href={`/issues/${created.identifier}`} className="font-mono font-medium underline underline-offset-2" onClick={() => onOpenChange(false)}>
+                {created.identifier}
+              </Link>
+              .
             </p>
             {created.labelError ? <p className="text-destructive">The issue exists, but its labels were not applied: {created.labelError}</p> : null}
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
-              <Button size="sm" variant="outline" onClick={() => { setCreated(null); setTitle(""); setDescription(""); setParent(null); setEstimate(null); setLabels([]); }}>Create another</Button>
+              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setCreated(null);
+                  setTitle("");
+                  setDescription("");
+                  setParent(null);
+                  setEstimate(null);
+                  setLabels([]);
+                }}
+              >
+                Create another
+              </Button>
             </div>
           </div>
         ) : (
@@ -171,57 +190,126 @@ export function CreateIssueDialog({
             </div>
             <div className="flex flex-wrap items-center gap-1.5 border-t px-4 py-2.5">
               <Select value={project} onValueChange={setProject}>
-                <SelectTrigger size="sm" aria-label="Project" className="h-7 gap-1.5 text-xs"><SelectValue placeholder="Project" /></SelectTrigger>
-                <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                <SelectTrigger size="sm" aria-label="Project" className="h-7 gap-1.5 text-xs">
+                  <SelectValue placeholder="Project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Select value={status} onValueChange={(v) => setStatus(v as IssueStatus)}>
-                <SelectTrigger size="sm" aria-label="Status" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{ISSUE_STATUSES.map((s) => <SelectItem key={s} value={s}><StatusIcon status={s} />{STATUS_LABEL[s]}</SelectItem>)}</SelectContent>
+                <SelectTrigger size="sm" aria-label="Status" className="h-7 gap-1.5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ISSUE_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      <StatusIcon status={s} />
+                      {STATUS_LABEL[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Select value={String(priority)} onValueChange={(v) => setPriority(Number(v) as Priority)}>
-                <SelectTrigger size="sm" aria-label="Priority" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p} value={String(p)}>{PRIORITY_LABEL[p]}</SelectItem>)}</SelectContent>
+                <SelectTrigger size="sm" aria-label="Priority" className="h-7 gap-1.5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={String(p)}>
+                      {PRIORITY_LABEL[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Select value={assignee ?? NONE} onValueChange={(v) => setAssignee(v === NONE ? null : (v as Actor))}>
-                <SelectTrigger size="sm" aria-label="Assignee" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger size="sm" aria-label="Assignee" className="h-7 gap-1.5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}><ActorAvatar who={null} size={14} />Unassigned</SelectItem>
-                  <SelectItem value="you"><ActorAvatar who="you" size={14} />You</SelectItem>
-                  <SelectItem value="agent"><ActorAvatar who="agent" size={14} />Agent</SelectItem>
+                  <SelectItem value={NONE}>
+                    <ActorAvatar who={null} size={14} />
+                    Unassigned
+                  </SelectItem>
+                  <SelectItem value="you">
+                    <ActorAvatar who="you" size={14} />
+                    You
+                  </SelectItem>
+                  <SelectItem value="agent">
+                    <ActorAvatar who="agent" size={14} />
+                    Agent
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <Select value={milestoneId ?? NONE} onValueChange={(v) => setMilestoneId(v === NONE ? null : v)}>
-                <SelectTrigger size="sm" aria-label="Milestone" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger size="sm" aria-label="Milestone" className="h-7 gap-1.5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No milestone</SelectItem>
-                  {options.milestones.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                  {options.milestones.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={estimate === null ? NONE : String(estimate)} onValueChange={(v) => setEstimate(v === NONE ? null : Number(v))}>
-                <SelectTrigger size="sm" aria-label="Estimate" className="h-7 gap-1.5 text-xs"><SelectValue /></SelectTrigger>
+                <SelectTrigger size="sm" aria-label="Estimate" className="h-7 gap-1.5 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>No estimate</SelectItem>
-                  {ESTIMATES.map((n) => <SelectItem key={n} value={String(n)}>{pointsLabel(n)}</SelectItem>)}
+                  {ESTIMATES.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {pointsLabel(n)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {parent ? (
                 <span className="inline-flex h-7 max-w-56 items-center gap-1.5 rounded-md border px-2 text-xs">
                   <span className="font-mono text-muted-foreground">{parent.identifier}</span>
                   <span className="truncate">{parent.title}</span>
-                  <button type="button" aria-label="Remove parent" onClick={() => setParent(null)} className="rounded p-0.5 text-muted-foreground hover:bg-accent"><X className="size-3" /></button>
+                  <button type="button" aria-label="Remove parent" onClick={() => setParent(null)} className="rounded p-0.5 text-muted-foreground hover:bg-accent">
+                    <X className="size-3" />
+                  </button>
                 </span>
               ) : (
-                <Button type="button" variant="outline" size="sm" className="h-7 text-xs font-normal" aria-label="Parent" onClick={() => setPickingParent((v) => !v)}>No parent</Button>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs font-normal" aria-label="Parent" onClick={() => setPickingParent((v) => !v)}>
+                  No parent
+                </Button>
               )}
             </div>
             {pickingParent && !parent ? (
               <div className="px-4 pb-2">
-                <IssuePicker autoFocus placeholder="Parent identifier or title…" onPick={(p) => { setParent(p); setPickingParent(false); }} />
+                <IssuePicker
+                  autoFocus
+                  placeholder="Parent identifier or title…"
+                  onPick={(p) => {
+                    setParent(p);
+                    setPickingParent(false);
+                  }}
+                />
               </div>
             ) : null}
             {err("project") || err("milestoneId") || err("status") || err("priority") || err("assignee") || err("estimate") || err("parentId") ? (
               <p className="px-4 pb-2 text-xs text-destructive">
-                {[err("project") && `Project ${err("project")}`, err("milestoneId") && `Milestone ${err("milestoneId")}`, err("status") && `Status ${err("status")}`, err("priority") && `Priority ${err("priority")}`, err("assignee") && `Assignee ${err("assignee")}`, err("estimate") && `Estimate ${err("estimate")}`, err("parentId") && `Parent ${err("parentId")}`].filter(Boolean).join(". ")}
+                {[
+                  err("project") && `Project ${err("project")}`,
+                  err("milestoneId") && `Milestone ${err("milestoneId")}`,
+                  err("status") && `Status ${err("status")}`,
+                  err("priority") && `Priority ${err("priority")}`,
+                  err("assignee") && `Assignee ${err("assignee")}`,
+                  err("estimate") && `Estimate ${err("estimate")}`,
+                  err("parentId") && `Parent ${err("parentId")}`,
+                ]
+                  .filter(Boolean)
+                  .join(". ")}
               </p>
             ) : null}
             <fieldset className="flex flex-wrap gap-1.5 border-t px-4 py-2.5" aria-label="Labels">
@@ -235,7 +323,10 @@ export function CreateIssueDialog({
                     type="button"
                     aria-pressed={on}
                     onClick={() => setLabels((s) => (on ? s.filter((x) => x !== l.name) : [...s, l.name]))}
-                    className={cn("inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] transition-colors", on ? "border-primary/50 bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-accent")}
+                    className={cn(
+                      "inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[11px] transition-colors",
+                      on ? "border-primary/50 bg-primary/10 text-foreground" : "text-muted-foreground hover:bg-accent",
+                    )}
                   >
                     <span className="size-1.5 rounded-full" style={{ background: l.color }} />
                     {l.name}
@@ -243,7 +334,14 @@ export function CreateIssueDialog({
                 );
               })}
               {project && !newLabel ? (
-                <button type="button" onClick={() => setNewLabel(true)} className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] text-muted-foreground hover:bg-accent"><Plus className="size-3" />Create label</button>
+                <button
+                  type="button"
+                  onClick={() => setNewLabel(true)}
+                  className="inline-flex h-6 items-center gap-1 rounded-full border border-dashed px-2 text-[11px] text-muted-foreground hover:bg-accent"
+                >
+                  <Plus className="size-3" />
+                  Create label
+                </button>
               ) : null}
             </fieldset>
             {newLabel ? (
@@ -260,12 +358,23 @@ export function CreateIssueDialog({
                 />
               </div>
             ) : null}
-            {error ? <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">{error}{err("labels") ? ` (labels: ${err("labels")})` : ""}</p> : null}
+            {error ? (
+              <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">
+                {error}
+                {err("labels") ? ` (labels: ${err("labels")})` : ""}
+              </p>
+            ) : null}
             <div className="flex items-center justify-between border-t px-4 py-3">
-              <span className="text-xs text-muted-foreground"><Kbd>⌘</Kbd> + <Kbd>Enter</Kbd> to create</span>
+              <span className="text-xs text-muted-foreground">
+                <Kbd>⌘</Kbd> + <Kbd>Enter</Kbd> to create
+              </span>
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button size="sm" onClick={submit} disabled={pending || !project}>{pending ? "Creating…" : "Create issue"}</Button>
+                <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={submit} disabled={pending || !project}>
+                  {pending ? "Creating…" : "Create issue"}
+                </Button>
               </div>
             </div>
           </>

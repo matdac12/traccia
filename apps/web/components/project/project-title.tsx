@@ -32,7 +32,7 @@ export function ProjectTitle({ projectId, name, projectKey, updatedAt }: { proje
       } else {
         // On a conflict the input stays open with the draft; Enter again overwrites the latest version knowingly.
         setConflict(res.conflict === true);
-        setError(res.conflict ? null : (res.fieldErrors.name ? `Name ${res.fieldErrors.name}` : res.error));
+        setError(res.conflict ? null : res.fieldErrors.name ? `Name ${res.fieldErrors.name}` : res.error);
       }
     });
   };
@@ -55,21 +55,50 @@ export function ProjectTitle({ projectId, name, projectKey, updatedAt }: { proje
         />
       ) : (
         <>
-          <button type="button" title="Click to rename" className="truncate rounded text-left hover:underline" onClick={() => { setDraft(name); setEditing(true); }}>{name}</button>
-          <Button variant="ghost" size="icon" aria-label="Rename project" className="size-6 text-muted-foreground" onClick={() => { setDraft(name); setEditing(true); }}>
+          <button
+            type="button"
+            title="Click to rename"
+            className="truncate rounded text-left hover:underline"
+            onClick={() => {
+              setDraft(name);
+              setEditing(true);
+            }}
+          >
+            {name}
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Rename project"
+            className="size-6 text-muted-foreground"
+            onClick={() => {
+              setDraft(name);
+              setEditing(true);
+            }}
+          >
             <Pencil className="size-3" />
           </Button>
         </>
       )}
-      <span title="Issue key (cannot be changed)" className="rounded border px-1.5 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">{projectKey}</span>
+      <span title="Issue key (cannot be changed)" className="rounded border px-1.5 py-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+        {projectKey}
+      </span>
       {editing ? (
         <>
-          <Button size="xs" onClick={save} disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
-          <Button size="xs" variant="ghost" onClick={cancel}>Cancel</Button>
+          <Button size="xs" onClick={save} disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          <Button size="xs" variant="ghost" onClick={cancel}>
+            Cancel
+          </Button>
         </>
       ) : null}
       {conflict ? <ConflictNotice what="This project"> Your name is kept; Save again to overwrite the latest version.</ConflictNotice> : null}
-      {error ? <span role="alert" className="text-xs font-normal text-destructive">{error}</span> : null}
+      {error ? (
+        <span role="alert" className="text-xs font-normal text-destructive">
+          {error}
+        </span>
+      ) : null}
     </>
   );
 }

@@ -12,7 +12,11 @@ import type { Db } from "../../db/connection.js";
 import { milestones } from "../../db/schema.js";
 import { type IssueUpdateHook, resolveIssue } from "../../service/issues.js";
 import { resolveProject } from "../../service/projects.js";
-import { loadRelations, setBlockersTx, setRelatedTx } from "../../service/relations.js";
+import {
+  loadRelations,
+  setBlockersTx,
+  setRelatedTx,
+} from "../../service/relations.js";
 import { resolveUpdatedAfter } from "../duration.js";
 import { toolError, toolResult } from "../errors.js";
 import { PURGE_DENIED_MESSAGE } from "./helpers.js";
@@ -340,14 +344,12 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
     const hook = relationsHook(blockedBy, blocks, related);
     if (labels?.length || hook) {
       // Labels and relations attach in one transaction.
-      services.issues.update(
-        actor,
-        created.identifier,
-        { labels },
-        hook,
-      );
+      services.issues.update(actor, created.identifier, { labels }, hook);
     }
-    return presentSaved(created.identifier, hasRelations(blockedBy, blocks, related));
+    return presentSaved(
+      created.identifier,
+      hasRelations(blockedBy, blocks, related),
+    );
   }
 
   function updateIssue(
@@ -383,7 +385,10 @@ export function registerIssueTools(server: McpServer, ctx: McpContext) {
       { ...rest, title, milestoneId },
       relationsHook(blockedBy, blocks, related),
     );
-    return presentSaved(issue.identifier, hasRelations(blockedBy, blocks, related));
+    return presentSaved(
+      issue.identifier,
+      hasRelations(blockedBy, blocks, related),
+    );
   }
 
   function hasRelations(

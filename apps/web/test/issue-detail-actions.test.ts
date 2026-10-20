@@ -14,8 +14,23 @@ vi.mock("../lib/api/client", async (orig) => {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 const issue = {
-  id: "i1", projectId: "p1", key: "PIL", number: 1, identifier: "PIL-1", title: "T", description: "", status: "todo", priority: 0,
-  estimate: null, assignee: null, milestoneId: null, parentId: null, createdBy: "you", createdAt: "a", updatedAt: "2026-01-01T00:00:01.000Z", labels: [],
+  id: "i1",
+  projectId: "p1",
+  key: "PIL",
+  number: 1,
+  identifier: "PIL-1",
+  title: "T",
+  description: "",
+  status: "todo",
+  priority: 0,
+  estimate: null,
+  assignee: null,
+  milestoneId: null,
+  parentId: null,
+  createdBy: "you",
+  createdAt: "a",
+  updatedAt: "2026-01-01T00:00:01.000Z",
+  labels: [],
 };
 const detail = { ...issue, updatedAt: "2026-01-01T00:00:09.000Z", comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [], related: [] } };
 const calls = () => fetchMock.mock.calls.map(([url, init]) => ({ url: String(url), init: init as RequestInit }));
@@ -82,7 +97,7 @@ describe("updateIssueAction", () => {
     expect(await updateIssueAction("PIL-1", { title: "  " }, "x")).toMatchObject({ ok: false, code: "validation_error" });
     expect(await updateIssueAction("PIL-1", { expectedUpdatedAt: "x" }, "x")).toMatchObject({ ok: false, code: "validation_error" });
     expect(fetchMock).not.toHaveBeenCalled();
-    fetchMock.mockResolvedValueOnce(json({ error: { code: "validation_error", message: "Unknown label \"nope\"" } }, 400));
+    fetchMock.mockResolvedValueOnce(json({ error: { code: "validation_error", message: 'Unknown label "nope"' } }, 400));
     expect(await updateIssueAction("PIL-1", { labels: ["nope"] }, "x")).toEqual({ ok: false, code: "validation_error", message: 'Unknown label "nope"' });
   });
 });
@@ -110,7 +125,9 @@ describe("comment actions", () => {
 
 describe("delete and undo", () => {
   it("soft-deletes then restores through the API", async () => {
-    fetchMock.mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b" })).mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b", counts: { projects: 0, milestones: 0, issues: 1, comments: 0, attachments: 0, todos: 0 } }));
+    fetchMock
+      .mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b" }))
+      .mockResolvedValueOnce(json({ type: "issue", id: "i1", batch: "b", counts: { projects: 0, milestones: 0, issues: 1, comments: 0, attachments: 0, todos: 0 } }));
     const { deleteIssueAction, restoreIssueAction } = await actions();
     expect((await deleteIssueAction("PIL-1")).ok).toBe(true);
     expect((await restoreIssueAction("PIL-1")).ok).toBe(true);

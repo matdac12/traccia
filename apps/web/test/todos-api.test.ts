@@ -14,9 +14,7 @@ beforeEach(() => {
 
 describe("listOpenTodos", () => {
   it("follows nextCursor until the last page", async () => {
-    request
-      .mockResolvedValueOnce({ items: [item("a"), item("b")], nextCursor: "c1" })
-      .mockResolvedValueOnce({ items: [item("c")], nextCursor: null });
+    request.mockResolvedValueOnce({ items: [item("a"), item("b")], nextCursor: "c1" }).mockResolvedValueOnce({ items: [item("c")], nextCursor: null });
     const out = await listOpenTodos();
     expect(out.map((t) => t.id)).toEqual(["a", "b", "c"]);
     expect(request).toHaveBeenCalledTimes(2);
@@ -62,7 +60,10 @@ describe("loadPersonalSpace", () => {
     const out = await loadPersonalSpace(new Date("2026-10-17T22:45:00Z"));
     expect(out.today).toBe("2026-10-18");
     expect(request.mock.calls.filter((c) => c[0] === "/todos").map((c) => c[1].query.state)).toEqual(["open", "closed"]);
-    expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 2, total: 3 }], ["k", null]]);
+    expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([
+      ["p", { done: 2, total: 3 }],
+      ["k", null],
+    ]);
   });
 });
 
@@ -81,8 +82,7 @@ describe("loadPersonalSpace across midnight with unchanged lists", () => {
 });
 
 describe("loadPersonalSpace delivery state", () => {
-  const serve = (delivery: () => unknown) =>
-    request.mockImplementation(async (path: string) => (path === "/todos/delivery" ? delivery() : { items: [], nextCursor: null }));
+  const serve = (delivery: () => unknown) => request.mockImplementation(async (path: string) => (path === "/todos/delivery" ? delivery() : { items: [], nextCursor: null }));
 
   it("carries the API's delivery state for the banner", async () => {
     serve(() => ({ ok: false, reason: "not_configured" }));

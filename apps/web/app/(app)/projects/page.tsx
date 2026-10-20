@@ -15,9 +15,13 @@ export default async function ProjectsPage() {
   const projects = await listProjects();
   return (
     <>
-      <PageHeader title="Projects"><NewProjectButton className="h-7">New project</NewProjectButton></PageHeader>
+      <PageHeader title="Projects">
+        <NewProjectButton className="h-7">New project</NewProjectButton>
+      </PageHeader>
       {projects.length === 0 ? (
-        <EmptyState icon={FolderKanban} title="No projects yet">Create one with the New project button, the traccia CLI, REST or an agent over MCP.</EmptyState>
+        <EmptyState icon={FolderKanban} title="No projects yet">
+          Create one with the New project button, the traccia CLI, REST or an agent over MCP.
+        </EmptyState>
       ) : (
         <ul className="divide-y overflow-y-auto">
           {projects.map((p) => {
@@ -31,13 +35,22 @@ export default async function ProjectsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{p.name}</div>
                     <div className="mt-1 flex gap-3 text-xs text-muted-foreground">
-                      {ISSUE_STATUSES.map((s) => (counts[s] ? <span key={s} className="flex items-center gap-1 tabular-nums"><StatusIcon status={s} />{counts[s]}</span> : null))}
+                      {ISSUE_STATUSES.map((s) =>
+                        counts[s] ? (
+                          <span key={s} className="flex items-center gap-1 tabular-nums">
+                            <StatusIcon status={s} />
+                            {counts[s]}
+                          </span>
+                        ) : null,
+                      )}
                     </div>
                   </div>
                   <span className={`text-[11px] capitalize ${PROJECT_STATUS_TONE[p.status]}`}>{p.status}</span>
                   <div className="w-32">
                     <Progress value={total ? Math.round((done / total) * 100) : 0} aria-label={`${p.name} progress`} className="h-1" />
-                    <div className="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">{done}/{total} done</div>
+                    <div className="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">
+                      {done}/{total} done
+                    </div>
                   </div>
                 </Link>
               </li>

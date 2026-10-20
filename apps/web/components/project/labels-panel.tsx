@@ -10,7 +10,19 @@ import { ConfirmButton } from "./confirm-button";
 
 const DEFAULT_COLOR = "#6b7280";
 
-function LabelForm({ initial, scopable, submitLabel, onSubmit, onCancel }: { initial: { name: string; color: string; scoped: boolean }; scopable: boolean; submitLabel: string; onSubmit: (v: { name: string; color: string; scoped: boolean }) => Promise<ActionResult>; onCancel: () => void }) {
+function LabelForm({
+  initial,
+  scopable,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  initial: { name: string; color: string; scoped: boolean };
+  scopable: boolean;
+  submitLabel: string;
+  onSubmit: (v: { name: string; color: string; scoped: boolean }) => Promise<ActionResult>;
+  onCancel: () => void;
+}) {
   const [v, setV] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -29,10 +41,28 @@ function LabelForm({ initial, scopable, submitLabel, onSubmit, onCancel }: { ini
       }}
     >
       <div className="flex items-center gap-2">
-        <input type="color" aria-label="Label color" value={v.color} onChange={(e) => setV({ ...v, color: e.target.value })} className="size-7 shrink-0 cursor-pointer rounded border bg-transparent p-0.5" />
-        <Input aria-label="Label name" autoFocus placeholder="Label name" value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} aria-invalid={fields.name ? true : undefined} className="h-7 text-[13px]" />
-        <Button type="submit" size="xs" disabled={pending}>{submitLabel}</Button>
-        <Button type="button" size="xs" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <input
+          type="color"
+          aria-label="Label color"
+          value={v.color}
+          onChange={(e) => setV({ ...v, color: e.target.value })}
+          className="size-7 shrink-0 cursor-pointer rounded border bg-transparent p-0.5"
+        />
+        <Input
+          aria-label="Label name"
+          autoFocus
+          placeholder="Label name"
+          value={v.name}
+          onChange={(e) => setV({ ...v, name: e.target.value })}
+          aria-invalid={fields.name ? true : undefined}
+          className="h-7 text-[13px]"
+        />
+        <Button type="submit" size="xs" disabled={pending}>
+          {submitLabel}
+        </Button>
+        <Button type="button" size="xs" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
       {scopable ? (
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -42,7 +72,11 @@ function LabelForm({ initial, scopable, submitLabel, onSubmit, onCancel }: { ini
       ) : null}
       {fields.name ? <p className="text-xs text-destructive">Name {fields.name}</p> : null}
       {fields.color ? <p className="text-xs text-destructive">Color {fields.color}</p> : null}
-      {error && !fields.name && !fields.color ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+      {error && !fields.name && !fields.color ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </form>
   );
 }
@@ -74,12 +108,23 @@ function LabelRow({ projectId, label }: { projectId: string; label: Label }) {
       <span className="truncate">{label.name}</span>
       <span className="text-[11px] text-muted-foreground">{label.projectId ? "project" : "global"}</span>
       <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-        {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
-        <Button type="button" variant="ghost" size="icon-xs" aria-label={`Edit ${label.name}`} onClick={() => setEditing(true)}><Pencil /></Button>
+        {error ? (
+          <span role="alert" className="text-xs text-destructive">
+            {error}
+          </span>
+        ) : null}
+        <Button type="button" variant="ghost" size="icon-xs" aria-label={`Edit ${label.name}`} onClick={() => setEditing(true)}>
+          <Pencil />
+        </Button>
         <ConfirmButton
           label={`Delete ${label.name}`}
           disabled={pending}
-          onConfirm={() => start(async () => { const res = await deleteLabelAction(projectId, label.id); if (!res.ok) setError(res.error); })}
+          onConfirm={() =>
+            start(async () => {
+              const res = await deleteLabelAction(projectId, label.id);
+              if (!res.ok) setError(res.error);
+            })
+          }
         >
           <Trash2 />
         </ConfirmButton>
@@ -95,7 +140,9 @@ export function LabelsPanel({ projectId, labels }: { projectId: string; labels: 
     <section aria-label="Labels">
       <div className="mb-1 flex items-center">
         <h2 className="text-[13px] font-medium">Labels</h2>
-        <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Add label" onClick={() => setAdding(true)}><Plus className="size-3.5" /></Button>
+        <Button variant="ghost" size="icon" className="ml-auto size-6" aria-label="Add label" onClick={() => setAdding(true)}>
+          <Plus className="size-3.5" />
+        </Button>
       </div>
       <p className="mb-1 text-[11px] text-muted-foreground">Deleting a label removes it from every issue and cannot be undone.</p>
       {adding ? (
@@ -112,7 +159,9 @@ export function LabelsPanel({ projectId, labels }: { projectId: string; labels: 
         />
       ) : null}
       <ul className="divide-y">
-        {labels.map((l) => <LabelRow key={l.id} projectId={projectId} label={l} />)}
+        {labels.map((l) => (
+          <LabelRow key={l.id} projectId={projectId} label={l} />
+        ))}
       </ul>
       {labels.length === 0 && !adding ? <p className="text-xs text-muted-foreground">No labels yet.</p> : null}
     </section>

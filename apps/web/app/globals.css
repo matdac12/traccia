@@ -97,9 +97,15 @@
 }
 
 /* UI font (TRC-57): `data-font` on <html> picks what `font-sans` means. Code stays Geist Mono. */
-:root { --app-font-sans: var(--font-geist-mono); }
-html[data-font="sans"] { --app-font-sans: var(--font-geist-sans); }
-html[data-font="system"] { --app-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+:root {
+  --app-font-sans: var(--font-geist-mono);
+}
+html[data-font="sans"] {
+  --app-font-sans: var(--font-geist-sans);
+}
+html[data-font="system"] {
+  --app-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
 
 @theme inline {
   --font-sans: var(--app-font-sans);
@@ -147,29 +153,114 @@ html[data-font="system"] { --app-font-sans: ui-sans-serif, system-ui, -apple-sys
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
   }
-  button { cursor: default; }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+  button {
+    cursor: default;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
 }
 
 @keyframes agent-flash {
-  0% { background-color: color-mix(in oklab, var(--agent) 22%, transparent); }
-  100% { background-color: transparent; }
+  0% {
+    background-color: color-mix(in oklab, var(--agent) 22%, transparent);
+  }
+  100% {
+    background-color: transparent;
+  }
 }
-.agent-flash { animation: agent-flash 2.4s ease-out; }
-@keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
-.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+.agent-flash {
+  animation: agent-flash 2.4s ease-out;
+}
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
 
-.md { font-size: 14px; line-height: 1.65; color: var(--foreground); }
-.md h1, .md h2, .md h3 { font-weight: 600; margin: 1.1em 0 .4em; letter-spacing: -0.01em; }
-.md h1 { font-size: 1.25em; } .md h2 { font-size: 1.1em; } .md h3 { font-size: 1em; }
-.md p { margin: .5em 0; } .md ul { list-style: disc; padding-left: 1.3em; margin: .5em 0; } .md ol { list-style: decimal; padding-left: 1.3em; }
-.md code { font-family: var(--font-mono); font-size: .85em; background: var(--muted); padding: .1em .35em; border-radius: 4px; }
-.md blockquote { border-left: 2px solid var(--border); padding-left: .9em; color: var(--muted-foreground); margin: .6em 0; }
-.md strong { font-weight: 600; } .md a { color: var(--foreground); text-decoration: underline; text-underline-offset: 2px; }
-.md img { max-width: 100%; max-height: 24rem; border-radius: 6px; border: 1px solid var(--border); margin: .5em 0; }
-.md input[type="checkbox"] { margin-right: .5em; accent-color: var(--primary); }
-.md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }
+.md {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.md h1,
+.md h2,
+.md h3 {
+  font-weight: 600;
+  margin: 1.1em 0 0.4em;
+  letter-spacing: -0.01em;
+}
+.md h1 {
+  font-size: 1.25em;
+}
+.md h2 {
+  font-size: 1.1em;
+}
+.md h3 {
+  font-size: 1em;
+}
+.md p {
+  margin: 0.5em 0;
+}
+.md ul {
+  list-style: disc;
+  padding-left: 1.3em;
+  margin: 0.5em 0;
+}
+.md ol {
+  list-style: decimal;
+  padding-left: 1.3em;
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--muted);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.md blockquote {
+  border-left: 2px solid var(--border);
+  padding-left: 0.9em;
+  color: var(--muted-foreground);
+  margin: 0.6em 0;
+}
+.md strong {
+  font-weight: 600;
+}
+.md a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md img {
+  max-width: 100%;
+  max-height: 24rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin: 0.5em 0;
+}
+.md input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--primary);
+}
+.md li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.3em;
+}
 
 /* Decorative layers stay inside the main content area, below controls and outside the sidebar. */
 .background-image-layer {
@@ -206,11 +297,21 @@ html[data-font="system"] { --app-font-sans: ui-sans-serif, system-ui, -apple-sys
   filter: blur(18px);
   mask-image: linear-gradient(to bottom, transparent 28%, #000 76%);
 }
-.background-image-layer[data-preview="true"] .background-haze-soft { filter: blur(2px); }
-.background-image-layer[data-preview="true"] .background-haze-strong { filter: blur(5px); }
+.background-image-layer[data-preview="true"] .background-haze-soft {
+  filter: blur(2px);
+}
+.background-image-layer[data-preview="true"] .background-haze-strong {
+  filter: blur(5px);
+}
 .background-image-layer[data-effect="haze"]::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 16%, color-mix(in srgb, var(--background) 26%, transparent) 38%, color-mix(in srgb, var(--background) 55%, transparent) 55%, var(--background) 90%);
+  background: linear-gradient(
+    to bottom,
+    transparent 16%,
+    color-mix(in srgb, var(--background) 26%, transparent) 38%,
+    color-mix(in srgb, var(--background) 55%, transparent) 55%,
+    var(--background) 90%
+  );
 }

@@ -13,7 +13,9 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
       The dashboard could not load this page. Check that the API is running, then try again.
       {error.digest ? <span className="mt-1 block font-mono text-[11px] opacity-70">ref {error.digest}</span> : null}
       <span className="mt-3 block">
-        <Button size="sm" variant="outline" onClick={reset}>Try again</Button>
+        <Button size="sm" variant="outline" onClick={reset}>
+          Try again
+        </Button>
       </span>
     </EmptyState>
   );

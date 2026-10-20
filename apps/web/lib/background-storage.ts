@@ -8,9 +8,15 @@ function openDatabase(): Promise<IDBDatabase> {
     const request = indexedDB.open(DATABASE, 1);
     let blocked = false;
     request.onupgradeneeded = () => request.result.createObjectStore(STORE);
-    request.onsuccess = () => { if (blocked) request.result.close(); else resolve(request.result); };
+    request.onsuccess = () => {
+      if (blocked) request.result.close();
+      else resolve(request.result);
+    };
     request.onerror = () => reject(request.error);
-    request.onblocked = () => { blocked = true; reject(new Error("Background storage is blocked by another tab.")); };
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error("Background storage is blocked by another tab."));
+    };
   });
 }
 
@@ -54,8 +60,12 @@ export async function readBackground(): Promise<BackgroundPreferences> {
     const store = transaction.objectStore(STORE);
     const settingsRequest = store.get("preferences");
     const imageRequest = store.get("image");
-    settingsRequest.onsuccess = () => { preferences = settingsRequest.result; };
-    imageRequest.onsuccess = () => { image = imageRequest.result; };
+    settingsRequest.onsuccess = () => {
+      preferences = settingsRequest.result;
+    };
+    imageRequest.onsuccess = () => {
+      image = imageRequest.result;
+    };
     await complete;
   } finally {
     database.close();
@@ -64,10 +74,18 @@ export async function readBackground(): Promise<BackgroundPreferences> {
 
   // Carry existing choices and images across the storage change. Only remove the old copy after a successful write.
   let legacy: string | null = null;
-  try { legacy = localStorage.getItem(BACKGROUND_STORAGE_KEY); } catch { /* IndexedDB can still work when localStorage is disabled. */ }
+  try {
+    legacy = localStorage.getItem(BACKGROUND_STORAGE_KEY);
+  } catch {
+    /* IndexedDB can still work when localStorage is disabled. */
+  }
   if (!legacy) return DEFAULT_BACKGROUND;
   const migrated = parseBackground(legacy);
   await writeBackground(migrated);
-  try { localStorage.removeItem(BACKGROUND_STORAGE_KEY); } catch { /* Keeping a redundant legacy copy is harmless. */ }
+  try {
+    localStorage.removeItem(BACKGROUND_STORAGE_KEY);
+  } catch {
+    /* Keeping a redundant legacy copy is harmless. */
+  }
   return migrated;
 }

@@ -54,13 +54,8 @@ export function batchPeers(item: TrashItem, all: readonly TrashItem[]): TrashIte
  */
 export function groupedRows(items: readonly TrashItem[], all: readonly TrashItem[], group = true): TrashItem[] {
   const issueBatches = new Set(all.flatMap((o) => (o.type === "issue" && o.deletedBatch !== null ? [o.deletedBatch] : [])));
-  const foldedIntoParent = (t: TrashItem) =>
-    isSubTodo(t) && all.some((o) => o.type === "todo" && o.id === t.parentId && o.deletedBatch === t.deletedBatch);
-  return items.filter(
-    (t) =>
-      !(group && (t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)) &&
-      !foldedIntoParent(t),
-  );
+  const foldedIntoParent = (t: TrashItem) => isSubTodo(t) && all.some((o) => o.type === "todo" && o.id === t.parentId && o.deletedBatch === t.deletedBatch);
+  return items.filter((t) => !(group && (t.type === "comment" || t.type === "attachment") && t.deletedBatch !== null && issueBatches.has(t.deletedBatch)) && !foldedIntoParent(t));
 }
 
 /** Badge text for a row that was deleted together with other items: "with 1 comment and 1 attachment". */

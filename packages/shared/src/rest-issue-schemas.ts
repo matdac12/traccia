@@ -37,14 +37,20 @@ export const listIssueGroupsQuerySchema = listIssuesQuerySchema
               const i = s.indexOf(":");
               return [s.slice(0, i), s.slice(i + 1)] as const;
             })
-            .refine(([status]) => (ISSUE_STATUSES as readonly string[]).includes(status), "unknown status"),
+            .refine(
+              ([status]) =>
+                (ISSUE_STATUSES as readonly string[]).includes(status),
+              "unknown status",
+            ),
         ),
       )
       .optional(),
   })
   .transform(({ cursor, ...rest }) => ({
     ...rest,
-    cursors: Object.fromEntries(cursor ?? []) as Partial<Record<(typeof ISSUE_STATUSES)[number], string>>,
+    cursors: Object.fromEntries(cursor ?? []) as Partial<
+      Record<(typeof ISSUE_STATUSES)[number], string>
+    >,
   }));
 
 /** `GET /v1/issues/:identifier?include=comments,activity,...` (comma-separated, repeatable). */

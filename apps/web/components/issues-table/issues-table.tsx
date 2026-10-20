@@ -53,7 +53,11 @@ function Connectors({ tree }: { tree: TreeRow }) {
   const x = (level: number) => `calc(var(--gutter) + ${level * INDENT + 9}px)`;
   return (
     <span aria-hidden className="pointer-events-none absolute inset-0">
-      {tree.guides.flatMap((on, level) => (on ? [level] : [])).map((level) => <span key={level} className={`${GUIDE} top-0 -bottom-px`} style={{ left: x(level) }} />)}
+      {tree.guides
+        .flatMap((on, level) => (on ? [level] : []))
+        .map((level) => (
+          <span key={level} className={`${GUIDE} top-0 -bottom-px`} style={{ left: x(level) }} />
+        ))}
       {tree.depth > 0 && <span className="absolute top-0 w-3 rounded-bl-[7px] border-b border-l border-foreground/20" style={{ left: x(tree.depth - 1), height: "calc(var(--mid) + 0.5px)" }} />}
       {tree.depth > 0 && !tree.last && <span className={`${GUIDE} top-[var(--mid)] -bottom-px`} style={{ left: x(tree.depth - 1) }} />}
       {tree.hasChildren && <span className={`${GUIDE} top-[calc(var(--mid)+10px)] -bottom-px`} style={{ left: x(tree.depth) }} />}
@@ -62,10 +66,33 @@ function Connectors({ tree }: { tree: TreeRow }) {
 }
 
 export function IssuesTable({
-  groups: initial, query, filters, milestones, projects = [], labels = [], collapsed, onToggle, onSort, register, columns = DEFAULT_ISSUE_COLUMNS, showSubIssues = true, onOpenIssue,
+  groups: initial,
+  query,
+  filters,
+  milestones,
+  projects = [],
+  labels = [],
+  collapsed,
+  onToggle,
+  onSort,
+  register,
+  columns = DEFAULT_ISSUE_COLUMNS,
+  showSubIssues = true,
+  onOpenIssue,
 }: {
-  groups: IssueGroup[]; query: string; filters: IssueFilters; milestones: Milestone[]; projects?: Project[]; labels?: Label[]; collapsed: Set<string>; onToggle: (key: string) => void; onSort: (by: IssueFilters["orderBy"]) => void; register?: (a: GroupsApplier | null) => void;
-  columns?: IssueColumns; showSubIssues?: boolean; onOpenIssue?: (identifier: string, trigger: HTMLElement) => void;
+  groups: IssueGroup[];
+  query: string;
+  filters: IssueFilters;
+  milestones: Milestone[];
+  projects?: Project[];
+  labels?: Label[];
+  collapsed: Set<string>;
+  onToggle: (key: string) => void;
+  onSort: (by: IssueFilters["orderBy"]) => void;
+  register?: (a: GroupsApplier | null) => void;
+  columns?: IssueColumns;
+  showSubIssues?: boolean;
+  onOpenIssue?: (identifier: string, trigger: HTMLElement) => void;
 }) {
   const [groups, setGroups] = useState<GroupState[]>(initial);
   const [pending, startTransition] = useTransition();
@@ -73,11 +100,14 @@ export function IssuesTable({
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   // Live refresh (TRC-52): the poll swaps in fresh groups; expanded/collapsed state lives in IssuesView, scroll is untouched.
-  const inline = useInlineEdit({ onRow: (row) => setGroups((gs) => {
-    // Bare edit responses omit list summaries; keep them until the batched live refresh replaces the groups.
-    const previous = gs.flatMap((g) => g.items).find((i) => i.id === row.id);
-    return upsertRow(gs, { ...row, unresolvedBlockers: row.unresolvedBlockers ?? previous?.unresolvedBlockers });
-  }) });
+  const inline = useInlineEdit({
+    onRow: (row) =>
+      setGroups((gs) => {
+        // Bare edit responses omit list summaries; keep them until the batched live refresh replaces the groups.
+        const previous = gs.flatMap((g) => g.items).find((i) => i.id === row.id);
+        return upsertRow(gs, { ...row, unresolvedBlockers: row.unresolvedBlockers ?? previous?.unresolvedBlockers });
+      }),
+  });
   const editor = { edit: inline.edit, labels };
   const del = useIssueDelete({ onRemove: (row) => setGroups((gs) => removeRow(gs, row.id)), onRestore: (row) => setGroups((gs) => insertRow(gs, row)) });
   const menu: IssueMenuContext = { editor, projects, milestones, onDelete: (row) => void del.deleteIssue(row) };
@@ -110,7 +140,11 @@ export function IssuesTable({
       } catch {
         setGroups((gs) => gs.map((g) => (g.status === group.status ? { ...g, error: "Could not load more issues." } : g)));
       } finally {
-        setLoading((l) => { const n = new Set(l); n.delete(group.status); return n; });
+        setLoading((l) => {
+          const n = new Set(l);
+          n.delete(group.status);
+          return n;
+        });
       }
     });
   };
@@ -123,7 +157,11 @@ export function IssuesTable({
   );
 
   return (
-    <div className="md:min-w-[var(--list-min-width)]" style={{ "--list-min-width": `${586 + (columns.milestone ? 140 : 0) + (columns.estimate ? 44 : 0) + (columns.assignee ? 30 : 0) + (columns.updatedAt ? 60 : 0)}px` } as CSSProperties} aria-busy={pending}>
+    <div
+      className="md:min-w-[var(--list-min-width)]"
+      style={{ "--list-min-width": `${586 + (columns.milestone ? 140 : 0) + (columns.estimate ? 44 : 0) + (columns.assignee ? 30 : 0) + (columns.updatedAt ? 60 : 0)}px` } as CSSProperties}
+      aria-busy={pending}
+    >
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
       {del.notice}
       <div className="sticky top-0 z-10 hidden h-7 items-center gap-3 border-b bg-background/95 px-4 text-[11px] font-medium text-muted-foreground backdrop-blur md:flex">
@@ -131,7 +169,11 @@ export function IssuesTable({
         {sortButton("title", "Title", "flex-1")}
         {columns.milestone && <span className="w-32 shrink-0">Milestone</span>}
         {columns.estimate && <span className="w-8 shrink-0 text-center">Est.</span>}
-        {columns.assignee && <span className="w-[22px] shrink-0"><span className="sr-only">Assignee</span></span>}
+        {columns.assignee && (
+          <span className="w-[22px] shrink-0">
+            <span className="sr-only">Assignee</span>
+          </span>
+        )}
         {columns.updatedAt && sortButton("updatedAt", "Updated", "w-12 shrink-0 justify-end")}
         <span className="w-5" />
       </div>
@@ -142,57 +184,88 @@ export function IssuesTable({
         return (
           <section key={g.key} aria-label={g.status ? STATUS_LABEL[g.status] : g.title}>
             <h2 className="m-0 mx-2 mt-2 mb-1 flex h-9 items-center rounded-lg bg-muted/50 px-2 text-[13px] font-medium md:h-8">
-              <button type="button" aria-expanded={!isCollapsed} onClick={() => onToggle(g.key)} className="flex h-full w-full items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <button
+                type="button"
+                aria-expanded={!isCollapsed}
+                onClick={() => onToggle(g.key)}
+                className="flex h-full w-full items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {isCollapsed ? <ChevronRight className="size-3.5 text-muted-foreground" /> : <ChevronDown className="size-3.5 text-muted-foreground" />}
-                {g.status ? <StatusIcon status={g.status} /> : filters.groupBy === "priority" ? <PriorityIcon priority={Number(g.raw) as 0} /> : filters.groupBy === "assignee" ? <ActorAvatar who={g.raw === "none" ? null : (g.raw as "you" | "agent")} size={16} /> : null}
+                {g.status ? (
+                  <StatusIcon status={g.status} />
+                ) : filters.groupBy === "priority" ? (
+                  <PriorityIcon priority={Number(g.raw) as 0} />
+                ) : filters.groupBy === "assignee" ? (
+                  <ActorAvatar who={g.raw === "none" ? null : (g.raw as "you" | "agent")} size={16} />
+                ) : null}
                 <span>{g.status ? STATUS_LABEL[g.status] : g.title}</span>
-                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>{rows.length}{(group ? group.nextCursor : pagedGroups.length > 0) ? "+" : ""}</span>
+                <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${g.key}`}>
+                  {rows.length}
+                  {(group ? group.nextCursor : pagedGroups.length > 0) ? "+" : ""}
+                </span>
               </button>
             </h2>
             <div>
-              {!isCollapsed && rows.map((t) => {
-                const i = t.row;
-                const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
-                const sub = children.get(i.id);
-                return (
-                <IssueContextMenu key={i.id} issue={i} menu={menu}>
-                {/* Phone: a grid of two lines (status and title / identifier, updated, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
-                <div data-depth={t.depth} style={{ "--indent": `${t.depth * INDENT}px` } as CSSProperties} className={ROW}>
-                  <Connectors tree={t} />
-                  <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
-                  {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
-                  <Link data-issue-identifier={i.identifier} href={`/issues/${i.identifier}`} onClick={(e) => {
-                    if (!onOpenIssue || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-                    e.preventDefault();
-                    onOpenIssue(i.identifier, e.currentTarget);
-                  }} className="col-start-2 row-start-1 line-clamp-3 min-w-0 rounded font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:flex-1 md:line-clamp-none md:truncate">{i.title}</Link>
-                  <div className="col-start-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] md:contents">
-                    <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground md:order-1 md:w-[96px]">
-                      <PriorityPicker issue={i} editor={editor} />
-                      {i.identifier}
-                    </span>
-                    {columns.updatedAt && <time suppressHydrationWarning dateTime={i.updatedAt} className="shrink-0 text-[11px] text-muted-foreground tabular-nums md:order-[11] md:w-12 md:text-right">{timeAgo(i.updatedAt)}</time>}
-                    <BlockerBadge blockers={i.unresolvedBlockers} className="md:order-5" />
-                    {t.depth === 0 && i.parentId && (
-                      <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground md:order-4">
-                        <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />{parent ?? "parent"}
-                      </span>
-                    )}
-                    {sub && (
-                      <span data-testid="sub-progress" className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground tabular-nums md:order-4">
-                        <ListTree aria-hidden className="size-3" />{sub.done}/{sub.total}<span className="sr-only"> sub-issues done</span>
-                      </span>
-                    )}
-                    <LabelsPicker issue={i} editor={editor} compact className="ml-auto min-w-0 max-w-[220px] md:order-6 md:ml-0 md:shrink-0" />
-                    {columns.milestone && <span className="hidden w-32 shrink-0 truncate text-[11px] text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>}
-                    {columns.estimate && <span className="hidden w-8 shrink-0 text-center font-mono text-[11px] text-muted-foreground tabular-nums md:order-9 md:block">{i.estimate ?? ""}</span>}
-                    {columns.assignee && <AssigneePicker issue={i} editor={editor} quietUnassigned className="shrink-0 md:order-10" />}
-                  </div>
-                  <IssueMenuButton issue={i} className="max-md:hidden md:order-[12]" />
-                </div>
-                </IssueContextMenu>
-                );
-              })}
+              {!isCollapsed &&
+                rows.map((t) => {
+                  const i = t.row;
+                  const parent = i.parentId ? parentOf.get(i.parentId) : undefined;
+                  const sub = children.get(i.id);
+                  return (
+                    <IssueContextMenu key={i.id} issue={i} menu={menu}>
+                      {/* Phone: a grid of two lines (status and title / identifier, updated, markers, labels, assignee). From md: one flat flex line, the `md:order-*` classes put the cells in column order. */}
+                      <div data-depth={t.depth} style={{ "--indent": `${t.depth * INDENT}px` } as CSSProperties} className={ROW}>
+                        <Connectors tree={t} />
+                        <StatusPicker issue={i} editor={editor} className="col-start-1 row-start-1 mt-px ml-[var(--indent)] md:order-2 md:-mr-1 md:mt-0" />
+                        {/* The link's overlay makes the whole row clickable; the pickers sit above it. */}
+                        <Link
+                          data-issue-identifier={i.identifier}
+                          href={`/issues/${i.identifier}`}
+                          onClick={(e) => {
+                            if (!onOpenIssue || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                            e.preventDefault();
+                            onOpenIssue(i.identifier, e.currentTarget);
+                          }}
+                          className="col-start-2 row-start-1 line-clamp-3 min-w-0 rounded font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring md:order-3 md:block md:flex-1 md:line-clamp-none md:truncate"
+                        >
+                          {i.title}
+                        </Link>
+                        <div className="col-start-2 row-start-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] md:contents">
+                          <span className="flex shrink-0 items-center gap-1.5 font-mono text-[11px] text-muted-foreground md:order-1 md:w-[96px]">
+                            <PriorityPicker issue={i} editor={editor} />
+                            {i.identifier}
+                          </span>
+                          {columns.updatedAt && (
+                            <time suppressHydrationWarning dateTime={i.updatedAt} className="shrink-0 text-[11px] text-muted-foreground tabular-nums md:order-[11] md:w-12 md:text-right">
+                              {timeAgo(i.updatedAt)}
+                            </time>
+                          )}
+                          <BlockerBadge blockers={i.unresolvedBlockers} className="md:order-5" />
+                          {t.depth === 0 && i.parentId && (
+                            <span data-testid="parent-marker" className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground md:order-4">
+                              <CornerDownRight aria-label="Sub-issue of" role="img" className="size-3" />
+                              {parent ?? "parent"}
+                            </span>
+                          )}
+                          {sub && (
+                            <span data-testid="sub-progress" className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground tabular-nums md:order-4">
+                              <ListTree aria-hidden className="size-3" />
+                              {sub.done}/{sub.total}
+                              <span className="sr-only"> sub-issues done</span>
+                            </span>
+                          )}
+                          <LabelsPicker issue={i} editor={editor} compact className="ml-auto min-w-0 max-w-[220px] md:order-6 md:ml-0 md:shrink-0" />
+                          {columns.milestone && (
+                            <span className="hidden w-32 shrink-0 truncate text-[11px] text-muted-foreground md:order-8 md:block">{i.milestoneId ? milestoneName.get(i.milestoneId) : ""}</span>
+                          )}
+                          {columns.estimate && <span className="hidden w-8 shrink-0 text-center font-mono text-[11px] text-muted-foreground tabular-nums md:order-9 md:block">{i.estimate ?? ""}</span>}
+                          {columns.assignee && <AssigneePicker issue={i} editor={editor} quietUnassigned className="shrink-0 md:order-10" />}
+                        </div>
+                        <IssueMenuButton issue={i} className="max-md:hidden md:order-[12]" />
+                      </div>
+                    </IssueContextMenu>
+                  );
+                })}
               {!isCollapsed && group?.nextCursor && <LoadMore group={group} loading={loading.has(group.status)} onMore={more} />}
             </div>
           </section>
@@ -210,7 +283,11 @@ function LoadMore({ group, loading, onMore }: { group: GroupState; loading: bool
         {loading && <Loader2 className="size-3.5 animate-spin" />}
         Load more {STATUS_LABEL[group.status].toLowerCase()}
       </Button>
-      {group.error && <span role="alert" className="text-xs text-destructive">{group.error}</span>}
+      {group.error && (
+        <span role="alert" className="text-xs text-destructive">
+          {group.error}
+        </span>
+      )}
     </div>
   );
 }

@@ -45,8 +45,7 @@ describe("proxy (runs on every route)", () => {
       process.env = saved;
     }
   };
-  const req = (path: string, login?: string) =>
-    new NextRequest(`http://localhost:3000${path}`, { headers: login ? { [LOGIN_HEADER]: login } : {} });
+  const req = (path: string, login?: string) => new NextRequest(`http://localhost:3000${path}`, { headers: login ? { [LOGIN_HEADER]: login } : {} });
   const allowed = { DASHBOARD_ALLOWED_LOGINS: "me@example.com", NODE_ENV: "production" };
 
   it("lets an allowed login through on pages and /api paths", () =>

@@ -14,7 +14,9 @@ export function ActivityTimeline({ rows, lookups }: { rows: ActivityRow[]; looku
           <span className="inline-flex flex-wrap items-center gap-1.5">
             <ActorAvatar who={row.actor} size={14} />
             <span className="text-foreground">{actorLabel(row.actor)}</span> {describeActivity(row, lookups)}
-            <span className="text-xs">· <TimeAgo iso={row.createdAt} /></span>
+            <span className="text-xs">
+              · <TimeAgo iso={row.createdAt} />
+            </span>
           </span>
         </li>
       ))}

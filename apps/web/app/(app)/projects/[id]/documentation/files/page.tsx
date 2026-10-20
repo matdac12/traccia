@@ -16,7 +16,9 @@ export default async function ProjectFilesPage({ params, searchParams }: { param
   return (
     <>
       <DocNav projectId={project.value.id} active="files" />
-      <div className="px-4 pt-4 sm:px-6"><SearchForm placeholder="Search files" query={query} /></div>
+      <div className="px-4 pt-4 sm:px-6">
+        <SearchForm placeholder="Search files" query={query} />
+      </div>
       <FilesView projectId={project.value.id} documents={documents.value} query={query} />
     </>
   );

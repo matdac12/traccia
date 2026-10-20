@@ -40,7 +40,12 @@ export function TodoError({ todo, className }: { todo: Todo; className?: string 
   return (
     <p role="alert" className={cn("flex items-center gap-2 text-[12px] text-destructive", className)}>
       {error}
-      <button type="button" onClick={() => dismissError(todo.id)} aria-label="Dismiss" className="grid size-5 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+      <button
+        type="button"
+        onClick={() => dismissError(todo.id)}
+        aria-label="Dismiss"
+        className="grid size-5 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <X className="size-3" aria-hidden />
       </button>
     </p>
@@ -119,7 +124,14 @@ export function TodoRow({ showDay = false, wrap = false, drag, children, ...row 
  * The row inside its item. Memoised: dragging re-renders every sortable item (dnd-kit's context), and this is the part
  * that costs, so it only renders again when its own To-do, flags or handle change.
  */
-const RowBody = memo(function RowBody({ todo, showDay, wrap, parentTitle, selected, handle }: Required<Pick<RowProps, "showDay" | "wrap">> & Omit<RowProps, "showDay" | "wrap"> & { selected: boolean; handle?: ReactNode }) {
+const RowBody = memo(function RowBody({
+  todo,
+  showDay,
+  wrap,
+  parentTitle,
+  selected,
+  handle,
+}: Required<Pick<RowProps, "showDay" | "wrap">> & Omit<RowProps, "showDay" | "wrap"> & { selected: boolean; handle?: ReactNode }) {
   const actions = useTodoActions();
   const selection = useTodoSelection();
   const { today } = actions;

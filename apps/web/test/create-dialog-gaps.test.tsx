@@ -136,7 +136,20 @@ describe("issue detail label dropdown", () => {
     labelAction.mockResolvedValue({ ok: true, data: { id: "l7", name: "ux", color: "#123456", projectId: "P1" } });
     const { Properties } = await import("../components/issue-detail/properties");
     const onChange = vi.fn();
-    const issue = { id: "i1", projectId: "P1", key: "ALP", identifier: "ALP-1", status: "todo", priority: 0, estimate: null, assignee: null, milestoneId: null, labels: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+    const issue = {
+      id: "i1",
+      projectId: "P1",
+      key: "ALP",
+      identifier: "ALP-1",
+      status: "todo",
+      priority: 0,
+      estimate: null,
+      assignee: null,
+      milestoneId: null,
+      labels: [],
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
     const user = userEvent.setup();
     render(<Properties issue={issue as never} projects={[{ id: "P1", key: "ALP", name: "Alpha" }]} labels={[]} milestones={[]} parent={null} onChange={onChange} />);
     await user.click(screen.getByRole("button", { name: "Labels" }));

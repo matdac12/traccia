@@ -4,8 +4,22 @@ import { activeFilterCount, clearFilters, DEFAULT_FILTERS, filtersToApiQuery, fi
 describe("issue filters", () => {
   it("round-trips through the URL and keeps defaults out of it", () => {
     expect(filtersToSearchParams(DEFAULT_FILTERS).toString()).toBe("");
-    const f = parseFilters(new URLSearchParams("project=p1&assignee=agent&label=bug&label=ui&priority=0&milestone=m1&q=hello&sort=priority&order=asc&view=kanban&status=todo&status=done&group=priority"));
-    expect(f).toEqual({ project: "p1", status: ["todo", "done"], groupBy: "priority", assignee: "agent", labels: ["bug", "ui"], priority: 0, milestone: "m1", q: "hello", orderBy: "priority", order: "asc", view: "kanban" });
+    const f = parseFilters(
+      new URLSearchParams("project=p1&assignee=agent&label=bug&label=ui&priority=0&milestone=m1&q=hello&sort=priority&order=asc&view=kanban&status=todo&status=done&group=priority"),
+    );
+    expect(f).toEqual({
+      project: "p1",
+      status: ["todo", "done"],
+      groupBy: "priority",
+      assignee: "agent",
+      labels: ["bug", "ui"],
+      priority: 0,
+      milestone: "m1",
+      q: "hello",
+      orderBy: "priority",
+      order: "asc",
+      view: "kanban",
+    });
     expect(parseFilters(filtersToSearchParams(f))).toEqual(f);
   });
   it("drops invalid values instead of failing", () => {

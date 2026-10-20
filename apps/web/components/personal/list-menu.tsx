@@ -25,7 +25,11 @@ function MenuItem({ active, onClick, className, label, children, count }: { acti
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       aria-label={label}
-      className={cn("flex h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-[13px] text-muted-foreground outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring md:h-7", active && "bg-accent text-foreground", className)}
+      className={cn(
+        "flex h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-[13px] text-muted-foreground outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring md:h-7",
+        active && "bg-accent text-foreground",
+        className,
+      )}
     >
       {children}
       {count ? <span className="ml-auto pl-2 font-mono text-[10.5px] tabular-nums">{count}</span> : null}

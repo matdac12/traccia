@@ -10,8 +10,17 @@ const { purgeAction, restoreAction } = vi.hoisted(() => ({ purgeAction: vi.fn(),
 vi.mock("../app/(app)/trash/actions", () => ({ purgeAction, restoreAction }));
 
 const item = (over: Partial<TrashItem>): TrashItem => ({
-  type: "todo", id: "t1", label: "Plan the trip", deletedAt: "2026-10-05T10:00:00Z", deletedBatch: "b1", issueId: null,
-  parentId: null, projectId: null, projectName: null, deletedBy: "you", ...over,
+  type: "todo",
+  id: "t1",
+  label: "Plan the trip",
+  deletedAt: "2026-10-05T10:00:00Z",
+  deletedBatch: "b1",
+  issueId: null,
+  parentId: null,
+  projectId: null,
+  projectName: null,
+  deletedBy: "you",
+  ...over,
 });
 
 beforeEach(() => {

@@ -28,11 +28,27 @@ export function ProjectStatusSelect({ projectId, status, updatedAt }: { projectI
           })
         }
       >
-        <SelectTrigger size="sm" aria-label="Project status" className={`h-6 gap-1 text-xs capitalize ${PROJECT_STATUS_TONE[status]}`}><SelectValue /></SelectTrigger>
-        <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+        <SelectTrigger size="sm" aria-label="Project status" className={`h-6 gap-1 text-xs capitalize ${PROJECT_STATUS_TONE[status]}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {PROJECT_STATUSES.map((s) => (
+            <SelectItem key={s} value={s} className="capitalize">
+              {s}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </Select>
-      {conflict ? <span role="alert" className="text-xs text-amber-600 dark:text-amber-400">Changed by someone else; not saved. Showing the latest.</span> : null}
-      {error ? <span role="alert" className="text-xs text-destructive">{error}</span> : null}
+      {conflict ? (
+        <span role="alert" className="text-xs text-amber-600 dark:text-amber-400">
+          Changed by someone else; not saved. Showing the latest.
+        </span>
+      ) : null}
+      {error ? (
+        <span role="alert" className="text-xs text-destructive">
+          {error}
+        </span>
+      ) : null}
     </>
   );
 }

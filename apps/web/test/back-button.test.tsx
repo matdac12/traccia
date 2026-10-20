@@ -12,12 +12,20 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ back }) }));
 /** jsdom has no Navigation API; the real one reports whether this tab has an earlier same-app entry. */
 const navigationApi = (canGoBack: boolean) => vi.stubGlobal("navigation", { canGoBack });
 
-const renderButton = () => render(<TooltipProvider><BackButton fallbackHref="/projects/p1" /></TooltipProvider>);
+const renderButton = () =>
+  render(
+    <TooltipProvider>
+      <BackButton fallbackHref="/projects/p1" />
+    </TooltipProvider>,
+  );
 
 /** Clicks the button and reports whether the browser's default action (following the link) was left intact. jsdom cannot navigate, so the click is cancelled after the check. */
 function clickLeavingDefault(init: MouseEventInit) {
   let intact: boolean | undefined;
-  const observe = (e: MouseEvent) => { intact = !e.defaultPrevented; e.preventDefault(); };
+  const observe = (e: MouseEvent) => {
+    intact = !e.defaultPrevented;
+    e.preventDefault();
+  };
   document.addEventListener("click", observe);
   fireEvent.click(screen.getByRole("link", { name: "Back" }), init);
   document.removeEventListener("click", observe);
@@ -28,7 +36,14 @@ beforeEach(() => {
   back.mockReset();
   resetInAppHistory();
   // The tooltip opens on hover/focus and Radix measures its arrow; jsdom has no ResizeObserver.
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 

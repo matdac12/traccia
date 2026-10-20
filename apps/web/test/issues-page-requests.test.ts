@@ -17,7 +17,23 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (u: URL) => {
     const path = new URL(String(u)).pathname;
     if (path === "/v1/issues/groups") return json({ groups: [], syncToken: "t" });
-    if (path === "/v1/projects") return json({ items: [{ id: "p1", key: "K", name: "P", description: "", status: "active", createdBy: "you", createdAt: "a", updatedAt: "a", milestones: [{ id: "m1", projectId: "p1", name: "M", targetDate: null, updatedAt: "a" }] }], nextCursor: null });
+    if (path === "/v1/projects")
+      return json({
+        items: [
+          {
+            id: "p1",
+            key: "K",
+            name: "P",
+            description: "",
+            status: "active",
+            createdBy: "you",
+            createdAt: "a",
+            updatedAt: "a",
+            milestones: [{ id: "m1", projectId: "p1", name: "M", targetDate: null, updatedAt: "a" }],
+          },
+        ],
+        nextCursor: null,
+      });
     if (path === "/v1/labels") return json({ items: [], nextCursor: null });
     return new Response("unexpected " + path, { status: 500 });
   });

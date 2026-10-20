@@ -39,17 +39,13 @@ const LEGACY_ALIASES = {
 /** Validates an env-like record. Throws EnvError naming each bad variable. */
 export function parseEnv(source: Record<string, string | undefined>): Env {
   // Empty strings count as unset (compose passes `${VAR:-}` as "").
-  const cleaned: Record<string, string> = Object.fromEntries(
-    Object.entries(source).filter(([, v]) => v !== undefined && v !== ""),
-  ) as Record<string, string>;
+  const cleaned: Record<string, string> = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== undefined && v !== "")) as Record<string, string>;
   for (const [legacy, current] of Object.entries(LEGACY_ALIASES)) {
     const old = cleaned[legacy];
     if (old !== undefined && cleaned[current] === undefined) cleaned[current] = old;
   }
   const result = envSchema.safeParse(cleaned);
-  const problems = result.success
-    ? []
-    : result.error.issues.map((i) => `  - ${String(i.path[0])}: ${i.message}`);
+  const problems = result.success ? [] : result.error.issues.map((i) => `  - ${String(i.path[0])}: ${i.message}`);
   // Cross-field rules run even when other variables are bad, so one run lists every problem.
   const nodeEnv = cleaned.NODE_ENV ?? "development";
   const devLogin = cleaned.DASHBOARD_DEV_LOGIN?.trim();

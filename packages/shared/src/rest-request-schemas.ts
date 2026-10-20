@@ -89,7 +89,8 @@ export function searchParamsRecord(
   for (const [key, value] of params.entries()) {
     const existing = raw[key];
     if (existing === undefined) raw[key] = value;
-    else raw[key] = [...(Array.isArray(existing) ? existing : [existing]), value];
+    else
+      raw[key] = [...(Array.isArray(existing) ? existing : [existing]), value];
   }
   return raw;
 }

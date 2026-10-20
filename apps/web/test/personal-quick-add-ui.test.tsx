@@ -36,7 +36,11 @@ describe("QuickAdd", () => {
     const { input, user } = renderQuickAdd();
     await user.type(input, "Review invoices @c");
     const list = screen.getByRole("listbox", { name: "Projects" });
-    expect(within(list).getAllByRole("option").map((o) => o.textContent)).toEqual(["CRASHCrash reportspaused", "CRMCRM rollout"]);
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["CRASHCrash reportspaused", "CRMCRM rollout"]);
 
     await user.keyboard("{ArrowDown}{Enter}");
     expect(input).toHaveValue("Review invoices @CRM ");

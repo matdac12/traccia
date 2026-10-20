@@ -156,7 +156,11 @@ describe("blockers", () => {
     expect(
       issues.get(a.id, ["relations"]).relations.blocks.map((r) => r.id),
     ).toEqual([b.id]);
-    expect(issues.get(a.id).relations).toEqual({ blockedBy: [], blocks: [], related: [] });
+    expect(issues.get(a.id).relations).toEqual({
+      blockedBy: [],
+      blocks: [],
+      related: [],
+    });
   });
 
   it("is idempotent without extra activity, on add and remove", () => {

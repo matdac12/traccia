@@ -9,7 +9,7 @@ const DEFAULT_COLOR = "#6b7280";
 
 /**
  * Inline "create label" form for the label dropdowns (create dialog, issue detail). Same fields as
- * the project page: name, colour and project-scoped or global. 
+ * the project page: name, colour and project-scoped or global.
  */
 export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: string; onCreated: (label: Label) => void; onCancel: () => void }) {
   const [name, setName] = useState("");
@@ -49,9 +49,21 @@ export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: st
     >
       <div className="flex items-center gap-2">
         <input type="color" aria-label="Label color" value={color} onChange={(e) => setColor(e.target.value)} className="size-7 shrink-0 cursor-pointer rounded border bg-transparent p-0.5" />
-        <Input aria-label="Label name" autoFocus placeholder="Label name" value={name} onChange={(e) => setName(e.target.value)} aria-invalid={fields.name ? true : undefined} className="h-7 text-[13px]" />
-        <Button type="button" size="xs" disabled={pending || !name.trim()} onClick={submit}>Create</Button>
-        <Button type="button" size="xs" variant="ghost" onClick={onCancel}>Cancel</Button>
+        <Input
+          aria-label="Label name"
+          autoFocus
+          placeholder="Label name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-invalid={fields.name ? true : undefined}
+          className="h-7 text-[13px]"
+        />
+        <Button type="button" size="xs" disabled={pending || !name.trim()} onClick={submit}>
+          Create
+        </Button>
+        <Button type="button" size="xs" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
       </div>
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <input type="checkbox" checked={global} onChange={(e) => setGlobal(e.target.checked)} />
@@ -59,7 +71,11 @@ export function NewLabelForm({ projectId, onCreated, onCancel }: { projectId: st
       </label>
       {fields.name ? <p className="text-xs text-destructive">Name {fields.name}</p> : null}
       {fields.color ? <p className="text-xs text-destructive">Color {fields.color}</p> : null}
-      {error && !fields.name && !fields.color ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+      {error && !fields.name && !fields.color ? (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
     </fieldset>
   );
 }

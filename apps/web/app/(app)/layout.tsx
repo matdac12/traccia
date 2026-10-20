@@ -13,11 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function Layout({ children }: { children: ReactNode }) {
   // An error boundary in this folder (error.tsx) does not catch errors thrown by this layout,
   // so an API outage must not throw here: the shell still renders and the page shows its own error.
-  const [projects, login, cookieStore] = await Promise.all([
-    listProjects().catch(() => null),
-    currentLogin(),
-    cookies(),
-  ]);
+  const [projects, login, cookieStore] = await Promise.all([listProjects().catch(() => null), currentLogin(), cookies()]);
   const sidebarCollapsed = parseSidebarCookie(cookieStore.get(SIDEBAR_COOKIE)?.value);
   const shellProjects = projects?.map(({ id, name }) => ({ id, name })) ?? [];
   return (

@@ -1,11 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { insertProjectKey, matchProjects, keyQueryAt, type ProjectOption } from "../src/project-autocomplete.js";
+import {
+  insertProjectKey,
+  matchProjects,
+  keyQueryAt,
+  type ProjectOption,
+} from "../src/project-autocomplete.js";
 
-const project = (key: string, name: string, status: ProjectOption["status"] = "active"): ProjectOption => ({ id: `p_${key}_${name}`, key, name, status });
+const project = (
+  key: string,
+  name: string,
+  status: ProjectOption["status"] = "active",
+): ProjectOption => ({ id: `p_${key}_${name}`, key, name, status });
 
 describe("keyQueryAt", () => {
   it("finds the @ run that ends at the caret", () => {
-    expect(keyQueryAt("Review invoices @c", 18)).toEqual({ start: 16, query: "c" });
+    expect(keyQueryAt("Review invoices @c", 18)).toEqual({
+      start: 16,
+      query: "c",
+    });
     expect(keyQueryAt("@", 1)).toEqual({ start: 0, query: "" });
     expect(keyQueryAt("(@crm", 5)).toEqual({ start: 1, query: "crm" });
   });
@@ -34,7 +46,11 @@ describe("matchProjects", () => {
   ];
 
   it("lists active and paused Projects whose key starts with the text first, then those whose name contains it", () => {
-    expect(matchProjects(projects, "cr").map((p) => p.key)).toEqual(["CRASH", "CRM", "OPS"]);
+    expect(matchProjects(projects, "cr").map((p) => p.key)).toEqual([
+      "CRASH",
+      "CRM",
+      "OPS",
+    ]);
   });
 
   it("matches case-insensitively, by key prefix or name substring only", () => {
@@ -43,22 +59,38 @@ describe("matchProjects", () => {
   });
 
   it("lists every active and paused Project for a bare @, by key", () => {
-    expect(matchProjects(projects, "").map((p) => p.key)).toEqual(["CRASH", "CRM", "OPS", "WEB"]);
+    expect(matchProjects(projects, "").map((p) => p.key)).toEqual([
+      "CRASH",
+      "CRM",
+      "OPS",
+      "WEB",
+    ]);
   });
 
   it("stops at 7", () => {
-    const many = Array.from({ length: 10 }, (_, i) => project(`K${i}`, `Project ${i}`));
+    const many = Array.from({ length: 10 }, (_, i) =>
+      project(`K${i}`, `Project ${i}`),
+    );
     expect(matchProjects(many, "k")).toHaveLength(7);
   });
 });
 
 describe("insertProjectKey", () => {
   it("replaces the @ run with @KEY and a space, and puts the caret after it", () => {
-    expect(insertProjectKey("Review invoices @c", 18, "CRM")).toEqual({ value: "Review invoices @CRM ", caret: 21 });
+    expect(insertProjectKey("Review invoices @c", 18, "CRM")).toEqual({
+      value: "Review invoices @CRM ",
+      caret: 21,
+    });
   });
 
   it("replaces the rest of the word under the caret and keeps the text after it", () => {
-    expect(insertProjectKey("Fix @crmx later", 7, "CRM")).toEqual({ value: "Fix @CRM later", caret: 9 });
-    expect(insertProjectKey("@w tomorrow", 2, "WEB")).toEqual({ value: "@WEB tomorrow", caret: 5 });
+    expect(insertProjectKey("Fix @crmx later", 7, "CRM")).toEqual({
+      value: "Fix @CRM later",
+      caret: 9,
+    });
+    expect(insertProjectKey("@w tomorrow", 2, "WEB")).toEqual({
+      value: "@WEB tomorrow",
+      caret: 5,
+    });
   });
 });

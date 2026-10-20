@@ -19,7 +19,6 @@ export function useOptionalCreateIssue(): Ctx | null {
   return useContext(CreateIssueContext);
 }
 
-
 export function CreateIssueProvider({ projects, children }: { projects: CreateIssueProject[]; children: ReactNode }) {
   const router = useRouter();
   const [isOpen, setOpen] = useState(false);

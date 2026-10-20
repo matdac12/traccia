@@ -7,8 +7,7 @@ import { ApiError, api } from "@/lib/api/client";
 
 const IDENTIFIER = /^[A-Za-z0-9_-]{1,64}$/;
 
-const error = (status: number, code: string, message: string) =>
-  Response.json({ error: { code, message } }, { status, headers: { "cache-control": "no-store" } });
+const error = (status: number, code: string, message: string) => Response.json({ error: { code, message } }, { status, headers: { "cache-control": "no-store" } });
 
 export async function POST(request: Request, ctx: { params: Promise<{ identifier: string }> }) {
   const { identifier } = await ctx.params;

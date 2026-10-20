@@ -51,7 +51,13 @@ export function parseFilters(raw: RawParams): IssueFilters {
     project: one("project"),
     status: ISSUE_STATUSES.filter((s) => all(raw, "status").some((v) => v.trim() === s)),
     assignee: assignee && [...ACTORS, "none"].includes(assignee) ? (assignee as AssigneeFilter) : undefined,
-    labels: [...new Set(all(raw, "label").map((l) => l.trim()).filter(Boolean))],
+    labels: [
+      ...new Set(
+        all(raw, "label")
+          .map((l) => l.trim())
+          .filter(Boolean),
+      ),
+    ],
     priority: one("priority") !== undefined && (PRIORITIES as readonly number[]).includes(priority) ? (priority as Priority) : undefined,
     milestone: one("milestone"),
     q: one("q") ?? "",

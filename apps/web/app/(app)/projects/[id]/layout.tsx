@@ -17,7 +17,10 @@ export default async function ProjectLayout({ children, params }: { children: Re
       <PageHeader title={<ProjectTitle projectId={project.id} name={project.name} projectKey={project.key} updatedAt={project.updatedAt} />} tabs={<ProjectTabs projectId={project.id} />}>
         <ProjectStatusSelect projectId={project.id} status={project.status} updatedAt={project.updatedAt} />
         <DeleteProjectButton projectId={project.id} />
-        <NewIssueButton projectId={project.id}><Plus className="size-3.5" />New issue</NewIssueButton>
+        <NewIssueButton projectId={project.id}>
+          <Plus className="size-3.5" />
+          New issue
+        </NewIssueButton>
       </PageHeader>
       {children}
     </ProjectDeletedGate>

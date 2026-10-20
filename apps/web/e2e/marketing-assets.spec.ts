@@ -65,8 +65,7 @@ const ISSUES: SeedIssue[] = [
     priority: "medium",
     estimate: 5,
     labels: ["backend", "docs"],
-    description:
-      "Let a new user bring habits over from a spreadsheet, mapping columns on a preview screen.",
+    description: "Let a new user bring habits over from a spreadsheet, mapping columns on a preview screen.",
   },
   {
     title: "Export the full history as JSON",
@@ -107,8 +106,7 @@ const ISSUES: SeedIssue[] = [
     assignee: "you",
     labels: ["frontend", "design"],
     milestone: "Weekly review",
-    description:
-      "A single scrollable page: streaks, per-habit completion, and a short written summary.",
+    description: "A single scrollable page: streaks, per-habit completion, and a short written summary.",
   },
   {
     title: "Keyboard shortcut to toggle the heatmap",
@@ -144,10 +142,7 @@ const ISSUES: SeedIssue[] = [
     estimate: 3,
     assignee: "agent",
     labels: ["backend", "bug"],
-    comments: [
-      "Reproduced on a device set to a DST boundary; the day compares as a naive local date.",
-      "Fix: compare on the stored UTC day and keep the display in the user's zone.",
-    ],
+    comments: ["Reproduced on a device set to a DST boundary; the day compares as a naive local date.", "Fix: compare on the stored UTC day and keep the display in the user's zone."],
   },
   {
     title: "Stats endpoint: paginate history instead of loading every entry",
@@ -175,9 +170,7 @@ const ISSUES: SeedIssue[] = [
     estimate: 5,
     assignee: "you",
     labels: ["frontend", "design"],
-    comments: [
-      "Copy is final, the empty state now offers three starter habits.",
-    ],
+    comments: ["Copy is final, the empty state now offers three starter habits."],
   },
   {
     title: "Sync habits across devices",
@@ -187,8 +180,7 @@ const ISSUES: SeedIssue[] = [
     assignee: "agent",
     labels: ["sync", "backend"],
     milestone: "Sync and offline",
-    description:
-      "Last write wins per field, with a visible conflict note when two devices disagree.",
+    description: "Last write wins per field, with a visible conflict note when two devices disagree.",
   },
   {
     title: "Undo a check-in from the toast",
@@ -269,38 +261,28 @@ async function seedCadence(api: E2eApi): Promise<Project> {
   const project = await api.post<Project>("/projects", {
     name: "Cadence",
     key: "CAD",
-    description:
-      "A calm habit tracker: one check-in a day, a weekly review, and a streak worth keeping.",
+    description: "A calm habit tracker: one check-in a day, a weekly review, and a streak worth keeping.",
   });
 
-  for (const label of LABELS)
-    await api.post("/labels", { ...label, project: project.id });
+  for (const label of LABELS) await api.post("/labels", { ...label, project: project.id });
   const milestones = new Map<string, string>();
   for (const milestone of MILESTONES) {
-    const created = await api.post<{ id: string }>(
-      `/projects/${project.id}/milestones`,
-      milestone,
-    );
+    const created = await api.post<{ id: string }>(`/projects/${project.id}/milestones`, milestone);
     milestones.set(milestone.name, created.id);
   }
 
   const byTitle = new Map<string, { identifier: string; id: string }>();
   const create = async (issue: SeedIssue) => {
-    const created = await api.post<{ identifier: string; id: string }>(
-      "/issues",
-      {
-        project: project.id,
-        title: issue.title,
-        description: issue.description,
-        status: issue.status,
-        priority: issue.priority,
-        estimate: issue.estimate ?? null,
-        assignee: issue.assignee ?? null,
-        milestoneId: issue.milestone
-          ? (milestones.get(issue.milestone) ?? null)
-          : null,
-      },
-    );
+    const created = await api.post<{ identifier: string; id: string }>("/issues", {
+      project: project.id,
+      title: issue.title,
+      description: issue.description,
+      status: issue.status,
+      priority: issue.priority,
+      estimate: issue.estimate ?? null,
+      assignee: issue.assignee ?? null,
+      milestoneId: issue.milestone ? (milestones.get(issue.milestone) ?? null) : null,
+    });
     byTitle.set(issue.title, created);
     return created;
   };
@@ -324,34 +306,26 @@ async function seedCadence(api: E2eApi): Promise<Project> {
       await api.patch(`/issues/${created.identifier}`, {
         parentId: byTitle.get(issue.parent)!.id,
       });
-    for (const body of issue.comments ?? [])
-      await api.post(`/issues/${created.identifier}/comments`, { body });
+    for (const body of issue.comments ?? []) await api.post(`/issues/${created.identifier}/comments`, { body });
   }
 
   return project;
 }
 
 /** Writes the background into the app's own store, then reloads so it renders through the real path. */
-async function applyBackground(
-  page: import("@playwright/test").Page,
-  imagePath: string,
-) {
+async function applyBackground(page: import("@playwright/test").Page, imagePath: string) {
   const src = `data:image/png;base64,${readFileSync(imagePath).toString("base64")}`;
   await page.goto("/");
   await page.evaluate(
     async ({ src, prefs }) => {
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.open("traccia-appearance", 1);
-        request.onupgradeneeded = () =>
-          request.result.createObjectStore("background");
+        request.onupgradeneeded = () => request.result.createObjectStore("background");
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction("background", "readwrite");
           tx.objectStore("background").put(prefs, "preferences");
-          tx.objectStore("background").put(
-            { name: "background.png", src },
-            "image",
-          );
+          tx.objectStore("background").put({ name: "background.png", src }, "image");
           tx.oncomplete = () => {
             db.close();
             resolve();
@@ -369,27 +343,17 @@ test.describe("marketing assets", () => {
   // Retina captures so the videos can downscale to 1920x1080 and stay crisp.
   test.use({ deviceScaleFactor: 2, viewport: { width: 1920, height: 1080 } });
 
-  test("capture the Cadence dashboard with the chosen background", async ({
-    page,
-  }) => {
-    test.skip(
-      !enabled,
-      "Set TRACCIA_HERO_CAPTURE=1 to capture marketing assets.",
-    );
+  test("capture the Cadence dashboard with the chosen background", async ({ page }) => {
+    test.skip(!enabled, "Set TRACCIA_HERO_CAPTURE=1 to capture marketing assets.");
 
-    const api = apiClient(
-      process.env.E2E_API_URL as string,
-      process.env.E2E_API_TOKEN as string,
-    );
+    const api = apiClient(process.env.E2E_API_URL as string, process.env.E2E_API_TOKEN as string);
     const project = await seedCadence(api);
 
     await applyBackground(page, backgroundPath);
 
     await page.goto(`/issues?project=${project.key}`);
     await expect(page.locator(".background-image-layer")).toBeVisible();
-    await expect(
-      page.getByText("Weekly review: one page for the last seven days"),
-    ).toBeVisible();
+    await expect(page.getByText("Weekly review: one page for the last seven days")).toBeVisible();
     await page.waitForTimeout(900);
     mkdirSync(shotsDir, { recursive: true });
     await page.screenshot({ path: resolve(shotsDir, "issues-table.png") });
@@ -397,9 +361,7 @@ test.describe("marketing assets", () => {
     // Search: filter the list in place.
     await page.getByLabel("Search issues").fill("streak");
     await expect(page).toHaveURL(/q=streak/);
-    await expect(
-      page.getByText("Show the current streak in the menu bar"),
-    ).toBeVisible();
+    await expect(page.getByText("Show the current streak in the menu bar")).toBeVisible();
     await page.waitForTimeout(900);
     await page.screenshot({ path: resolve(shotsDir, "issues-search.png") });
 
@@ -427,8 +389,7 @@ test.describe("marketing assets", () => {
         assignee: "agent",
       },
     ];
-    for (const arrival of arrivals)
-      await api.post("/issues", { project: project.id, ...arrival });
+    for (const arrival of arrivals) await api.post("/issues", { project: project.id, ...arrival });
     await page.waitForTimeout(2200); // clear the poll's minimum gap before forcing a refresh
     await page.getByTestId("live-status").click();
     await expect(page.getByText(arrivals[0].title)).toBeVisible({

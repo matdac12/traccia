@@ -22,34 +22,37 @@ export function useInlineEdit({ onRow, update = updateIssueAction }: { onRow: (r
   const saving = useRef(new Set<string>());
   const pending = useRef(0);
 
-  const edit: Edit = useCallback((issue, label, build, optimistic = {}) => {
-    if (saving.current.has(issue.id)) return;
-    saving.current.add(issue.id);
-    pending.current++;
-    setNotice(null);
-    onRow({ ...issue, ...optimistic });
-    void (async () => {
-      try {
-        const res = await update(issue.identifier, build(issue), issue.updatedAt);
-        if (res.ok) return onRow(res.issue);
-        if (res.code === "conflict") {
-          // The conflict carries the whole issue detail; a list row keeps only the row fields (the live refresh compares them).
-          const current = res.current ? issueSchema.parse(res.current) : issue;
-          onRow(current);
-          setNotice({ identifier: issue.identifier, label, message: res.message, conflict: true, reapply: () => edit(current, label, build, optimistic) });
-        } else {
+  const edit: Edit = useCallback(
+    (issue, label, build, optimistic = {}) => {
+      if (saving.current.has(issue.id)) return;
+      saving.current.add(issue.id);
+      pending.current++;
+      setNotice(null);
+      onRow({ ...issue, ...optimistic });
+      void (async () => {
+        try {
+          const res = await update(issue.identifier, build(issue), issue.updatedAt);
+          if (res.ok) return onRow(res.issue);
+          if (res.code === "conflict") {
+            // The conflict carries the whole issue detail; a list row keeps only the row fields (the live refresh compares them).
+            const current = res.current ? issueSchema.parse(res.current) : issue;
+            onRow(current);
+            setNotice({ identifier: issue.identifier, label, message: res.message, conflict: true, reapply: () => edit(current, label, build, optimistic) });
+          } else {
+            onRow(issue);
+            setNotice({ identifier: issue.identifier, label, message: res.message, conflict: false });
+          }
+        } catch {
           onRow(issue);
-          setNotice({ identifier: issue.identifier, label, message: res.message, conflict: false });
+          setNotice({ identifier: issue.identifier, label, message: "Could not reach the server.", conflict: false });
+        } finally {
+          saving.current.delete(issue.id);
+          pending.current--;
         }
-      } catch {
-        onRow(issue);
-        setNotice({ identifier: issue.identifier, label, message: "Could not reach the server.", conflict: false });
-      } finally {
-        saving.current.delete(issue.id);
-        pending.current--;
-      }
-    })();
-  }, [onRow, update]);
+      })();
+    },
+    [onRow, update],
+  );
 
   return { edit, notice, dismiss: () => setNotice(null), pending };
 }

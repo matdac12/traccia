@@ -34,12 +34,17 @@ const sameCounts = (a: Counts, b: Counts) => ISSUE_STATUSES.every((s) => (a[s] ?
 export function useListSync({ query, syncToken, ...poll }: { query: string; syncToken?: string | null } & PollOptions) {
   const applier = useRef<GroupsApplier | null>(null);
   const token = useRef<string | null>(syncToken ?? null);
-  const register = useCallback((a: GroupsApplier | null) => { applier.current = a; }, []);
+  const register = useCallback((a: GroupsApplier | null) => {
+    applier.current = a;
+  }, []);
 
   const tick = useCallback(async () => {
     const probe = await getJson<{ latest: string | null }>(`/api/issues/changes${token.current ? `?since=${encodeURIComponent(token.current)}` : ""}`);
     if (!probe.latest) return;
-    if (!token.current) { token.current = probe.latest; return; }
+    if (!token.current) {
+      token.current = probe.latest;
+      return;
+    }
     const target = applier.current;
     if (!target) return;
     const asked = target.counts();

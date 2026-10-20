@@ -59,7 +59,10 @@ const banner = () => screen.queryByText(/^Reminders (are off|can't be sent)/);
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
-  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise(() => {})),
+  );
   for (const action of [createTodoAction, updateTodoAction, deleteTodoAction, moveTodoAction]) action.mockReset();
 });
 afterEach(() => {
@@ -120,7 +123,10 @@ describe("the delivery banner", () => {
     vi.useRealTimers();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(NOW);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(page([todo()], { ok: false, reason: "not_configured" })))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(page([todo()], { ok: false, reason: "not_configured" })))),
+    );
     setup(page([todo()], { ok: true }));
     expect(banner()).toBeNull();
     await act(async () => {
@@ -135,7 +141,10 @@ describe("the banner across polls", () => {
     vi.useRealTimers();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(NOW);
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(page([todo()])))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(page([todo()])))),
+    );
     setup(page([todo()], { ok: false, reason: "telegram_unauthorized" }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);

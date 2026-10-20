@@ -34,7 +34,11 @@ export const TodoStatusProvider = TodoStatusContext;
 
 function useTodoStatus<T>(select: (status: TodoStatus) => T): T {
   const store = useContext(TodoStatusContext);
-  return useSyncExternalStore(store.subscribe, () => select(store.get()), () => select(EMPTY));
+  return useSyncExternalStore(
+    store.subscribe,
+    () => select(store.get()),
+    () => select(EMPTY),
+  );
 }
 
 /** The state the To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */

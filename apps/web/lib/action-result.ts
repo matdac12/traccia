@@ -1,7 +1,7 @@
 import { ApiError } from "@/lib/api/client";
 
 /** What a server action returns to its form: data, or a message plus per-field errors to show inline. */
-export type ActionFailure = { ok: false; error: string; fieldErrors: Record<string, string>; /** The write was refused because the record changed since it was read (HTTP 409). */ conflict?: true };
+export type ActionFailure = { ok: false; error: string; fieldErrors: Record<string, string> /** The write was refused because the record changed since it was read (HTTP 409). */; conflict?: true };
 export type ActionResult<T = undefined> = { ok: true; data: T } | ActionFailure;
 
 export const success = <T>(data: T): ActionResult<T> => ({ ok: true, data });

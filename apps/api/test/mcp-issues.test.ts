@@ -184,7 +184,11 @@ describe("MCP issue tools", () => {
       blockedBy: [],
       blocks: [],
     });
-    expect(r3.data.relations).toEqual({ blockedBy: [], blocks: [], related: [] });
+    expect(r3.data.relations).toEqual({
+      blockedBy: [],
+      blocks: [],
+      related: [],
+    });
   });
 
   it("sets symmetric related links, reads them on both issues and rejects a self-link", async () => {

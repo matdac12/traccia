@@ -23,7 +23,10 @@ describe("getJson", () => {
   });
 
   it("throws on a non-2xx answer", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 500 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 500 })),
+    );
     await expect(getJson("/api/x")).rejects.toThrow("/api/x answered 500");
   });
 });

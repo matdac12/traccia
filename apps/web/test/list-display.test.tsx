@@ -12,8 +12,21 @@ vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn
 vi.mock("../app/(app)/issues/actions", () => ({ loadMoreIssues: vi.fn() }));
 
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: null, assignee: null,
-  milestoneId: null, parentId: null, createdBy: "you" as const, createdAt: `2026-01-0${n}T00:00:00.000Z`, updatedAt: `2026-02-0${n}T00:00:00.000Z`, labels: [], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 2,
+  estimate: null,
+  assignee: null,
+  milestoneId: null,
+  parentId: null,
+  createdBy: "you" as const,
+  createdAt: `2026-01-0${n}T00:00:00.000Z`,
+  updatedAt: `2026-02-0${n}T00:00:00.000Z`,
+  labels: [],
+  ...over,
 });
 const groups = [
   { status: "todo", items: [issue(1, "todo", { priority: 1, assignee: "agent", createdBy: "agent" }), issue(2, "todo", { parentId: "i1" })], nextCursor: null },
@@ -28,7 +41,11 @@ describe("group rows", () => {
   const lookups = { projects: data.projects, milestones: [] };
   it("regroups the pooled rows by priority in priority order, re-sorted", () => {
     const s = buildSections(groups, "priority", DEFAULT_FILTERS, lookups);
-    expect(s.map((x) => [x.title, x.items.map((i) => i.id)])).toEqual([["Urgent", ["i1"]], ["High", ["i2"]], ["Low", ["i3"]]]);
+    expect(s.map((x) => [x.title, x.items.map((i) => i.id)])).toEqual([
+      ["Urgent", ["i1"]],
+      ["High", ["i2"]],
+      ["Low", ["i3"]],
+    ]);
   });
   it("groups by assignee with Unassigned, or into one section", () => {
     expect(buildSections(groups, "assignee", DEFAULT_FILTERS, lookups).map((x) => x.title)).toEqual(["Agent", "Unassigned"]);
@@ -46,19 +63,40 @@ describe("group rows", () => {
     expect(all.map((g) => g.status)).toEqual(workflow);
   });
   it("nests sub-issues right after their parent and says where the connectors go", () => {
-    const rows = [issue(1, "todo"), issue(2, "todo", { parentId: "i4" }), issue(3, "todo", { parentId: "i1" }), issue(4, "todo", { parentId: "i1" }), issue(5, "todo", { parentId: "i4" }), issue(6, "todo", { parentId: "elsewhere" })] as unknown as Parameters<typeof nestRows>[0];
+    const rows = [
+      issue(1, "todo"),
+      issue(2, "todo", { parentId: "i4" }),
+      issue(3, "todo", { parentId: "i1" }),
+      issue(4, "todo", { parentId: "i1" }),
+      issue(5, "todo", { parentId: "i4" }),
+      issue(6, "todo", { parentId: "elsewhere" }),
+    ] as unknown as Parameters<typeof nestRows>[0];
     const tree = nestRows(rows);
-    expect(tree.map((t) => [t.row.id, t.depth, t.last])).toEqual([["i1", 0, true], ["i3", 1, false], ["i4", 1, true], ["i2", 2, false], ["i5", 2, true], ["i6", 0, true]]);
+    expect(tree.map((t) => [t.row.id, t.depth, t.last])).toEqual([
+      ["i1", 0, true],
+      ["i3", 1, false],
+      ["i4", 1, true],
+      ["i2", 2, false],
+      ["i5", 2, true],
+      ["i6", 0, true],
+    ]);
     // i2 and i5 sit under i4, which is the last child of i1: no line keeps going at its level.
     expect(tree.find((t) => t.row.id === "i2")!.guides).toEqual([false]);
   });
   it("returns only the roots, with no connector below them, when sub-issues are hidden", () => {
     const rows = [issue(1, "todo"), issue(3, "todo", { parentId: "i1" }), issue(6, "todo", { parentId: "elsewhere" })] as unknown as Parameters<typeof nestRows>[0];
-    expect(nestRows(rows, false).map((t) => [t.row.id, t.depth, t.hasChildren])).toEqual([["i1", 0, false], ["i6", 0, false]]);
+    expect(nestRows(rows, false).map((t) => [t.row.id, t.depth, t.hasChildren])).toEqual([
+      ["i1", 0, false],
+      ["i6", 0, false],
+    ]);
   });
   it("keeps rows that form a parent cycle, as roots", () => {
     const rows = [issue(1, "todo", { parentId: "i2" }), issue(2, "todo", { parentId: "i1" }), issue(3, "todo", { parentId: "i3" })] as unknown as Parameters<typeof nestRows>[0];
-    expect(nestRows(rows).map((t) => [t.row.id, t.depth])).toEqual([["i3", 0], ["i1", 0], ["i2", 1]]);
+    expect(nestRows(rows).map((t) => [t.row.id, t.depth])).toEqual([
+      ["i3", 0],
+      ["i1", 0],
+      ["i2", 1],
+    ]);
   });
   it("counts finished sub-issues per parent", () => {
     expect(subIssueCounts(groups.flatMap((g) => g.items)).get("i1")).toEqual({ done: 1, total: 2 });
@@ -67,7 +105,12 @@ describe("group rows", () => {
 
 describe("table display", () => {
   it("renders status sections in display order with their own load-more cursors", () => {
-    const view = [{ status: "backlog", items: [issue(1, "backlog")], nextCursor: "cb" }, { status: "todo", items: [issue(2, "todo")], nextCursor: null }, { status: "in_progress", items: [issue(3, "in_progress")], nextCursor: null }, { status: "done", items: [issue(4, "done")], nextCursor: "cd" }] as unknown as IssuesData["groups"];
+    const view = [
+      { status: "backlog", items: [issue(1, "backlog")], nextCursor: "cb" },
+      { status: "todo", items: [issue(2, "todo")], nextCursor: null },
+      { status: "in_progress", items: [issue(3, "in_progress")], nextCursor: null },
+      { status: "done", items: [issue(4, "done")], nextCursor: "cd" },
+    ] as unknown as IssuesData["groups"];
     render(<IssuesView filters={DEFAULT_FILTERS} data={{ ...data, groups: view }} />);
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/[0-9+]+$/, ""))).toEqual(["In Progress", "Todo", "Backlog", "Done"]);
     expect(screen.getByTestId("count-backlog").textContent).toBe("1+");

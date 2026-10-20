@@ -49,9 +49,15 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     if (typeof BroadcastChannel !== "undefined") {
       const updates = new BroadcastChannel("traccia-background");
       channel.current = updates;
-      updates.onmessage = () => { void writes.current.then(load); };
+      updates.onmessage = () => {
+        void writes.current.then(load);
+      };
     }
-    return () => { cancelled = true; channel.current?.close(); channel.current = null; };
+    return () => {
+      cancelled = true;
+      channel.current?.close();
+      channel.current = null;
+    };
   }, []);
 
   const save = useCallback((next: BackgroundPreferences, replaceImage = false) => {
@@ -78,22 +84,30 @@ export function BackgroundProvider({ children }: { children: ReactNode }) {
     return job;
   }, []);
 
-  const update = useCallback((changes: Parameters<BackgroundContextValue["update"]>[0]) => {
-    void save({ ...requested.current, ...changes });
+  const update = useCallback(
+    (changes: Parameters<BackgroundContextValue["update"]>[0]) => {
+      void save({ ...requested.current, ...changes });
+    },
+    [save],
+  );
+  const upload = useCallback(
+    async (file: File) => {
+      setUploading(true);
+      setError(null);
+      try {
+        const image = await prepareBackgroundImage(file);
+        await save({ ...requested.current, image, enabled: true }, true);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "Could not upload this image. Try another image.");
+      } finally {
+        setUploading(false);
+      }
+    },
+    [save],
+  );
+  const reset = useCallback(() => {
+    void save({ ...DEFAULT_BACKGROUND, image: requested.current.image });
   }, [save]);
-  const upload = useCallback(async (file: File) => {
-    setUploading(true);
-    setError(null);
-    try {
-      const image = await prepareBackgroundImage(file);
-      await save({ ...requested.current, image, enabled: true }, true);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not upload this image. Try another image.");
-    } finally {
-      setUploading(false);
-    }
-  }, [save]);
-  const reset = useCallback(() => { void save({ ...DEFAULT_BACKGROUND, image: requested.current.image }); }, [save]);
   const value = useMemo(() => ({ background, ready, uploading, error, update, upload, reset }), [background, ready, uploading, error, update, upload, reset]);
   return <BackgroundContext.Provider value={value}>{children}</BackgroundContext.Provider>;
 }

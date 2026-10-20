@@ -137,7 +137,11 @@ describe("applyTodoChange: a new title's @KEYs", () => {
 });
 
 describe("applyTodoChange: a position move", () => {
-  const order = (todos: Todo[], ids: string[]) => todos.filter((t) => ids.includes(t.id)).sort((a, b) => a.position - b.position).map((t) => t.id);
+  const order = (todos: Todo[], ids: string[]) =>
+    todos
+      .filter((t) => ids.includes(t.id))
+      .sort((a, b) => a.position - b.position)
+      .map((t) => t.id);
 
   it("puts the To-do right below afterId or right above beforeId, between its bucket neighbours", () => {
     const [a, b, c] = [todo({ position: 1024 }), todo({ position: 2048 }), todo({ position: 3072 })];

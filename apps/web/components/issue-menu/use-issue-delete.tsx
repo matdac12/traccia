@@ -15,8 +15,16 @@ const without = (list: State[], issue: IssueRow) => list.filter((x) => x.issue.i
  * Soft delete from a list or board (TRC-87): the row leaves at once, a failure puts it back, and the notice
  * offers Undo (restore from Trash) until dismissed. Lives above the rows, so it survives the row unmounting.
  */
-export function useIssueDelete({ onRemove, onRestore, remove = deleteIssueAction, restore = restoreIssueAction }: {
-  onRemove: (issue: IssueRow) => void; onRestore: (issue: IssueRow) => void; remove?: Act; restore?: Act;
+export function useIssueDelete({
+  onRemove,
+  onRestore,
+  remove = deleteIssueAction,
+  restore = restoreIssueAction,
+}: {
+  onRemove: (issue: IssueRow) => void;
+  onRestore: (issue: IssueRow) => void;
+  remove?: Act;
+  restore?: Act;
 }) {
   /** One entry per deleted issue, so deleting a second one keeps the first one's Undo. */
   const [states, setStates] = useState<State[]>([]);
@@ -48,7 +56,10 @@ export function useIssueDelete({ onRemove, onRestore, remove = deleteIssueAction
     const fail = (error: string) => setStates((l) => l.map((x) => (x.issue.id === issue.id ? { ...x, error } : x)));
     try {
       const res = await restore(issue.identifier);
-      if (res.ok) { onRestore(issue); setStates((l) => without(l, issue)); } else fail(res.message);
+      if (res.ok) {
+        onRestore(issue);
+        setStates((l) => without(l, issue));
+      } else fail(res.message);
     } catch {
       fail("Could not reach the server.");
     }
@@ -57,14 +68,22 @@ export function useIssueDelete({ onRemove, onRestore, remove = deleteIssueAction
   const notice = (
     <>
       {states.map((state) => (
-        <UndoNotice key={state.issue.id} error={state.error} undoLabel={`Undo delete of ${state.issue.identifier}`} onUndo={() => void undo(state.issue)} onDismiss={() => setStates((l) => without(l, state.issue))}>
+        <UndoNotice
+          key={state.issue.id}
+          error={state.error}
+          undoLabel={`Undo delete of ${state.issue.identifier}`}
+          onUndo={() => void undo(state.issue)}
+          onDismiss={() => setStates((l) => without(l, state.issue))}
+        >
           {state.issue.identifier} moved to Trash.
         </UndoNotice>
       ))}
       {failed && (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">
           <span className="flex-1">{failed}</span>
-          <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setFailed(null)}><X className="size-3.5" /></Button>
+          <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setFailed(null)}>
+            <X className="size-3.5" />
+          </Button>
         </div>
       )}
     </>
