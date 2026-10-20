@@ -1,7 +1,7 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { Bell, CalendarDays, Check, X } from "lucide-react";
-import { type CSSProperties, type ReactNode, type Ref, startTransition, useState } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import { dayLabel } from "@/lib/personal/days";
 import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
@@ -16,28 +16,19 @@ import { TodoTitle } from "./todo-title";
 /** What a sortable row needs from dnd-kit: the item's ref and transform, whether it is the one dragged, and its handle. */
 export type RowDrag = { ref: Ref<HTMLLIElement>; style: CSSProperties; dragging: boolean; handle: ReactNode };
 
-/** How long the strike takes to draw (TodoTitle's transition): the row stays in place until it is done. */
-const STRIKE_MS = 300;
-const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
 /**
- * What the check does: a click on an open To-do marks it done, on a closed one reopens it. `shown` is the To-do with the
- * state the check shows while the strike draws (about 300 ms, none under reduced motion), before the write moves it.
+ * The To-do as it shows: with the state its strike is drawing while a close (or reopen) from the check, the "…" menu or
+ * the panel waits to be sent (`useTodoWrites` times it).
  */
+export function useShownTodo(todo: Todo): Todo {
+  const preview = useTodoActions().previewOf(todo.id);
+  return preview ? { ...todo, state: preview } : todo;
+}
+
+/** What the check does: a click on an open To-do marks it done, on a closed one reopens it. */
 export function useCheckToggle(todo: Todo) {
   const actions = useTodoActions();
-  const [preview, setPreview] = useState<Todo["state"] | null>(null);
-  const shown = preview ? { ...todo, state: preview } : todo;
-  const toggle = () => {
-    if (preview) return;
-    const next = todo.state === "open" ? "done" : "open";
-    setPreview(next);
-    // Cleared with the write's own render, so the check never flashes back before the new state shows.
-    const save = () => actions.update(todo, { state: next }).then(() => startTransition(() => setPreview(null)));
-    if (reducedMotion()) void save();
-    else setTimeout(save, STRIKE_MS);
-  };
-  return { shown, toggle };
+  return { shown: useShownTodo(todo), toggle: () => void actions.update(todo, { state: todo.state === "open" ? "done" : "open" }) };
 }
 
 /** A refused write on a To-do, with a way to dismiss it: under its row, and in the details panel. */

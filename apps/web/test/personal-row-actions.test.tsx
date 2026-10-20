@@ -117,6 +117,61 @@ describe("the check", () => {
   });
 });
 
+describe("a close just after midnight", () => {
+  it("stays in Closed today until the page's data rolls over, instead of vanishing", async () => {
+    // 00:00:05 on the 18th in Rome: the page still says it is the 17th.
+    vi.setSystemTime(new Date("2026-10-17T22:00:05Z"));
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const { user } = setup([t]);
+    await user.click(screen.getByRole("button", { name: "Mark “Pay the bill” done" }));
+    expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+  });
+});
+
+describe("the … menu strikes like the check", () => {
+  it.each([
+    ["Mark done", "done"],
+    ["Drop", "dropped"],
+  ] as const)("%s draws the strike in place, then sends the write", async (item, state) => {
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const { user } = setup([t]);
+    await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
+    await user.click(await screen.findByRole("menuitem", { name: item }));
+    // The line draws in place first: the row is still in Today, struck, and nothing is sent yet.
+    expect(screen.getByText("Pay the bill").parentElement).toHaveAttribute("data-struck", "true");
+    expect(within(region(/^Today/)).getByText("Pay the bill")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Closed today" })).toBeNull();
+    expect(updateTodoAction).not.toHaveBeenCalled();
+    await waitFor(() => expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state }, UPDATED));
+    expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+  });
+
+  it("sends the write once when it is asked again while the strike draws", async () => {
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValue(hang());
+    const { user } = setup([t]);
+    const check = row("Pay the bill").querySelector("[data-todo-check]") as HTMLElement;
+    await user.click(check);
+    // While the strike draws the check already shows the new state: a second click on it changes nothing.
+    await user.click(check);
+    await waitFor(() => expect(updateTodoAction).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(updateTodoAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends at once, with no preview, under reduced motion", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: true, media: query, addEventListener() {}, removeEventListener() {} }));
+    const t = todo({ title: "Pay the bill" });
+    updateTodoAction.mockReturnValueOnce(hang());
+    const { user } = setup([t]);
+    await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Mark done" }));
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state: "done" }, UPDATED);
+  });
+});
+
 describe("closing a parent", () => {
   it("asks on the API's 409, retries with closeSubTodos, and leaves everything open on cancel", async () => {
     const parent = todo({ title: "Plan the trip", subTodos: { done: 0, total: 2 } });

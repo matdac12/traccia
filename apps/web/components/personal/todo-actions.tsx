@@ -1,12 +1,12 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { AlertDialog } from "radix-ui";
-import { createContext, type ReactNode, startTransition, useContext, useOptimistic, useState } from "react";
+import { createContext, type ReactNode, startTransition, useContext, useOptimistic, useRef, useState } from "react";
 import { deleteTodoAction, moveTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
 import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
 import type { ActionResult } from "@/lib/action-result";
-import { ownerNow } from "@/lib/personal/days";
+import { latestInstantOn, ownerNow } from "@/lib/personal/days";
 import { hasPendingReminder } from "@/lib/personal/lists";
 import { applyTodoChange, isClosing, type TodoChange, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { plural } from "@/lib/utils";
@@ -22,6 +22,8 @@ export type TodoActions = {
   move: (todo: Todo, move: TodoMove) => Promise<void>;
   /** Deletes a To-do (and its Sub-to-dos): it goes to the Trash. */
   deleteTodo: (todo: Todo) => void;
+  /** The state a To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */
+  previewOf: (id: string) => Todo["state"] | undefined;
   /** The last refused write on this To-do, shown under its row. */
   errorFor: (id: string) => string | undefined;
   dismissError: (id: string) => void;
@@ -44,6 +46,10 @@ export type WriteListener = { saved?: (todo: Todo) => void; deleted?: (id: strin
 
 type WriteResult = ActionResult<{ todo: Todo }> | TodoWriteFailure;
 
+/** How long the strike takes to draw (TodoTitle's transition): the row stays in place until it is done. */
+const STRIKE_MS = 300;
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 /**
  * The Personal Space's writes (docs/personal-space.md §7.5): edits, position moves (drag) and deletes. Each one shows
  * at once (an optimistic copy of the API's rules) and goes back, with an error under the row, if the API refuses it.
@@ -54,6 +60,35 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
   const [shown, addChange] = useOptimistic(todos, applyTodoChange);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // The To-dos whose strike is drawing, and the state they show meanwhile.
+  const [previews, setPreviews] = useState<Record<string, Todo["state"]>>({});
+  const striking = useRef(new Set<string>());
+
+  /**
+   * Closing or reopening a To-do (from its check, the "…" menu or the details panel) draws the strike first (about
+   * 300 ms, none under reduced motion), then sends the write. The preview is cleared with the write's own render, so
+   * the check never flashes back before the new state shows. A second try while it draws is ignored.
+   */
+  const strike = (todo: Todo, state: Todo["state"], save: () => Promise<void>) => {
+    if (striking.current.has(todo.id)) return Promise.resolve();
+    if (reducedMotion()) return save();
+    striking.current.add(todo.id);
+    setPreviews((current) => ({ ...current, [todo.id]: state }));
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        void save().then(() => {
+          striking.current.delete(todo.id);
+          startTransition(() =>
+            setPreviews((current) => {
+              const { [todo.id]: _, ...rest } = current;
+              return rest;
+            }),
+          );
+          resolve();
+        });
+      }, STRIKE_MS);
+    });
+  };
 
   const setError = (id: string, message: string | null) =>
     setErrors((current) => {
@@ -81,7 +116,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
   const write = (todo: Todo, patch: TodoPatch, optimistic: boolean) =>
     run(
       todo,
-      optimistic ? { type: "update", id: todo.id, patch, at: new Date().toISOString(), now: ownerNow(timeZone) } : null,
+      optimistic ? { type: "update", id: todo.id, patch, at: latestInstantOn(today, timeZone).toISOString(), now: ownerNow(timeZone) } : null,
       () => updateTodoAction(todo.id, patch, todo.updatedAt),
       (result) => {
         if (result.openSubTodos && isClosing(patch)) {
@@ -102,8 +137,10 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
       }
       // A parent known to have open Sub-to-dos stays as it is until the API answers: its 409 opens the confirm.
       const openSubTodos = todo.subTodos ? todo.subTodos.total - todo.subTodos.done : 0;
-      return write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
+      const send = () => write(todo, patch, !(isClosing(patch) && !patch.closeSubTodos && openSubTodos > 0));
+      return patch.state !== undefined && patch.state !== todo.state ? strike(todo, patch.state, send) : send();
     },
+    previewOf: (id) => previews[id],
     move(todo, move) {
       return run(
         todo,

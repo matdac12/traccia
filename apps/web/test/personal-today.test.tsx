@@ -37,7 +37,7 @@ function todo(over: Partial<Todo> = {}): Todo {
   };
 }
 const reminder = (status: "pending" | "sent" | "failed" | "skipped", time = "15:00") => ({ time, status, failure: null, sentAt: null });
-const actions: TodoActions = { today: TODAY, timeZone: "Europe/Rome", update: async () => {}, move: async () => {}, deleteTodo: () => {}, errorFor: () => undefined, dismissError: () => {} };
+const actions: TodoActions = { today: TODAY, timeZone: "Europe/Rome", update: async () => {}, move: async () => {}, deleteTodo: () => {}, previewOf: () => undefined, errorFor: () => undefined, dismissError: () => {} };
 // Rows write through the page's actions; linked chips use the app's TooltipProvider (root layout).
 function Providers({ children }: { children: ReactNode }) {
   return (
