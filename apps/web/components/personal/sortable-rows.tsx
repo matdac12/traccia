@@ -4,7 +4,7 @@ import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalList
 import { CSS } from "@dnd-kit/utilities";
 import type { Todo } from "@traccia/shared";
 import { GripVertical } from "lucide-react";
-import { createContext, type ReactNode, useContext, useState } from "react";
+import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
 import { bucketOf, dropMove } from "@/lib/personal/todo-changes";
 import { RowOrderProvider } from "./row-order";
 import { useTodoActions } from "./todo-actions";
@@ -79,17 +79,21 @@ export function SortableTodoRow({ todo, parentTitle, children }: { todo: Todo; p
     id: todo.id,
     disabled: { draggable: false, droppable: dragging !== null && dragging !== bucketOf(todo) },
   });
-  const handle = (
-    <button
-      type="button"
-      ref={setActivatorNodeRef}
-      {...attributes}
-      {...listeners}
-      aria-label={`Reorder “${todo.title}”`}
-      className="absolute -left-5 top-1/2 z-[1] hidden -translate-y-1/2 cursor-grab touch-none rounded text-muted-foreground/60 opacity-0 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-100 active:cursor-grabbing md:block"
-    >
-      <GripVertical className="size-3.5" aria-hidden />
-    </button>
+  // The same element while nothing about the handle changes, so the memoised row body skips the drag's many renders.
+  const handle = useMemo(
+    () => (
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder “${todo.title}”`}
+        className="absolute -left-5 top-1/2 z-[1] hidden -translate-y-1/2 cursor-grab touch-none rounded text-muted-foreground/60 opacity-0 outline-none hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover/row:opacity-100 active:cursor-grabbing md:block"
+      >
+        <GripVertical className="size-3.5" aria-hidden />
+      </button>
+    ),
+    [attributes, listeners, setActivatorNodeRef, todo.title],
   );
   return (
     <TodoRow todo={todo} parentTitle={parentTitle} drag={{ ref: setNodeRef, style: { transform: CSS.Translate.toString(transform), transition }, dragging: isDragging, handle }}>

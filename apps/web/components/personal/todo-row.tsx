@@ -1,7 +1,7 @@
 "use client";
 import type { Todo } from "@traccia/shared";
 import { Bell, CalendarDays, Check, X } from "lucide-react";
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { type CSSProperties, memo, type ReactNode, type Ref } from "react";
 import { dayLabel } from "@/lib/personal/days";
 import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
@@ -109,11 +109,44 @@ export function TodoRow({
   drag?: RowDrag;
   children?: ReactNode;
 }) {
+  const selected = useTodoSelection()?.selectedId === todo.id;
+  return (
+    <li
+      ref={drag?.ref}
+      style={drag?.style}
+      data-todo-id={todo.id}
+      data-selected={selected || undefined}
+      className={cn("rounded-md text-[13px]", drag?.dragging && "relative z-10 bg-card shadow-sm ring-1 ring-border")}
+    >
+      <RowBody todo={todo} showDay={showDay} wrap={wrap} parentTitle={parentTitle} selected={selected} handle={drag?.handle} />
+      {children}
+    </li>
+  );
+}
+
+/**
+ * The row inside its item. Memoised: dragging re-renders every sortable item (dnd-kit's context), and this is the part
+ * that costs, so it only renders again when its own To-do, flags or handle change.
+ */
+const RowBody = memo(function RowBody({
+  todo,
+  showDay,
+  wrap,
+  parentTitle,
+  selected,
+  handle,
+}: {
+  todo: Todo;
+  showDay: boolean;
+  wrap: boolean;
+  parentTitle?: string;
+  selected: boolean;
+  handle?: ReactNode;
+}) {
   const actions = useTodoActions();
   const selection = useTodoSelection();
   const { today } = actions;
   const { shown, toggle } = useCheckToggle(todo);
-  const selected = selection?.selectedId === todo.id;
   // In the narrow panel a dated row's day goes under its title: beside it, the title would wrap a few letters wide.
   const dayUnderTitle = wrap && showDay && todo.day !== null;
   const dayPicker = (
@@ -139,15 +172,9 @@ export function TodoRow({
   );
 
   return (
-    <li
-      ref={drag?.ref}
-      style={drag?.style}
-      data-todo-id={todo.id}
-      data-selected={selected || undefined}
-      className={cn("rounded-md text-[13px]", drag?.dragging && "relative z-10 bg-card shadow-sm ring-1 ring-border")}
-    >
+    <>
       <div className={cn("group/row relative flex min-h-11 items-center gap-3 rounded-md px-2 md:min-h-9", selection && "hover:bg-accent/60", selected && "bg-accent hover:bg-accent")}>
-        {drag?.handle}
+        {handle}
         <TodoCheck state={shown.state} title={todo.title} onToggle={toggle} />
         <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
           <button
@@ -195,7 +222,6 @@ export function TodoRow({
         <TodoMenu todo={todo} />
       </div>
       <TodoError todo={todo} className="pb-1.5 pl-[84px] pr-2" />
-      {children}
-    </li>
+    </>
   );
-}
+});
