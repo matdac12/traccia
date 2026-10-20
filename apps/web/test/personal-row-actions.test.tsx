@@ -70,8 +70,6 @@ const ok = (t: Todo) => ({ ok: true, data: { todo: t } });
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
-  // A tooltip opens on hover and Radix measures it; jsdom has no ResizeObserver.
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   // The poll stays quiet.
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   updateTodoAction.mockReset();
@@ -130,6 +128,27 @@ describe("a close just after midnight", () => {
   });
 });
 
+/**
+ * Holds the strike's 300 ms timer until `release()`, so a test can look at the page while the line draws however slow
+ * the machine is (user-event's own delays can outlast 300 ms under load).
+ */
+function holdStrike() {
+  const held: (() => void)[] = [];
+  const real = globalThis.setTimeout;
+  const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, ms?: number, ...args: unknown[]) => {
+    if (ms !== 300) return real(fn, ms, ...args);
+    held.push(fn);
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout);
+  return {
+    release: () =>
+      act(async () => {
+        for (const fn of held.splice(0)) fn();
+      }),
+    restore: () => spy.mockRestore(),
+  };
+}
+
 describe("the … menu strikes like the check", () => {
   it.each([
     ["Mark done", "done"],
@@ -137,29 +156,39 @@ describe("the … menu strikes like the check", () => {
   ] as const)("%s draws the strike in place, then sends the write", async (item, state) => {
     const t = todo({ title: "Pay the bill" });
     updateTodoAction.mockReturnValueOnce(hang());
-    const { user } = setup([t]);
-    await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
-    await user.click(await screen.findByRole("menuitem", { name: item }));
-    // The line draws in place first: the row is still in Today, struck, and nothing is sent yet.
-    expect(screen.getByText("Pay the bill").parentElement).toHaveAttribute("data-struck", "true");
-    expect(within(region(/^Today/)).getByText("Pay the bill")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Closed today" })).toBeNull();
-    expect(updateTodoAction).not.toHaveBeenCalled();
-    await waitFor(() => expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state }, UPDATED));
-    expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+    const strike = holdStrike();
+    try {
+      const { user } = setup([t]);
+      await user.click(screen.getByRole("button", { name: "Actions for Pay the bill" }));
+      await user.click(await screen.findByRole("menuitem", { name: item }));
+      // The line draws in place first: the row is still in Today, struck, and nothing is sent yet.
+      expect(screen.getByText("Pay the bill").parentElement).toHaveAttribute("data-struck", "true");
+      expect(within(region(/^Today/)).getByText("Pay the bill")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Closed today" })).toBeNull();
+      expect(updateTodoAction).not.toHaveBeenCalled();
+      await strike.release();
+      expect(updateTodoAction).toHaveBeenCalledWith(t.id, { state }, UPDATED);
+      expect(within(await screen.findByRole("list", { name: "Closed today" })).getByText("Pay the bill")).toBeInTheDocument();
+    } finally {
+      strike.restore();
+    }
   });
 
   it("sends the write once when it is asked again while the strike draws", async () => {
     const t = todo({ title: "Pay the bill" });
     updateTodoAction.mockReturnValue(hang());
-    const { user } = setup([t]);
-    const check = row("Pay the bill").querySelector("[data-todo-check]") as HTMLElement;
-    await user.click(check);
-    // While the strike draws the check already shows the new state: a second click on it changes nothing.
-    await user.click(check);
-    await waitFor(() => expect(updateTodoAction).toHaveBeenCalledTimes(1));
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    expect(updateTodoAction).toHaveBeenCalledTimes(1);
+    const strike = holdStrike();
+    try {
+      const { user } = setup([t]);
+      const check = row("Pay the bill").querySelector("[data-todo-check]") as HTMLElement;
+      await user.click(check);
+      // While the strike draws the check already shows the new state: a second click on it changes nothing.
+      await user.click(check);
+      await strike.release();
+      expect(updateTodoAction).toHaveBeenCalledTimes(1);
+    } finally {
+      strike.restore();
+    }
   });
 
   it("sends at once, with no preview, under reduced motion", async () => {
