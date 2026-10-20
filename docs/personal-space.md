@@ -251,12 +251,12 @@ Three columns on a laptop:
   - A large weekday heading (Geist Sans, about 34 px, semibold, tight tracking), then the date, the open count and how many Reminders are still to come.
   - Quick add.
   - **Overdue** (red label, each row showing its day).
-  - **Today** (manual order, drag handle on hover).
-  - Today's done and dropped To-dos, which stay at the bottom struck through.
-- **Upcoming**: the next 14 days, one section per day. Empty days are dimmed and say "Nothing planned". Below them, **Later** lists every open To-do planned after those 14 days, grouped by day, each day with its label (decided in TRC-163).
-- **Anytime**: quick add (with no day), then the list in manual order. A parent shows its Sub-to-dos indented underneath.
+  - **Today**: the open top-level To-dos in manual order (drag handle on hover), then today's dated Sub-to-dos as a second block, each row with its parent's title as a small prefix. Each block is ordered and dragged on its own, so a drop lands where it was released (Position can't be compared across buckets, TRC-181).
+  - Today's done and dropped To-dos, which stay at the bottom struck through. Dropped uses the same orange strike as done.
+- **Upcoming**: the next 14 days, one section per day. Empty days are dimmed and say "Nothing planned". Below them, **Later** lists every open To-do planned after those 14 days, grouped by day, each day with its label (decided in TRC-163). Later is hidden when it has no To-dos.
+- **Anytime**: quick add (with no day), then the list in manual order. A parent shows its open Sub-to-dos indented underneath (done and dropped ones are in the Logbook).
 - **Logbook**: grouped by close day, newest first, loading more on scroll.
-- **By project**: a big key chip as the heading, and the open To-dos referencing that key, sorted by day.
+- **By project**: a big key chip as the heading, and the open To-dos referencing that key, sorted by day. Sub-to-dos never appear here, since they carry no references of their own (§2.6).
 
 ### 7.4 Row
 
@@ -274,7 +274,8 @@ Marking a To-do done draws a 1.5 px orange line through the title (a background-
 ### 7.5 Interactions
 
 - **Quick add**:
-  - Parses `@KEY`, a day word (today/oggi, tomorrow/domani, mon…sun = the next such day, anytime = no Planned day) and `HH:MM` (which implies today when no day is given; with anytime it is refused, as a Reminder needs a Planned day).
+  - Parses `@KEY`, a day word (today/oggi, tomorrow/domani, anytime = no Planned day, and a weekday = the next such day, in English or Italian, short or full: mon/monday, lun/lunedì…) and `HH:MM` or `H:MM` (which implies today when no day is given; with anytime it is refused, as a Reminder needs a Planned day). Day words match whole words only. `15.00` is not a time, so "Pay 12.50" stays a title.
+  - When a day word or a time appears twice, the last one wins.
   - A read-back line shows the time, the title with chips, and the day before you press Enter.
   - It posts `{ title, day, time }`.
 - **`@` autocomplete** in quick add, the Sub-to-do input and title editing:
@@ -284,25 +285,29 @@ Marking a To-do done draws a 1.5 px orange line through the title (a background-
 - **Project chips** link to the Project page (`/projects/:id`). A chip for a deleted Project is greyed and not clickable.
 - **Day picker**:
   - Today, Tomorrow and Next week (next Monday), a Monday-first month grid, and Anytime.
-  - Anytime warns "removes the Reminder" when there is one.
+  - Anytime warns "removes the Reminder" when there is a pending one. A sent, failed or skipped Reminder is removed without asking.
   - It opens from the row day label or icon and from the details panel.
 - **Reminder picker**:
   - Presets 09:00, 12:30, 15:00, 18:00, 20:30 and 22:00, an exact time field, and Remove.
-  - Moments already past are disabled, with an inline "That time has already passed".
-- **"…" menu**: Move to (the next 7 days, or Anytime), Reminder, Mark done, Drop, Reopen, Delete. This is the single-pointer alternative to drag (WCAG 2.2).
+  - Moments already past are disabled. The exact field says "That time has already passed", and the presets carry a tooltip and a line saying past times are disabled.
+- **"…" menu**: Move to (the next 7 days, or Anytime), Reminder, Mark done, Drop, Reopen, Delete, and in Today and Anytime also Move up and Move down. These are the single-pointer alternative to drag (WCAG 2.2, 2.5.7); Move up/down call the position endpoint with the neighbour's id.
+  - Delete shows an undo notice that calls Restore (there is still no confirm).
+  - Mark done and Drop from the menu animate the strike like the check does.
 - **Closing a parent** that has open Sub-to-dos: on a 409 with `openSubTodos`, a confirm dialog ("Mark 2 open Sub-to-dos done too?") retries with `closeSubTodos: true`.
 - **Drag to reorder** within Today and Anytime uses dnd-kit (already a dependency) and calls the position endpoint.
 
 ### 7.6 Details panel and deep link
 
-- `/personal?todo=<id>` selects the To-do and opens the panel over the list it belongs to. That is Today for today and Overdue, Upcoming for future days, Anytime, or the Logbook. This is the link in every Telegram message and in the API's `url`.
+- The URL holds the selection: `?list=` names the list (`today`, `upcoming`, `anytime`, `logbook` or `project:KEY`) and `?todo=<id>` adds the panel on top, e.g. `/personal?list=anytime&todo=<id>`.
+- `/personal?todo=<id>` alone selects the To-do and opens the panel over the list it belongs to. That is Today for today and Overdue, Upcoming for future days, Anytime, or the Logbook. This is the link in every Telegram message and in the API's `url`.
 - The panel contains:
   - The title. Click to edit, with `@` autocomplete; Enter or blur saves, Esc cancels.
   - **Planned day** and **Reminder** fields that open the pickers.
-  - The failure text for a failed Reminder ("Telegram refused it. Check the bot settings.").
-  - "Created via Parla" or "in the dashboard".
+  - The failure text for a failed Reminder: "Telegram refused it. Check the bot settings." for the Telegram failures, and "Telegram couldn't be reached before the day ended." for `gave_up`.
+  - "Created via Parla" or "in the dashboard" (any other token reads "in the dashboard" for now).
   - **Details**: a textarea that saves on blur.
   - For top-level To-dos, **Sub-to-dos** with an "Add a Sub-to-do" input.
+  - A "…" menu with the row menu's actions (Move to, Reminder, Mark done, Drop, Reopen, Delete), so a To-do opened from Telegram that has no row on screen can still be acted on.
 
 ### 7.7 Trash and banners
 
