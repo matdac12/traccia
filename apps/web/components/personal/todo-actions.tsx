@@ -1,6 +1,6 @@
 "use client";
 import type { ProjectOption, Todo } from "@traccia/shared";
-import { createContext, type ReactNode, startTransition, useContext, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState } from "react";
+import { createContext, type ReactNode, startTransition, useContext, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState } from "react";
 import { deleteTodoAction, moveTodoAction, restoreTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { UndoNotice } from "@/components/traccia/undo-notice";
@@ -180,9 +180,10 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, pr
     },
     dismissError: (id: string) => setError(id, null),
   };
-  // The newest render's writes, behind an object that doesn't change with it.
+  // The newest render's writes, behind an object that doesn't change with it. Set before any layout effect runs, so a
+  // call made during a commit never sees the render before.
   const latest = useRef(writes);
-  useLayoutEffect(() => {
+  useInsertionEffect(() => {
     latest.current = writes;
   });
   const actions = useMemo<TodoActions>(
