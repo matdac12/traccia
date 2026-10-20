@@ -1,8 +1,8 @@
 import path from "node:path";
 import { Readable } from "node:stream";
+import { purgeQuerySchema } from "@traccia/shared";
 import Busboy from "busboy";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
-import { z } from "zod";
 import { NotFoundError, ValidationError } from "../service/errors.js";
 import { createServices } from "../service/index.js";
 import {
@@ -17,10 +17,6 @@ import {
 } from "../storage/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { validateQuery } from "./validate.js";
-
-const deleteQuerySchema = z.object({
-  purge: z.enum(["true", "false"]).optional(),
-});
 
 /** Errors raised by busboy or the request stream, as opposed to storage I/O. */
 const isFormError = (err: unknown) =>
@@ -200,9 +196,9 @@ export function mountAttachmentRoutes(
 
   v1.delete("/attachments/:id", async (c) => {
     const id = c.req.param("id");
-    const { purge } = validateQuery(c, deleteQuerySchema);
+    const { purge } = validateQuery(c, purgeQuerySchema);
     const actor = c.get("actor");
-    if (purge === "true") {
+    if (purge === true) {
       // Permission, two-step rule and file removal live in trash.purge.
       const result = await trash.purge(actor, "attachment", id);
       for (const storageKey of result.failedFiles) {

@@ -84,7 +84,8 @@ export type UpdateDocumentBody = z.input<typeof updateDocumentBodySchema>;
 export function searchParamsRecord(
   params: URLSearchParams,
 ): Record<string, string | string[]> {
-  const raw: Record<string, string | string[]> = {};
+  // No prototype: `?__proto__=x` is an ordinary key, not the object's prototype.
+  const raw: Record<string, string | string[]> = Object.create(null);
   for (const [key, value] of params.entries()) {
     const existing = raw[key];
     if (existing === undefined) raw[key] = value;

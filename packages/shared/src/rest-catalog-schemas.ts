@@ -26,6 +26,7 @@ export const listLabelsQuerySchema = z.object({
   includeDeleted: queryBooleanSchema.optional(),
 });
 
+/** `DELETE ...?purge=true` on every deletable thing. */
 export const purgeQuerySchema = z.object({
   purge: queryBooleanSchema.optional(),
 });

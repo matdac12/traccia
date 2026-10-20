@@ -19,6 +19,7 @@ export async function listAll<T extends z.ZodType, QS extends z.ZodType>(
   const items: z.output<T>[] = [];
   let cursor: string | undefined;
   for (let i = 0; i < maxPages; i++) {
+    // `never`: RequestOptions["query"] is conditional on the generic QS, which TS cannot resolve here. The caller's `query` is typed.
     const page = await api().request(path, { schema: pageOf(item), querySchema, query: { ...query, limit: pageSize, cursor } as never });
     items.push(...page.items);
     if (!page.nextCursor) break;

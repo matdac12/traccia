@@ -1,7 +1,7 @@
 import {
   createProjectInputSchema,
   getProjectQuerySchema,
-  listProjectsQuerySchema,
+  listProjectsRequestQuerySchema,
   purgeQuerySchema,
   updateProjectInputSchema,
 } from "@traccia/shared";
@@ -9,7 +9,7 @@ import type { Hono } from "hono";
 import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { pageOfArray } from "./page-array.js";
-import { paginationQuery } from "./pagination.js";
+import { decodePage } from "./pagination.js";
 import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
@@ -25,12 +25,14 @@ export function mountProjectRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   };
 
   v1.get("/projects", (c) => {
-    const { status, includeDeleted, include } = validateQuery(
+    const { status, includeDeleted, include, limit, cursor } = validateQuery(
       c,
-      listProjectsQuerySchema,
+      listProjectsRequestQuerySchema,
     );
-    const page = validateQuery(c, paginationQuery);
-    const result = pageOfArray(projects.list({ status, includeDeleted }), page);
+    const result = pageOfArray(
+      projects.list({ status, includeDeleted }),
+      decodePage({ limit, cursor }),
+    );
     const items = withCounts(result.items);
     if (include !== "milestones") return c.json({ ...result, items });
     // One pass for all projects: the dashboard asks for this instead of one milestones call per project.

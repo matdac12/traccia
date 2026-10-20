@@ -1,6 +1,6 @@
 import {
   createMilestoneInputSchema,
-  listMilestonesQuerySchema,
+  listMilestonesRequestQuerySchema,
   purgeQuerySchema,
   updateMilestoneInputSchema,
 } from "@traccia/shared";
@@ -8,7 +8,7 @@ import type { Hono } from "hono";
 import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { pageOfArray } from "./page-array.js";
-import { paginationQuery } from "./pagination.js";
+import { decodePage } from "./pagination.js";
 import { ifMatch, validateBody, validateQuery } from "./validate.js";
 
 export function mountMilestoneRoutes(
@@ -27,11 +27,13 @@ export function mountMilestoneRoutes(
   };
 
   v1.get("/projects/:idOrKey/milestones", (c) => {
-    const { includeDeleted } = validateQuery(c, listMilestonesQuerySchema);
-    const page = validateQuery(c, paginationQuery);
+    const { includeDeleted, limit, cursor } = validateQuery(
+      c,
+      listMilestonesRequestQuerySchema,
+    );
     const result = pageOfArray(
       milestones.list(c.req.param("idOrKey"), { includeDeleted }),
-      page,
+      decodePage({ limit, cursor }),
     );
     return c.json({ ...result, items: withProgress(result.items) });
   });

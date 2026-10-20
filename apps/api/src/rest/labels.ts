@@ -1,13 +1,13 @@
 import {
   createLabelInputSchema,
-  listLabelsQuerySchema,
+  listLabelsRequestQuerySchema,
   updateLabelInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
 import { createServices } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { pageOfArray } from "./page-array.js";
-import { paginationQuery } from "./pagination.js";
+import { decodePage } from "./pagination.js";
 import { validateBody, validateQuery } from "./validate.js";
 
 /** Label deletion is REST-only: the MCP layer does not expose it. */
@@ -20,9 +20,11 @@ export function mountLabelRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.get("/labels", (c) => {
-    const filter = validateQuery(c, listLabelsQuerySchema);
-    const page = validateQuery(c, paginationQuery);
-    return c.json(pageOfArray(labels.list(filter), page));
+    const { limit, cursor, ...filter } = validateQuery(
+      c,
+      listLabelsRequestQuerySchema,
+    );
+    return c.json(pageOfArray(labels.list(filter), decodePage({ limit, cursor })));
   });
 
   v1.post("/labels", async (c) => {

@@ -80,9 +80,6 @@ export const issuePositionBodySchema = moveIssuePositionInputSchema.omit({
   identifier: true,
 });
 
-/** `DELETE ...?purge=true`. */
-export const deleteQuerySchema = z.object({ purge: boolText.optional() });
-
 /** `GET /v1/search?q=&project=&limit=&cursor=`. */
 export const searchQuerySchema = z.object({
   q: z.string(),

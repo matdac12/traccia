@@ -1,11 +1,11 @@
 import {
   createIssueInputSchema,
-  deleteQuerySchema,
   getIssueQuerySchema,
   issuePositionBodySchema,
   listIssueGroupsQuerySchema,
   listIssuesQuerySchema,
   patchIssueBodySchema,
+  purgeQuerySchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
 import { type Issue, listIssueLabels, type Tx } from "../service/index.js";
@@ -110,7 +110,7 @@ export function mountIssueRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.delete("/issues/:identifier", async (c) => {
-    const { purge } = validateQuery(c, deleteQuerySchema);
+    const { purge } = validateQuery(c, purgeQuerySchema);
     const result = await trash.delete(
       c.get("actor"),
       "issue",

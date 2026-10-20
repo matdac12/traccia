@@ -1,5 +1,5 @@
 import "server-only";
-import { deleteQuerySchema, restoreBodySchema, trashQuerySchema } from "@traccia/shared";
+import { purgeQuerySchema, restoreBodySchema, trashQuerySchema } from "@traccia/shared";
 import { api } from "./client";
 import { pageOf, purgeResultSchema, restoreResultSchema, trashItemSchema, type TrashType } from "./schemas";
 
@@ -49,7 +49,7 @@ export function purgeItem(type: TrashType, id: string) {
   return api().request(`/${PURGE_PATH[type]}/${encodeURIComponent(id)}`, {
     schema: purgeResultSchema,
     method: "DELETE",
-    querySchema: deleteQuerySchema,
+    querySchema: purgeQuerySchema,
     query: { purge: true },
   });
 }
