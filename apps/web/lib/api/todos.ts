@@ -1,5 +1,5 @@
 import "server-only";
-import { type CreateTodoInput, type MoveTodoPositionInput, subTodosResponseSchema, type Todo, type TodoDelivery, todoDeliverySchema, type UpdateTodoInput } from "@traccia/shared";
+import { type CreateTodoInput, createTodoInputSchema, listTodosQuerySchema, moveTodoPositionInputSchema, updateTodoInputSchema, type MoveTodoPositionInput, subTodosResponseSchema, type Todo, type TodoDelivery, todoDeliverySchema, type UpdateTodoInput } from "@traccia/shared";
 import { z } from "zod";
 import { REF } from "../documentation";
 import { dayInZone } from "../personal/days";
@@ -13,11 +13,11 @@ import { pageOf, todoSchema } from "./schemas";
 const LOGBOOK_PAGE_LIMIT = 50;
 
 /** Every open To-do, Sub-to-dos included: by day (Anytime last), then Position. */
-export const listOpenTodos = () => listAll("/todos", todoSchema, { state: "open" });
+export const listOpenTodos = () => listAll("/todos", todoSchema, listTodosQuerySchema, { state: "open" });
 
 /** One Logbook page (`GET /v1/todos?state=closed`): done and dropped To-dos, most recently closed first. */
 export function listLogbookPage(cursor?: string): Promise<LogbookPage> {
-  return api().request("/todos", { schema: pageOf(todoSchema), query: { state: "closed", limit: LOGBOOK_PAGE_LIMIT, cursor } });
+  return api().request("/todos", { schema: pageOf(todoSchema), querySchema: listTodosQuerySchema, query: { state: "closed", limit: LOGBOOK_PAGE_LIMIT, cursor } });
 }
 
 /**
@@ -90,17 +90,17 @@ export async function loadPersonalSpace(now = new Date(), todoId?: string | null
 }
 
 export function createTodo(body: CreateTodoInput) {
-  return api().request("/todos", { schema: todoSchema, method: "POST", body });
+  return api().request("/todos", { schema: todoSchema, method: "POST", bodySchema: createTodoInputSchema, body });
 }
 
 /** `PATCH /v1/todos/:id`. Closing a parent with open Sub-to-dos is a 409 with `details.openSubTodos`. */
 export function updateTodo(id: string, body: UpdateTodoInput) {
-  return api().request(`/todos/${encodeURIComponent(id)}`, { schema: todoSchema, method: "PATCH", body });
+  return api().request(`/todos/${encodeURIComponent(id)}`, { schema: todoSchema, method: "PATCH", bodySchema: updateTodoInputSchema, body });
 }
 
 /** `PATCH /v1/todos/:id/position`: within its bucket, right above `beforeId` or right below `afterId`. */
 export function moveTodo(id: string, body: MoveTodoPositionInput) {
-  return api().request(`/todos/${encodeURIComponent(id)}/position`, { schema: todoSchema, method: "PATCH", body });
+  return api().request(`/todos/${encodeURIComponent(id)}/position`, { schema: todoSchema, method: "PATCH", bodySchema: moveTodoPositionInputSchema, body });
 }
 
 const deletedSchema = z.object({ type: z.literal("todo"), id: z.string() }).loose();

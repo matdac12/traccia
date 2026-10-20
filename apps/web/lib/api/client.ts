@@ -1,4 +1,5 @@
 import "server-only";
+import { searchParamsRecord } from "@traccia/shared";
 import type { z } from "zod";
 import { serverEnv } from "../server-env";
 import { errorBodySchema } from "./schemas";
@@ -16,11 +17,22 @@ export class ApiError extends Error {
   }
 }
 
-export type RequestOptions<S extends z.ZodType> = {
+/** A query value as the caller writes it: the schema's text input, but booleans may stand in for `"true"` / `"false"`. */
+type Relax<T> = T extends "true" | "false" ? T | boolean : T;
+export type WireInput<QS extends z.ZodType> = { [K in keyof z.input<QS>]: Relax<z.input<QS>[K]> };
+
+/**
+ * `querySchema` / `bodySchema` are the shared REST request schemas (`@traccia/shared`) the API validates with.
+ * `query` and `body` are typed against them, so a request the API would reject does not compile, and are
+ * checked against them at runtime too. A request that sends neither takes neither.
+ */
+export type RequestOptions<S extends z.ZodType, QS extends z.ZodType | undefined = undefined, BS extends z.ZodType | undefined = undefined> = {
   schema: S;
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  query?: Record<string, string | number | boolean | readonly string[] | undefined>;
-  body?: unknown;
+  querySchema?: QS;
+  query?: QS extends z.ZodType ? WireInput<QS> : undefined;
+  bodySchema?: BS;
+  body?: BS extends z.ZodType ? z.input<BS> : undefined;
   /** Sent as `If-Match`, the issue's last seen `updatedAt` (optimistic concurrency). */
   ifMatch?: string;
   signal?: AbortSignal;
@@ -55,9 +67,9 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
     return rawFetch(input, init);
   };
 
-  async function request<S extends z.ZodType>(
+  async function request<S extends z.ZodType, QS extends z.ZodType | undefined = undefined, BS extends z.ZodType | undefined = undefined>(
     path: string,
-    { schema, method = "GET", query, body, ifMatch, signal }: RequestOptions<S>,
+    { schema, method = "GET", querySchema, query, bodySchema, body, ifMatch, signal }: RequestOptions<S, QS, BS>,
   ): Promise<z.output<S>> {
     // Plain concatenation keeps any path prefix in the base URL (new URL("/v1…", base) would drop it).
     const url = new URL(`${baseUrl.replace(/\/+$/, "")}/v1${path}`);
@@ -65,6 +77,8 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
       if (value === undefined) continue;
       for (const v of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(v));
     }
+    if (querySchema) assertValid(querySchema, searchParamsRecord(url.searchParams), `${method} ${path} query`);
+    if (bodySchema) assertValid(bodySchema, body, `${method} ${path} body`);
     const headers: Record<string, string> = { authorization: `Bearer ${token}`, accept: "application/json" };
     if (body !== undefined) headers["content-type"] = "application/json";
     if (ifMatch) headers["if-match"] = ifMatch;
@@ -123,6 +137,12 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
     }
   }
   return { request, raw };
+}
+
+/** A request the shared schema rejects would be the API's 400: fail the same way (`validation_error`), before sending it. */
+function assertValid(schema: z.ZodType, value: unknown, what: string) {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw new ApiError(400, "validation_error", `The ${what} does not satisfy the API's schema: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
 }
 
 function safeJson(text: string): unknown {

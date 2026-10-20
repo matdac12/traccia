@@ -8,5 +8,6 @@ export * from "./project-autocomplete.js";
 export * from "./quick-add.js";
 export * from "./rest-catalog-schemas.js";
 export * from "./rest-issue-schemas.js";
+export * from "./rest-request-schemas.js";
 export * from "./schemas.js";
 export * from "./todo-schemas.js";

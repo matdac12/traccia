@@ -1,5 +1,5 @@
 import "server-only";
-import type { IssueStatus } from "@traccia/shared";
+import { createIssueInputSchema, getIssueQuerySchema, issuePositionBodySchema, listIssueGroupsQuerySchema, listIssuesQuerySchema, listLabelsRequestQuerySchema, listMilestonesRequestQuerySchema, type IssueStatus, patchIssueBodySchema, type PatchIssueBody, searchQuerySchema } from "@traccia/shared";
 import { filtersToApiQuery, visibleStatuses, type IssueFilters } from "../issue-filters";
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
@@ -13,6 +13,7 @@ export const GROUP_PAGE_SIZE = 50;
 export function listIssuePage(filters: IssueFilters, status: IssueStatus, cursor?: string) {
   return api().request("/issues", {
     schema: pageOf(issueSchema),
+    querySchema: listIssuesQuerySchema,
     query: { ...filtersToApiQuery(filters), status: [status], limit: GROUP_PAGE_SIZE, cursor },
   });
 }
@@ -23,6 +24,7 @@ type GroupCursors = Partial<Record<IssueStatus, string>>;
 function fetchGroups(filters: IssueFilters, statuses: readonly IssueStatus[] = visibleStatuses(filters), cursors: GroupCursors = {}) {
   return api().request("/issues/groups", {
     schema: issueGroupsSchema,
+    querySchema: listIssueGroupsQuerySchema,
     query: {
       ...filtersToApiQuery(filters),
       status: [...statuses],
@@ -74,16 +76,17 @@ export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<
 export async function latestIssueChange(since?: string): Promise<string | null> {
   const page = await api().request("/issues", {
     schema: pageOf(issueSchema),
+    querySchema: listIssuesQuerySchema,
     query: { updatedAfter: since, includeDeleted: true, orderBy: "updatedAt", order: "desc", limit: 1 },
   });
   return page.items[0]?.updatedAt ?? null;
 }
 
 /** Global labels; with `project`, also that project's own labels. */
-export const listLabels = (project?: string) => listAll("/labels", labelSchema, { project });
+export const listLabels = (project?: string) => listAll("/labels", labelSchema, listLabelsRequestQuerySchema, { project });
 
 export const listProjectMilestones = (projectId: string) =>
-  listAll(`/projects/${encodeURIComponent(projectId)}/milestones`, milestoneSchema);
+  listAll(`/projects/${encodeURIComponent(projectId)}/milestones`, milestoneSchema, listMilestonesRequestQuerySchema, {});
 
 /**
  * Creates the issue, then sets its labels (the create route has no `labels` field). If only the
@@ -91,12 +94,13 @@ export const listProjectMilestones = (projectId: string) =>
  * retrying the whole form would create a duplicate.
  */
 export async function createIssue(body: CreateIssueInput, labels: string[]) {
-  const created = await api().request("/issues", { schema: issueSchema, method: "POST", body });
+  const created = await api().request("/issues", { schema: issueSchema, method: "POST", bodySchema: createIssueInputSchema, body });
   if (!labels.length) return { issue: created, labelError: null };
   try {
     const issue = await api().request(`/issues/${encodeURIComponent(created.identifier)}`, {
       schema: issueSchema,
       method: "PATCH",
+      bodySchema: patchIssueBodySchema,
       body: { labels },
       ifMatch: created.updatedAt,
     });
@@ -115,6 +119,7 @@ const DETAIL_INCLUDES = ["comments", "activity", "attachments", "children", "rel
 export function getIssueDetail(identifier: string) {
   return api().request(`/issues/${encodeURIComponent(identifier)}`, {
     schema: issueDetailSchema,
+    querySchema: getIssueQuerySchema,
     query: { include: DETAIL_INCLUDES },
   });
 }
@@ -125,8 +130,8 @@ export function getIssue(identifier: string) {
 }
 
 /** `PATCH /issues/:identifier`. `ifMatch` is the issue's last seen `updatedAt`; a stale one is a 409. */
-export function patchIssue(identifier: string, body: Record<string, unknown>, ifMatch?: string) {
-  return api().request(`/issues/${encodeURIComponent(identifier)}`, { schema: issueSchema, method: "PATCH", body, ifMatch });
+export function patchIssue(identifier: string, body: PatchIssueBody, ifMatch?: string) {
+  return api().request(`/issues/${encodeURIComponent(identifier)}`, { schema: issueSchema, method: "PATCH", bodySchema: patchIssueBodySchema, body, ifMatch });
 }
 
 const deletedSchema = z.object({ type: z.string(), id: z.string() }).loose();
@@ -158,7 +163,7 @@ export async function findIssues(query: string, limit = 8) {
       throw err;
     }
   }
-  const hits = await api().request("/search", { schema: pageOf(searchHitSchema), query: { q: toFtsQuery(q), limit } });
+  const hits = await api().request("/search", { schema: pageOf(searchHitSchema), querySchema: searchQuerySchema, query: { q: toFtsQuery(q), limit } });
   const out = [];
   for (const hit of hits.items) {
     const issue = await api().request(`/issues/${encodeURIComponent(hit.identifier)}`, { schema: issueRefSchema });
@@ -186,5 +191,5 @@ export const listBoardColumns = (filters: IssueFilters) => listIssueGroups(board
 
 /** `PATCH /issues/:identifier/position`: neighbour ids only, the service computes the position. */
 export function moveIssue(identifier: string, body: { status: IssueStatus; beforeId?: string; afterId?: string; expectedUpdatedAt?: string }) {
-  return api().request(`/issues/${encodeURIComponent(identifier)}/position`, { method: "PATCH", schema: issueSchema, body });
+  return api().request(`/issues/${encodeURIComponent(identifier)}/position`, { method: "PATCH", schema: issueSchema, bodySchema: issuePositionBodySchema, body });
 }

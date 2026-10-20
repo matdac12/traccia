@@ -11,7 +11,7 @@ import { ISSUE_INCLUDES, updateIssueInputSchema } from "./schemas.js";
 // reuses the service-layer schemas.
 
 const boolText = z.enum(["true", "false"]).transform((v) => v === "true");
-const limitText = z.coerce.number().int().min(1);
+export const limitText = z.coerce.number().int().min(1);
 
 /** `GET /v1/issues`: the service list filters, with numbers/booleans as text. */
 export const listIssuesQuerySchema = listIssuesInputSchema.extend({
