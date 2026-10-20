@@ -1,8 +1,8 @@
 import {
   createTodoInputSchema,
-  deleteQuerySchema,
   listTodosQuerySchema,
   moveTodoPositionInputSchema,
+  purgeQuerySchema,
   updateTodoInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
@@ -63,7 +63,7 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   // Soft delete (Sub-to-dos join the batch); `?purge=true` removes a deleted
   // To-do for good, `you` only. Restore is `POST /v1/restore`.
   v1.delete("/todos/:id", async (c) => {
-    const { purge } = validateQuery(c, deleteQuerySchema);
+    const { purge } = validateQuery(c, purgeQuerySchema);
     const result = await trash.delete(
       c.get("actor"),
       "todo",

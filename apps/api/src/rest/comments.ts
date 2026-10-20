@@ -1,6 +1,6 @@
 import {
   createCommentInputSchema,
-  deleteQuerySchema,
+  purgeQuerySchema,
   updateCommentInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
@@ -30,7 +30,7 @@ export function mountCommentRoutes(v1: Hono<AppEnv>, container: AppContainer) {
   });
 
   v1.delete("/comments/:id", async (c) => {
-    const { purge } = validateQuery(c, deleteQuerySchema);
+    const { purge } = validateQuery(c, purgeQuerySchema);
     const result = await trash.delete(
       c.get("actor"),
       "comment",

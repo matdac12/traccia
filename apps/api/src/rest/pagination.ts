@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ValidationError } from "../service/errors.js";
+import { parse } from "./validate.js";
 
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 250;
@@ -51,6 +52,14 @@ export const paginationQuery = z.object({
       }
     }),
 });
+
+/**
+ * The page of a list route whose shared request schema (`list*RequestQuerySchema`)
+ * already accepted `limit` and `cursor` as text: clamps `limit`, decodes `cursor`.
+ */
+export function decodePage(page: { limit?: number; cursor?: string }) {
+  return parse(paginationQuery, page);
+}
 
 export type PaginationQuery = z.output<typeof paginationQuery>;
 
