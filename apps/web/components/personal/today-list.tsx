@@ -11,14 +11,18 @@ import { TodoRow } from "./todo-row";
 
 /**
  * Today (docs/personal-space.md §7.3): the weekday masthead, quick add (onto today), then Overdue (each row with its
- * day), today's open To-dos by Position (drag to reorder), and today's done and dropped ones at the bottom.
+ * day), today's open top-level To-dos by Position (drag to reorder), then today's dated Sub-to-dos as a block of their
+ * own (each with its parent's title in front, dragged among its own parent's), and today's done and dropped ones at the
+ * bottom.
  */
 export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: string; timeZone: string }) {
   const list = todayList(todos, today, timeZone);
-  const empty = list.overdue.length + list.today.length + list.closed.length === 0;
+  const open = list.today.length + list.subTodos.length;
+  const empty = list.overdue.length + open + list.closed.length === 0;
+  const titles = new Map(todos.map((t) => [t.id, t.title]));
   return (
     <>
-      <ListHeading masthead sub={`${longDate(today)} · ${list.today.length} open · ${plural(list.remindersToCome, "Reminder", "Reminders")} still to come`}>
+      <ListHeading masthead sub={`${longDate(today)} · ${open} open · ${plural(list.remindersToCome, "Reminder", "Reminders")} still to come`}>
         {weekdayName(today)}
       </ListHeading>
       <QuickAdd today={today} defaultDay={today} className="mb-2" />
@@ -37,8 +41,8 @@ export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: st
             </section>
           ) : null}
           <section aria-labelledby="personal-today">
-            <SectionLabel id="personal-today" count={list.today.length}>Today</SectionLabel>
-            <SortableRows id="personal-today" rows={list.today}>
+            <SectionLabel id="personal-today" count={open}>Today</SectionLabel>
+            <SortableRows id="personal-today" rows={[...list.today, ...list.subTodos]}>
               <SortableGroup rows={list.today}>
                 <ul>
                   {list.today.map((t) => (
@@ -46,6 +50,15 @@ export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: st
                   ))}
                 </ul>
               </SortableGroup>
+              {list.subTodos.length ? (
+                <SortableGroup rows={list.subTodos}>
+                  <ul aria-label="Today's Sub-to-dos">
+                    {list.subTodos.map((t) => (
+                      <SortableTodoRow key={t.id} todo={t} parentTitle={titles.get(t.parentId as string)} />
+                    ))}
+                  </ul>
+                </SortableGroup>
+              ) : null}
             </SortableRows>
             {list.closed.length ? (
               <ul aria-label="Closed today">

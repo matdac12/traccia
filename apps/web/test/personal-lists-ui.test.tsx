@@ -331,18 +331,39 @@ describe("drag to reorder", () => {
     expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id]);
   });
 
-  it("never drops a row in another bucket: a Sub-to-do planned today is skipped", async () => {
+  it("keeps today's Sub-to-dos in a block after the top-level rows, so the top-level rows drag among themselves", async () => {
     const parent = todo({ day: null, title: "Kitchen" });
-    const a = todo({ title: "Alpha", position: 1 });
-    const sub = todo({ title: "Buy tiles", parentId: parent.id, position: 2, subTodos: null });
+    const sub = todo({ title: "Buy tiles", parentId: parent.id, position: 1, subTodos: null });
+    const a = todo({ title: "Alpha", position: 2 });
     const b = todo({ title: "Bravo", position: 3 });
     moveTodoAction.mockImplementation(hang);
-    const { user } = setup(page([parent, a, sub, b]));
+    const { user } = setup(page([parent, sub, a, b]));
+    // Position can't be compared across buckets: the Sub-to-do's 1 doesn't put it first.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id, sub.id]);
+    expect(within(section(/^Today/)).getByRole("button", { name: "Open “Buy tiles”" }).closest("li")).toHaveTextContent("Kitchen ›");
     screen.getByRole("button", { name: "Reorder “Alpha”" }).focus();
     await user.keyboard(" ");
     await user.keyboard("{ArrowDown}");
     await user.keyboard(" ");
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(a.id, { afterId: b.id }));
+    // Dragged past the end of its block, the row lands where it was released: the Sub-to-do's block doesn't count.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([b.id, a.id, sub.id]);
+  });
+
+  it("drags a Sub-to-do among its own parent's, in a block of its own", async () => {
+    const [p1, p2] = [todo({ day: null, title: "Kitchen", position: 1 }), todo({ day: null, title: "Garden", position: 2 })];
+    const s1 = todo({ title: "Buy tiles", parentId: p1.id, position: 5, subTodos: null });
+    const s2 = todo({ title: "Grout", parentId: p1.id, position: 6, subTodos: null });
+    const s3 = todo({ title: "Mow", parentId: p2.id, position: 1, subTodos: null });
+    moveTodoAction.mockImplementation(hang);
+    const { user } = setup(page([p2, p1, s3, s2, s1]));
+    // By parent (Kitchen, then Garden), each parent's by Position.
+    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([s1.id, s2.id, s3.id]);
+    screen.getByRole("button", { name: "Reorder “Buy tiles”" }).focus();
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard(" ");
+    await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(s1.id, { afterId: s2.id }));
   });
 
   it("reorders Anytime, and a parent's undated Sub-to-dos among themselves", async () => {

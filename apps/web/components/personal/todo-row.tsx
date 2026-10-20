@@ -99,10 +99,25 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
  * Planned day where the list mixes days (red when Overdue; a calendar icon on hover otherwise), both opening the day
  * picker, and the "…" menu. A refused write shows under the row. On the page, a click anywhere else on the row (an
  * "Open" button stretched under the controls) selects it for the details panel. `wrap` lets a long title wrap instead
- * of cutting it short (the narrow panel's Sub-to-dos). `drag` makes it sortable (its handle shows on hover, left of the
+ * of cutting it short (the narrow panel's Sub-to-dos); `parentTitle` puts a Sub-to-do's parent in front of its title
+ * (Today's second block). `drag` makes it sortable (its handle shows on hover, left of the
  * check); `children` go under it, inside the item (Anytime's indented Sub-to-dos, which move with their parent).
  */
-export function TodoRow({ todo, showDay = false, wrap = false, drag, children }: { todo: Todo; showDay?: boolean; wrap?: boolean; drag?: RowDrag; children?: ReactNode }) {
+export function TodoRow({
+  todo,
+  showDay = false,
+  wrap = false,
+  parentTitle,
+  drag,
+  children,
+}: {
+  todo: Todo;
+  showDay?: boolean;
+  wrap?: boolean;
+  parentTitle?: string;
+  drag?: RowDrag;
+  children?: ReactNode;
+}) {
   const actions = useTodoActions();
   const selection = useTodoSelection();
   const { today } = actions;
@@ -149,6 +164,11 @@ export function TodoRow({ todo, showDay = false, wrap = false, drag, children }:
           />
         ) : null}
         <span className="flex min-w-0 flex-1 items-center gap-2">
+          {parentTitle ? (
+            <span className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground" title={`Sub-to-do of ${parentTitle}`}>
+              {parentTitle} ›
+            </span>
+          ) : null}
           <TodoTitle todo={shown} className={wrap ? "break-words py-1" : "truncate"} />
           {todo.details ? <span role="img" aria-label="Has details" className="size-1 shrink-0 rounded-full bg-muted-foreground/50" /> : null}
         </span>

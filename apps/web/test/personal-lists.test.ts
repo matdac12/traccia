@@ -50,14 +50,34 @@ describe("todayList", () => {
     expect(ids(list.closed)).toEqual([dropped.id, done.id]);
   });
 
-  it("shows a dated Sub-to-do as its own row, but not an undated one", () => {
+  it("shows a dated Sub-to-do as its own row in a second block, but not an undated one", () => {
     const parent = todo({ day: null });
     const dated = todo({ parentId: parent.id });
     const undated = todo({ parentId: parent.id, day: null });
     const undatedDone = todo({ parentId: parent.id, day: null, state: "done", closedAt: "2026-10-17T09:00:00Z" });
     const list = todayList([parent, dated, undated, undatedDone], TODAY, ZONE);
-    expect(ids(list.today)).toEqual([dated.id]);
+    expect(list.today).toEqual([]);
+    expect(ids(list.subTodos)).toEqual([dated.id]);
     expect(list.closed).toEqual([]);
+  });
+
+  it("puts today's Sub-to-dos after the top-level rows, grouped by parent whatever their Positions", () => {
+    const p1 = todo({ day: null, position: 1 });
+    const p2 = todo({ day: null, position: 2 });
+    const top = todo({ position: 900 });
+    // Position is per bucket: p2's Sub-to-do has the lowest number of all.
+    const s2 = todo({ parentId: p2.id, position: 1 });
+    const s1b = todo({ parentId: p1.id, position: 20 });
+    const s1a = todo({ parentId: p1.id, position: 10 });
+    const list = todayList([s2, s1b, p2, top, s1a, p1], TODAY, ZONE);
+    expect(ids(list.today)).toEqual([top.id]);
+    expect(ids(list.subTodos)).toEqual([s1a.id, s1b.id, s2.id]);
+  });
+
+  it("counts a Sub-to-do's pending Reminder among the Reminders still to come", () => {
+    const parent = todo({ day: null });
+    const list = todayList([parent, todo({ parentId: parent.id, reminder: reminder("pending") })], TODAY, ZONE);
+    expect(list.remindersToCome).toBe(1);
   });
 
   it("keeps only the To-dos closed today in the Owner timezone, whatever else it is given", () => {

@@ -70,7 +70,7 @@ export function SortableGroup({ rows, children }: { rows: Todo[]; children: Reac
 }
 
 /** A `TodoRow` that drags by a handle shown on hover (from `md` up), left of its check. */
-export function SortableTodoRow({ todo, children }: { todo: Todo; children?: ReactNode }) {
+export function SortableTodoRow({ todo, parentTitle, children }: { todo: Todo; parentTitle?: string; children?: ReactNode }) {
   const dragging = useContext(DraggingBucket);
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: todo.id,
@@ -89,7 +89,7 @@ export function SortableTodoRow({ todo, children }: { todo: Todo; children?: Rea
     </button>
   );
   return (
-    <TodoRow todo={todo} drag={{ ref: setNodeRef, style: { transform: CSS.Translate.toString(transform), transition }, dragging: isDragging, handle }}>
+    <TodoRow todo={todo} parentTitle={parentTitle} drag={{ ref: setNodeRef, style: { transform: CSS.Translate.toString(transform), transition }, dragging: isDragging, handle }}>
       {children}
     </TodoRow>
   );
