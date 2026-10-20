@@ -88,3 +88,61 @@ describe("api client", () => {
     expect(err.code).toBe("unreachable");
   });
 });
+
+describe("api client conditional reads", () => {
+  const schema = z.object({ n: z.number() });
+  const make = (...responses: Response[]) => {
+    const fetchMock = vi.fn(async () => responses.shift()!);
+    return { fetchMock, api: createApiClient({ baseUrl: "http://api:8787", token: "t", fetch: fetchMock as never }) };
+  };
+  const tagged = (body: unknown, etag: string) => new Response(JSON.stringify(body), { headers: { etag } });
+  const sent = (fetchMock: ReturnType<typeof vi.fn>, call: number) => ((fetchMock.mock.calls[call] as unknown as [URL, RequestInit])[1].headers as Record<string, string>)["if-none-match"];
+
+  it("sends If-None-Match with the kept tag and returns the kept answer on a 304", async () => {
+    const { api, fetchMock } = make(tagged({ n: 1 }, '"a"'), new Response(null, { status: 304, headers: { etag: '"a"' } }));
+    const first = await api.request("/todos", { schema, conditional: true });
+    expect(sent(fetchMock, 0)).toBeUndefined();
+    const second = await api.request("/todos", { schema, conditional: true });
+    expect(sent(fetchMock, 1)).toBe('"a"');
+    expect(second).toBe(first);
+  });
+
+  it("returns and keeps the new answer when it changed", async () => {
+    const { api, fetchMock } = make(tagged({ n: 1 }, '"a"'), tagged({ n: 2 }, '"b"'), new Response(null, { status: 304 }));
+    await api.request("/todos", { schema, conditional: true });
+    expect(await api.request("/todos", { schema, conditional: true })).toEqual({ n: 2 });
+    expect(sent(fetchMock, 1)).toBe('"a"');
+    expect(await api.request("/todos", { schema, conditional: true })).toEqual({ n: 2 });
+    expect(sent(fetchMock, 2)).toBe('"b"');
+  });
+
+  it("forgets the kept answer when a 200 comes without a tag", async () => {
+    const { api, fetchMock } = make(tagged({ n: 1 }, '"a"'), json({ n: 2 }), json({ n: 3 }));
+    await api.request("/todos", { schema, conditional: true });
+    await api.request("/todos", { schema, conditional: true });
+    await api.request("/todos", { schema, conditional: true });
+    expect(sent(fetchMock, 2)).toBeUndefined();
+  });
+
+  it("keeps one answer per URL, query included", async () => {
+    const { api, fetchMock } = make(tagged({ n: 1 }, '"a"'), tagged({ n: 2 }, '"b"'));
+    await api.request("/todos?x=1", { schema, conditional: true });
+    await api.request("/todos?x=2", { schema, conditional: true });
+    expect(sent(fetchMock, 1)).toBeUndefined();
+  });
+
+  it("does nothing without `conditional`, and never for a write", async () => {
+    const { api, fetchMock } = make(tagged({ n: 1 }, '"a"'), tagged({ n: 1 }, '"a"'), tagged({ n: 1 }, '"a"'), tagged({ n: 1 }, '"a"'));
+    await api.request("/todos", { schema });
+    await api.request("/todos", { schema });
+    expect(sent(fetchMock, 1)).toBeUndefined();
+    await api.request("/todos", { schema, conditional: true });
+    await api.request("/todos", { schema, method: "PATCH", conditional: true });
+    expect(sent(fetchMock, 3)).toBeUndefined();
+  });
+
+  it("still fails on an error answer, and a 304 with nothing kept is an error rather than an empty page", async () => {
+    const { api } = make(new Response(null, { status: 304 }));
+    await expect(api.request("/todos", { schema, conditional: true })).rejects.toMatchObject({ status: 304 });
+  });
+});

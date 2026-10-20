@@ -159,6 +159,118 @@ describe("GET /v1/todos", () => {
   });
 });
 
+describe("GET /v1/todos conditional requests (ETag)", () => {
+  const OPEN = "/v1/todos?state=open";
+
+  it("answers 304 with no body for an unchanged list, and 200 again after each kind of change", async () => {
+    const { call, json, sqlite } = setup();
+    const a = await json(
+      await call("POST", "/v1/todos", { title: "a", day: "2999-01-01" }),
+    );
+    const b = await json(
+      await call("POST", "/v1/todos", { title: "b", day: "2999-01-01" }),
+    );
+
+    const first = await call("GET", OPEN);
+    const tag = first.headers.get("ETag");
+    expect(first.status).toBe(200);
+    expect(tag).toBeTruthy();
+    const same = await call("GET", OPEN, undefined, { "If-None-Match": tag! });
+    expect(same.status).toBe(304);
+    expect(same.headers.get("ETag")).toBe(tag);
+    expect(await same.text()).toBe("");
+
+    // Every kind of write must change the tag, so the poll never reads stale data.
+    const changes: [string, () => Promise<unknown> | unknown][] = [
+      ["an edit", () => call("PATCH", `/v1/todos/${a.id}`, { title: "a2" })],
+      [
+        "a move",
+        () => call("PATCH", `/v1/todos/${b.id}/position`, { beforeId: a.id }),
+      ],
+      [
+        "a Reminder status the scheduler set (no updated_at change)",
+        () =>
+          sqlite
+            .prepare(
+              "UPDATE todos SET reminder_time = '09:00', reminder_status = 'sent' WHERE id = ?",
+            )
+            .run(a.id),
+      ],
+      ["a delete", () => call("DELETE", `/v1/todos/${a.id}`)],
+      [
+        "a restore",
+        () => call("POST", "/v1/restore", { type: "todo", id: a.id }),
+      ],
+      ["a create", () => call("POST", "/v1/todos", { title: "c" })],
+    ];
+    let current = tag!;
+    for (const [what, change] of changes) {
+      await change();
+      const res = await call("GET", OPEN, undefined, {
+        "If-None-Match": current,
+      });
+      expect(res.status, what).toBe(200);
+      const next = res.headers.get("ETag")!;
+      expect(next, what).not.toBe(current);
+      current = next;
+    }
+  });
+
+  it("drops a deleted To-do from the list instead of answering 304", async () => {
+    const { call, json } = setup();
+    const todo = await json(await call("POST", "/v1/todos", { title: "gone" }));
+    const tag = (await call("GET", OPEN)).headers.get("ETag")!;
+    await call("DELETE", `/v1/todos/${todo.id}`);
+    const res = await call("GET", OPEN, undefined, { "If-None-Match": tag });
+    expect(res.status).toBe(200);
+    expect((await json(res)).items).toEqual([]);
+  });
+
+  it("keeps a separate tag per list, query and page", async () => {
+    const { call } = setup();
+    for (const title of ["a", "b"]) await call("POST", "/v1/todos", { title });
+    const open = (await call("GET", OPEN)).headers.get("ETag")!;
+    const closed = (await call("GET", "/v1/todos?state=closed")).headers.get(
+      "ETag",
+    )!;
+    const paged = (await call("GET", `${OPEN}&limit=1`)).headers.get("ETag")!;
+    expect(new Set([open, closed, paged]).size).toBe(3);
+    const wrong = await call("GET", OPEN, undefined, {
+      "If-None-Match": closed,
+    });
+    expect(wrong.status).toBe(200);
+  });
+
+  it("serves the Logbook conditionally too", async () => {
+    const { call, json } = setup();
+    const todo = await json(await call("POST", "/v1/todos", { title: "x" }));
+    const path = "/v1/todos?state=closed";
+    const first = await call("GET", path);
+    const tag = first.headers.get("ETag")!;
+    expect(
+      (await call("GET", path, undefined, { "If-None-Match": tag })).status,
+    ).toBe(304);
+    await call("PATCH", `/v1/todos/${todo.id}`, { state: "done" });
+    const after = await call("GET", path, undefined, { "If-None-Match": tag });
+    expect(after.status).toBe(200);
+    expect((await json(after)).items).toHaveLength(1);
+  });
+
+  it("is not conditional for a refused request, a single To-do or auth", async () => {
+    const { call, app, json } = setup();
+    const todo = await json(await call("POST", "/v1/todos", { title: "x" }));
+    const bad = await call("GET", "/v1/todos", undefined, {
+      "If-None-Match": "*",
+    });
+    expect(bad.status).toBe(400);
+    expect((await call("GET", `/v1/todos/${todo.id}`)).headers.get("ETag")).toBe(
+      null,
+    );
+    const anon = await app.request(OPEN, { headers: { "If-None-Match": "*" } });
+    expect(anon.status).toBe(401);
+  });
+});
+
 describe("GET /v1/todos/:id", () => {
   it("returns one To-do, or 404", async () => {
     const { call, json } = setup();

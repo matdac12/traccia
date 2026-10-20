@@ -40,6 +40,19 @@ describe("GET /api/todos/logbook", () => {
     expect(Object.fromEntries(sent.searchParams)).toEqual({ state: "closed", limit: "50", cursor: "c1" });
   });
 
+  it("answers 304 for an unchanged page and 200 again once it changes", async () => {
+    fetchMock.mockImplementation(async () => Response.json({ items: [closed], nextCursor: null }));
+    const etag = (await GET(req())).headers.get("etag");
+    expect(etag).toBeTruthy();
+    const unchanged = await GET(new Request("http://dash/api/todos/logbook", { headers: { "if-none-match": etag! } }));
+    expect(unchanged.status).toBe(304);
+    expect(await unchanged.text()).toBe("");
+    fetchMock.mockImplementation(async () => Response.json({ items: [], nextCursor: null }));
+    const changed = await GET(new Request("http://dash/api/todos/logbook", { headers: { "if-none-match": etag! } }));
+    expect(changed.status).toBe(200);
+    expect(await changed.json()).toEqual({ items: [], nextCursor: null });
+  });
+
   it("starts at the newest without a cursor", async () => {
     fetchMock.mockResolvedValueOnce(Response.json({ items: [], nextCursor: null }));
     expect(await (await GET(req())).json()).toEqual({ items: [], nextCursor: null });

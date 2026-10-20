@@ -144,7 +144,8 @@ describe("PersonalSpace", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(12_000);
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/todos", expect.anything());
+    // `no-cache`: the browser revalidates with the route's ETag, so an unchanged poll is a 304 and nothing is sent.
+    expect(fetchMock).toHaveBeenCalledWith("/api/todos", expect.objectContaining({ cache: "no-cache" }));
     expect(screen.getByText("Created by curl")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Sunday" })).toBeInTheDocument();
   });
