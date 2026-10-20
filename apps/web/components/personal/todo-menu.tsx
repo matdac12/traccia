@@ -24,16 +24,21 @@ import { useTodoActions } from "./todo-actions";
 export const ROW_ICON_BUTTON =
   "relative z-[1] grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring md:opacity-0 md:group-hover/row:opacity-100 md:focus-visible:opacity-100 md:data-[state=open]:opacity-100";
 
+/** The panel's "…" button: always shown, with no row to hover. */
+export const PANEL_ICON_BUTTON = "grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent";
+
 /**
- * The row's "…" menu (docs/personal-space.md §7.5): Move to (the next 7 days, or Anytime), Reminder, Mark done, Drop
- * or Reopen, and Delete (to the Trash, so no confirm). It is the single-pointer alternative to drag (WCAG 2.2).
+ * The "…" menu of a row and of the details panel (docs/personal-space.md §7.5, §7.6): Move to (the next 7 days, or
+ * Anytime), Reminder, Mark done, Drop or Reopen, and Delete (to the Trash, with an undo, so no confirm); in a sortable
+ * list (Today, Anytime) also Move up and Move down. They are the single-pointer alternative to drag (WCAG 2.2). On the
+ * panel (`panel`) the button is always shown, and there is no list to move within.
  */
-export function TodoMenu({ todo }: { todo: Todo }) {
+export function TodoMenu({ todo, panel = false }: { todo: Todo; panel?: boolean }) {
   return (
     // Not modal: a confirm dialog may open from an item, and a modal menu closing under it would leave the page inert.
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
-        <button type="button" aria-label={`Actions for ${todo.title}`} className={ROW_ICON_BUTTON}>
+        <button type="button" aria-label={panel ? "Actions for this To-do" : `Actions for ${todo.title}`} className={panel ? PANEL_ICON_BUTTON : ROW_ICON_BUTTON}>
           <MoreHorizontal className="size-4" aria-hidden />
         </button>
       </DropdownMenuTrigger>

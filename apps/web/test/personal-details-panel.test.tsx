@@ -51,6 +51,12 @@ function setup(data: PersonalSpaceData, url = "/personal") {
 }
 const panel = () => screen.getByRole("complementary", { name: "To-do details" });
 const row = (title: string) => within(screen.getByRole("region", { name: /^Today/ })).getByText(title).closest("li") as HTMLElement;
+// A write that stays on its way until the test ends. React entangles pending transitions, so one left hanging would
+// hold every later test's rollbacks back.
+const hanging: (() => void)[] = [];
+function hang() {
+  return new Promise((resolve) => hanging.push(() => resolve({ ok: false, error: "", fieldErrors: {} })));
+}
 const ok = (t: Todo) => ({ ok: true, data: { todo: t } });
 
 beforeEach(() => {
@@ -60,7 +66,10 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   for (const action of [createTodoAction, updateTodoAction, deleteTodoAction]) action.mockReset();
 });
-afterEach(() => {
+afterEach(async () => {
+  await act(async () => {
+    for (const settle of hanging.splice(0)) settle();
+  });
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -89,7 +98,7 @@ describe("selecting a To-do", () => {
 
   it("leaves the row's own controls alone: the check, the Reminder time, the day, the menu and the chips don't select", async () => {
     const t = todo({ title: "Ship @CRM", references: [{ key: "CRM", projectId: "p-crm", projectDeleted: false }] });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user } = setup(page([t]));
     const r = row("Ship");
     await user.click(within(r).getByRole("button", { name: "Add a Reminder" }));
@@ -144,10 +153,56 @@ describe("selecting a To-do", () => {
   });
 });
 
+describe("the panel's … menu", () => {
+  const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(within(panel()).getByRole("button", { name: "Actions for this To-do" }));
+    await screen.findByRole("menu");
+  };
+
+  it("has the row menu's actions, without Move up and Move down", async () => {
+    const t = todo({ title: "Call the bank" });
+    const { user } = setup(page([t]), `/personal?todo=${t.id}`);
+    await openMenu(user);
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent?.trim())).toEqual(["Move to", "Reminder", "Mark done", "Drop", "Delete"]);
+  });
+
+  it("acts on a To-do closed on an earlier day, which has no row on screen", async () => {
+    const old = todo({ title: "Renew the passport", day: "2026-10-02", state: "done", closedAt: "2026-10-02T09:00:00Z" });
+    updateTodoAction.mockResolvedValue({ ok: false, error: "Not now.", fieldErrors: {} });
+    const { user } = setup(page([], { id: old.id, extra: [old] }), `/personal?todo=${old.id}`);
+    await openMenu(user);
+    expect(screen.queryByRole("menuitem", { name: "Mark done" })).toBeNull();
+    await user.click(screen.getByRole("menuitem", { name: "Reopen" }));
+    await waitFor(() => expect(updateTodoAction).toHaveBeenCalledWith(old.id, { state: "open" }, UPDATED));
+  });
+
+  it("moves it to another day from the panel", async () => {
+    const t = todo({ title: "Call the bank" });
+    updateTodoAction.mockResolvedValue({ ok: false, error: "Not now.", fieldErrors: {} });
+    const { user } = setup(page([t]), `/personal?todo=${t.id}`);
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Move to" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Tomorrow" }));
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: "2026-10-18" }, UPDATED);
+  });
+
+  it("deletes it, with the undo notice, and the panel says it no longer exists", async () => {
+    const t = todo({ title: "Call the bank" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup(page([t]), `/personal?todo=${t.id}`);
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(deleteTodoAction).toHaveBeenCalledWith(t.id);
+    serverSends(page([], { id: t.id, extra: [] }));
+    expect(await screen.findByText(/moved to the Trash/)).toBeInTheDocument();
+    expect(panel()).toHaveTextContent("This To-do no longer exists");
+  });
+});
+
 describe("the title", () => {
   it("edits with Enter, cancels with Esc, and keeps an edit in progress through a refresh", async () => {
     const t = todo({ title: "Call Luca" });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user, serverSends } = setup(page([t]), `/personal?todo=${t.id}`);
 
     await user.click(within(panel()).getByRole("button", { name: "Edit title" }));
@@ -189,7 +244,7 @@ describe("the title", () => {
 describe("the fields", () => {
   it("saves Details on blur, and keeps typing through a refresh", async () => {
     const t = todo({ title: "Taxes" });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user, serverSends } = setup(page([t]), `/personal?todo=${t.id}`);
     const details = within(panel()).getByLabelText("Details");
     await user.type(details, "Bring the receipts");
@@ -202,7 +257,7 @@ describe("the fields", () => {
   it("saves a Details draft when back or forward moves away with no blur", async () => {
     const a = todo({ title: "Taxes" });
     const b = todo({ title: "Gym" });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user } = setup(page([a, b]), `/personal?todo=${b.id}`);
     act(() => window.history.pushState(null, "", `?todo=${a.id}`));
     await user.type(within(panel()).getByLabelText("Details"), "Bring the receipts");
@@ -213,7 +268,7 @@ describe("the fields", () => {
 
   it("shows the Planned day and the Reminder, which open the pickers, and the source", async () => {
     const t = todo({ title: "Gym", reminder: { time: "18:00", status: "pending", failure: null, sentAt: null }, source: "parla" });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user } = setup(page([t]), `/personal?todo=${t.id}`);
     expect(panel()).toHaveTextContent(/Createds*via Parla/);
     await user.click(within(panel()).getByRole("button", { name: /^Planned day/ }));
@@ -238,7 +293,7 @@ describe("Sub-to-dos", () => {
     const open = todo({ title: "Buy tiles", parentId: parent.id, day: null, subTodos: null });
     const old = todo({ title: "Measure the wall", parentId: parent.id, day: null, state: "done", closedAt: "2026-10-05T10:00:00Z", subTodos: null });
     createTodoAction.mockResolvedValue({ ok: true, data: { id: "new" } });
-    updateTodoAction.mockReturnValue(new Promise(() => {}));
+    updateTodoAction.mockReturnValue(hang());
     const { user, serverSends } = setup(page([parent, open], { id: parent.id, extra: [old] }), `/personal?todo=${parent.id}`);
 
     const list = within(panel()).getByRole("list", { name: "Sub-to-dos" });
