@@ -10,12 +10,12 @@ describe("searchParamsRecord", () => {
     const raw = searchParamsRecord(new URLSearchParams("__proto__=x&limit=5"));
     expect(Object.getPrototypeOf(raw)).toBeNull();
     expect(Object.keys(raw)).toEqual(["__proto__", "limit"]);
-    expect(raw.__proto__).toBe("x");
+    expect(Object.entries(raw)).toContainEqual(["__proto__", "x"]);
     expect(listLabelsRequestQuerySchema.parse(raw)).toEqual({ limit: 5 });
   });
 
   it("collects a repeated ?__proto__ into an array", () => {
     const raw = searchParamsRecord(new URLSearchParams("__proto__=a&__proto__=b"));
-    expect(raw.__proto__).toEqual(["a", "b"]);
+    expect(Object.entries(raw)).toEqual([["__proto__", ["a", "b"]]]);
   });
 });
