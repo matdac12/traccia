@@ -329,6 +329,9 @@ describe("Sub-to-dos", () => {
     const item = within(within(panel()).getByRole("list", { name: "Sub-to-dos" })).getByText("Call the electrician").closest("li") as HTMLElement;
     expect(item).toHaveTextContent("Tomorrow");
     expect(item).toHaveTextContent("09:30");
+    // The 340 px column is too narrow for the day beside the title: it sits under it, in the title's own column.
+    const day = within(item).getByRole("button", { name: "Change Planned day (Tomorrow)" });
+    expect(day.parentElement).toContainElement(within(item).getByText("Call the electrician"));
   });
 
   it("opens a Sub-to-do from its row, and goes back to the parent from it", async () => {

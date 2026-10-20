@@ -90,7 +90,7 @@ export function TodoCheck({ state, title, onToggle }: { state: Todo["state"]; ti
  * Planned day where the list mixes days (red when Overdue; a calendar icon on hover otherwise), both opening the day
  * picker, and the "…" menu. A refused write shows under the row. On the page, a click anywhere else on the row (an
  * "Open" button stretched under the controls) selects it for the details panel. `wrap` lets a long title wrap instead
- * of cutting it short (the narrow panel's Sub-to-dos); `parentTitle` puts a Sub-to-do's parent in front of its title
+ * of cutting it short (the narrow panel's Sub-to-dos, which also put their day under the title); `parentTitle` puts a Sub-to-do's parent in front of its title
  * (Today's second block). `drag` makes it sortable (its handle shows on hover, left of the
  * check); `children` go under it, inside the item (Anytime's indented Sub-to-dos, which move with their parent).
  */
@@ -114,6 +114,29 @@ export function TodoRow({
   const { today } = actions;
   const { shown, toggle } = useCheckToggle(todo);
   const selected = selection?.selectedId === todo.id;
+  // In the narrow panel a dated row's day goes under its title: beside it, the title would wrap a few letters wide.
+  const dayUnderTitle = wrap && showDay && todo.day !== null;
+  const dayPicker = (
+    <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} onSelect={(day) => void actions.update(todo, { day })}>
+      {showDay && todo.day ? (
+        <button
+          type="button"
+          aria-label={`Change Planned day (${dayLabel(todo.day, today)})`}
+          className={cn(
+            "relative z-[1] shrink-0 rounded-md px-1.5 py-1 text-[11px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent",
+            dayUnderTitle && "-ml-1.5 -mt-1 self-start py-0.5",
+            isOverdue(todo, today) ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {dayLabel(todo.day, today)}
+        </button>
+      ) : (
+        <button type="button" aria-label="Change Planned day" className={ROW_ICON_BUTTON}>
+          <CalendarDays className="size-3.5" aria-hidden />
+        </button>
+      )}
+    </DayPicker>
+  );
 
   return (
     <li
@@ -154,35 +177,21 @@ export function TodoRow({
             className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         ) : null}
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          {parentTitle ? (
-            <span className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground" title={`Sub-to-do of ${parentTitle}`}>
-              {parentTitle} ›
-            </span>
-          ) : null}
-          <TodoTitle todo={shown} className={wrap ? "break-words py-1" : "truncate"} />
-          {todo.details ? <span role="img" aria-label="Has details" className="size-1 shrink-0 rounded-full bg-muted-foreground/50" /> : null}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 items-center gap-2">
+            {parentTitle ? (
+              <span className="max-w-[40%] shrink-0 truncate text-[11px] text-muted-foreground" title={`Sub-to-do of ${parentTitle}`}>
+                {parentTitle} ›
+              </span>
+            ) : null}
+            <TodoTitle todo={shown} className={wrap ? "break-words py-1" : "truncate"} />
+            {todo.details ? <span role="img" aria-label="Has details" className="size-1 shrink-0 rounded-full bg-muted-foreground/50" /> : null}
+          </span>
+          {dayUnderTitle ? dayPicker : null}
         </span>
         <SubTodoCount todo={todo} className="text-[10.5px] text-muted-foreground" />
         {isFromParla(todo.source) ? <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">via Parla</span> : null}
-        <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} onSelect={(day) => void actions.update(todo, { day })}>
-          {showDay && todo.day ? (
-            <button
-              type="button"
-              aria-label={`Change Planned day (${dayLabel(todo.day, today)})`}
-              className={cn(
-                "relative z-[1] shrink-0 rounded-md px-1.5 py-1 text-[11px] outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent",
-                isOverdue(todo, today) ? "text-destructive" : "text-muted-foreground",
-              )}
-            >
-              {dayLabel(todo.day, today)}
-            </button>
-          ) : (
-            <button type="button" aria-label="Change Planned day" className={ROW_ICON_BUTTON}>
-              <CalendarDays className="size-3.5" aria-hidden />
-            </button>
-          )}
-        </DayPicker>
+        {dayUnderTitle ? null : dayPicker}
         <TodoMenu todo={todo} />
       </div>
       <TodoError todo={todo} className="pb-1.5 pl-[84px] pr-2" />
