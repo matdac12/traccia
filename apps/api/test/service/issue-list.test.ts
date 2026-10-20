@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { issues } from "../../src/db/schema.js";
-import { buildIssueListQuery } from "../../src/service/index.js";
+import { newId } from "../../src/ids.js";
+import {
+  buildIssueListQuery,
+  createServices,
+} from "../../src/service/index.js";
+import { createTestDb } from "../helpers/test-db.js";
 import { code, setupServices } from "./helpers.js";
 
 function setup() {
@@ -79,6 +84,53 @@ import { eq } from "drizzle-orm";
 const eqId = (id: string) => eq(issues.id, id);
 
 describe("pagination", () => {
+  const ROWS = 600;
+  // Seeded once and shared: the paging tests only read. 600 `create` calls per
+  // test blocked the vitest worker past its fixed 60 s RPC timeout under load (TRC-186).
+  let sqlite: import("better-sqlite3").Database;
+  let services: ReturnType<typeof createServices>;
+  const all = new Set<string>();
+
+  beforeAll(() => {
+    // Own database: setupServices() closes its database after every test.
+    const t = createTestDb();
+    sqlite = t.sqlite;
+    services = createServices({ db: t.db, defaultIssueKey: "MAT" });
+    const project = services.projects.create("you", { name: "Bulk" });
+    const base = Date.parse("2026-01-01T00:00:00.000Z");
+    const insert = sqlite.prepare(
+      `INSERT INTO issues (id, project_id, key, number, identifier, title, priority, sort_order, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'agent', ?, ?)`,
+    );
+    sqlite.transaction(() => {
+      for (let i = 0; i < ROWS; i++) {
+        const id = newId();
+        all.add(id);
+        const number = i + 1;
+        insert.run(
+          id,
+          project.id,
+          project.key,
+          number,
+          `${project.key}-${number}`,
+          // 150 distinct titles, each shared by 4 rows.
+          `T${(i * 7) % 150}`,
+          // Few distinct values -> heavy ties exercise the id tiebreaker.
+          i % 5,
+          i % 7,
+          // Timestamps in 3-row ties, with updatedAt ordered differently.
+          new Date(base + Math.floor(i / 3) * 1000).toISOString(),
+          new Date(
+            base + Math.floor(((i * 11) % ROWS) / 3) * 1000,
+          ).toISOString(),
+        );
+      }
+    })();
+  });
+  afterAll(() => {
+    sqlite.close();
+  });
+
   for (const orderBy of [
     "updatedAt",
     "createdAt",
@@ -88,12 +140,6 @@ describe("pagination", () => {
   ] as const) {
     for (const order of ["asc", "desc"] as const) {
       it(`pages 600 rows without gaps or repeats (${orderBy} ${order})`, () => {
-        const { services, create } = setup();
-        const all = new Set<string>();
-        for (let i = 0; i < 600; i++) {
-          // Few distinct values -> heavy ties exercise the id tiebreaker.
-          all.add(create({ priority: i % 5, sortOrder: i % 7 }).id);
-        }
         const seen: string[] = [];
         let cursor: string | undefined;
         do {
@@ -106,7 +152,7 @@ describe("pagination", () => {
           seen.push(...page.items.map((i) => i.id));
           cursor = page.nextCursor ?? undefined;
         } while (cursor);
-        expect(seen).toHaveLength(600);
+        expect(seen).toHaveLength(ROWS);
         expect(new Set(seen)).toEqual(all);
       });
     }
