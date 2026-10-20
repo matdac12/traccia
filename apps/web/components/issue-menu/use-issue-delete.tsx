@@ -1,7 +1,8 @@
 "use client";
-import { Undo2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useRef, useState } from "react";
 import { deleteIssueAction, restoreIssueAction } from "@/app/(app)/issues/[identifier]/actions";
+import { UndoNotice } from "@/components/traccia/undo-notice";
 import { Button } from "@/components/ui/button";
 import type { ActionResult } from "@/lib/issue-detail/result";
 import type { IssueRow } from "@/lib/api/schemas";
@@ -56,11 +57,9 @@ export function useIssueDelete({ onRemove, onRestore, remove = deleteIssueAction
   const notice = (
     <>
       {states.map((state) => (
-        <div key={state.issue.id} role="status" className="flex shrink-0 items-center gap-2 border-b px-4 py-2 text-xs">
-          <span className="flex-1">{state.issue.identifier} moved to Trash.{state.error && <span role="alert" className="ml-2 text-destructive">Undo failed: {state.error}</span>}</span>
-          <Button type="button" size="sm" variant="outline" className="h-6 gap-1 text-xs" aria-label={`Undo delete of ${state.issue.identifier}`} onClick={() => void undo(state.issue)}><Undo2 className="size-3.5" />Undo</Button>
-          <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setStates((l) => without(l, state.issue))}><X className="size-3.5" /></Button>
-        </div>
+        <UndoNotice key={state.issue.id} error={state.error} undoLabel={`Undo delete of ${state.issue.identifier}`} onUndo={() => void undo(state.issue)} onDismiss={() => setStates((l) => without(l, state.issue))}>
+          {state.issue.identifier} moved to Trash.
+        </UndoNotice>
       ))}
       {failed && (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">
