@@ -30,7 +30,18 @@ export type QuickAddParse = {
 export const QUICK_ADD_REMINDER_NEEDS_DAY =
   "A Reminder needs a Planned day: remove anytime or the time.";
 
-const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+/** Weekday words (English and Italian, short and full, with and without the accent) → `Date.getUTCDay()` (0 = Sunday). */
+const WEEKDAYS: Record<string, number> = Object.fromEntries(
+  [
+    ["sun", "sunday", "dom", "domenica"],
+    ["mon", "monday", "lun", "lunedì", "lunedi"],
+    ["tue", "tuesday", "mar", "martedì", "martedi"],
+    ["wed", "wednesday", "mer", "mercoledì", "mercoledi"],
+    ["thu", "thursday", "gio", "giovedì", "giovedi"],
+    ["fri", "friday", "ven", "venerdì", "venerdi"],
+    ["sat", "saturday", "sab", "sabato"],
+  ].flatMap((words, index) => words.map((w) => [w, index] as const)),
+);
 
 /** A word of its own: not part of a longer word (`Monica`, `today's`, `sun-cream`) or a Project key (`@MON`). */
 const word = (pattern: string) =>
@@ -40,7 +51,7 @@ const word = (pattern: string) =>
   );
 
 const DAY_WORD = word(
-  `today|oggi|tomorrow|domani|anytime|${WEEKDAYS.join("|")}`,
+  `today|oggi|tomorrow|domani|anytime|${Object.keys(WEEKDAYS).join("|")}`,
 );
 
 /** `HH:MM` or `H:MM`, 0:00 to 23:59, not part of a longer time (`10:00:00`), range (`9:00-10:00`) or word (`3:15pm`). */
@@ -65,7 +76,7 @@ function dayFor(w: string, today: string): string | null {
   if (w === "today" || w === "oggi") return today;
   if (w === "tomorrow" || w === "domani") return addDays(today, 1);
   const weekday = atNoon(today).getUTCDay();
-  return addDays(today, (WEEKDAYS.indexOf(w) - weekday + 7) % 7 || 7);
+  return addDays(today, ((WEEKDAYS[w] as number) - weekday + 7) % 7 || 7);
 }
 
 /** `text` without the match; `parseQuickAdd` collapses the space it leaves. */
@@ -74,7 +85,7 @@ const withoutMatch = (text: string, m: RegExpMatchArray) =>
 
 /**
  * Quick add: "call Luca @CRM tomorrow 15:00" → title, Planned day, Reminder
- * time. Day words: today/oggi, tomorrow/domani, mon…sun (the next such day)
+ * time. Day words: today/oggi, tomorrow/domani, a weekday, English or Italian, short or full (mon/monday, lun/lunedì…: the next such day)
  * and anytime (no Planned day); times: `HH:MM`. `today` is today's date in the
  * Owner timezone.
  */

@@ -37,8 +37,44 @@ describe("parseQuickAdd: title, day and time", () => {
   });
 
   it("finds day words only as whole words, never inside another word or a Project key", () => {
-    expect(read("Sunday brunch with Monica", TODAY)).toEqual({ title: "Sunday brunch with Monica", day: null, time: null });
+    expect(read("Brunch with Monica", TODAY)).toEqual({ title: "Brunch with Monica", day: null, time: null });
     expect(read("Ship @MON release", TODAY)).toEqual({ title: "Ship @MON release", day: null, time: null });
+  });
+
+  // Today is a Saturday (2026-10-17), so the week runs: sun 18, mon 19, tue 20, wed 21, thu 22, fri 23, sat 24.
+  it.each([
+    ["sunday", "2026-10-18"], ["dom", "2026-10-18"], ["domenica", "2026-10-18"],
+    ["monday", "2026-10-19"], ["lun", "2026-10-19"], ["lunedì", "2026-10-19"], ["lunedi", "2026-10-19"],
+    ["tue", "2026-10-20"], ["tuesday", "2026-10-20"], ["mar", "2026-10-20"], ["martedì", "2026-10-20"], ["martedi", "2026-10-20"],
+    ["wednesday", "2026-10-21"], ["mer", "2026-10-21"], ["mercoledì", "2026-10-21"], ["mercoledi", "2026-10-21"],
+    ["thu", "2026-10-22"], ["thursday", "2026-10-22"], ["gio", "2026-10-22"], ["giovedì", "2026-10-22"], ["giovedi", "2026-10-22"],
+    ["friday", "2026-10-23"], ["ven", "2026-10-23"], ["venerdì", "2026-10-23"], ["venerdi", "2026-10-23"],
+    ["saturday", "2026-10-24"], ["sab", "2026-10-24"], ["sabato", "2026-10-24"],
+  ])("reads the weekday word %s as the next such day", (word, day) => {
+    expect(read(`Gym ${word}`, TODAY)).toEqual({ title: "Gym", day, time: null });
+  });
+
+  it.each([
+    ["Monday", "2026-10-19"],
+    ["MONDAY", "2026-10-19"],
+    ["Lunedì", "2026-10-19"],
+    ["LUNEDÌ", "2026-10-19"],
+    ["LUNEDI", "2026-10-19"],
+    ["DOM", "2026-10-18"],
+  ])("reads the weekday word %s in any case", (word, day) => {
+    expect(read(`Gym ${word}`, TODAY)).toEqual({ title: "Gym", day, time: null });
+  });
+
+  it("matches weekday words as whole words only", () => {
+    for (const title of ["Mondays are slow", "Gym lunedìsera", "Call lunedìs", "Visit domenicano", "Ship @LUN", "non-monday", "monday's plan", "Fix sabotage", "Pay 12.50"]) {
+      expect(parseQuickAdd(title, TODAY)).toEqual({ title, day: null, time: null, dayTyped: false, timeTyped: false, error: null });
+    }
+  });
+
+  it("takes the last weekday word when several are typed, in either language", () => {
+    expect(read("Move monday meeting to friday", TODAY)).toEqual({ title: "Move monday meeting to", day: "2026-10-23", time: null });
+    expect(read("Sposta lunedì a venerdì", TODAY)).toEqual({ title: "Sposta lunedì a", day: "2026-10-23", time: null });
+    expect(read("Gym friday tomorrow lunedì", TODAY)).toEqual({ title: "Gym friday tomorrow", day: "2026-10-19", time: null });
   });
 
   it("reads HH:MM as the Reminder time, on today when no day is typed", () => {
@@ -154,8 +190,8 @@ describe("withoutQuickAddWords", () => {
     expect(parseQuickAdd(withoutQuickAddWords("Gym 18:30", "time"), TODAY).timeTyped).toBe(false);
   });
 
-  it("leaves words that only look like them: Monica, @MON, sunday, 10:00:00, 3:15pm", () => {
-    expect(withoutQuickAddWords("Monica @MON sunday", "day")).toBe("Monica @MON sunday");
+  it("leaves words that only look like them: Monica, @MON, sundays, 10:00:00, 3:15pm", () => {
+    expect(withoutQuickAddWords("Monica @MON sundays", "day")).toBe("Monica @MON sundays");
     expect(withoutQuickAddWords("Log 10:00:00 at 3:15pm", "time")).toBe("Log 10:00:00 at 3:15pm");
   });
 });
