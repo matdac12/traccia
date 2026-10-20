@@ -32,7 +32,12 @@ describe("project tabs", () => {
   });
 
   it("selects Overview by default and the matching tab on the sub-routes", () => {
-    for (const [p, name] of [["/projects/p1", "Overview"], ["/projects/p1/activity", "Activity"], ["/projects/p1/issues", "Issues"], ["/projects/p1/documentation/files", "Documentation"]] as const) {
+    for (const [p, name] of [
+      ["/projects/p1", "Overview"],
+      ["/projects/p1/activity", "Activity"],
+      ["/projects/p1/issues", "Issues"],
+      ["/projects/p1/documentation/files", "Documentation"],
+    ] as const) {
       path = p;
       const { unmount } = render(<ProjectTabs projectId="p1" />);
       expect(screen.getByRole("link", { current: "page" })).toHaveTextContent(name);

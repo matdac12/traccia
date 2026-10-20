@@ -24,8 +24,7 @@ describe("parseEnv", () => {
       }
     })();
     expect(err).toBeInstanceOf(EnvError);
-    for (const name of ["TRACCIA_API_URL", "TRACCIA_API_TOKEN", "DASHBOARD_ALLOWED_LOGINS"])
-      expect(err?.message).toContain(name);
+    for (const name of ["TRACCIA_API_URL", "TRACCIA_API_TOKEN", "DASHBOARD_ALLOWED_LOGINS"]) expect(err?.message).toContain(name);
   });
   it("treats empty strings as unset (compose passes empty defaults)", () => {
     expect(() => parseEnv({ ...base, TRACCIA_API_TOKEN: "" })).toThrow(/TRACCIA_API_TOKEN/);

@@ -21,7 +21,7 @@ export function MentionInput({
   onBlur,
   onFocus,
   ...props
-}: InputProps & { value: string; onValueChange: (value: string) => void; /** On the input; `className` is on the wrapper the list hangs from. */ inputClassName?: string }) {
+}: InputProps & { value: string; onValueChange: (value: string) => void /** On the input; `className` is on the wrapper the list hangs from. */; inputClassName?: string }) {
   const projects = useProjectOptions();
   const ref = useRef<HTMLInputElement>(null);
   // Where the caret goes once the value with an inserted key has rendered.

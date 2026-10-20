@@ -47,7 +47,9 @@ function NavItem({ href, icon, children, active, label, collapsed }: { href: str
           active && "bg-sidebar-accent text-sidebar-accent-foreground",
         )}
       >
-        <span aria-hidden className="grid size-4 place-items-center text-muted-foreground">{icon}</span>
+        <span aria-hidden className="grid size-4 place-items-center text-muted-foreground">
+          {icon}
+        </span>
         <span className="flex-1 truncate group-data-[collapsed=true]:sr-only">{children}</span>
       </Link>
     </RailTip>
@@ -113,7 +115,9 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
                 <PanelLeftClose className="size-4 group-data-[collapsed=true]:hidden" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side={collapsed ? "right" : "bottom"}>{toggleLabel} <kbd className="ml-1 font-mono text-[10px] opacity-70">⌘B</kbd></TooltipContent>
+            <TooltipContent side={collapsed ? "right" : "bottom"}>
+              {toggleLabel} <kbd className="ml-1 font-mono text-[10px] opacity-70">⌘B</kbd>
+            </TooltipContent>
           </Tooltip>
         ) : null}
       </div>
@@ -124,19 +128,34 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
             onClick={() => createIssue.open({ projectId: current?.id })}
             className="mb-1 flex h-7 w-full items-center gap-2 rounded-md px-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-0"
           >
-            <span className="grid size-4 place-items-center text-muted-foreground"><Plus className="size-3.5" /></span>
+            <span className="grid size-4 place-items-center text-muted-foreground">
+              <Plus className="size-3.5" />
+            </span>
             <span className="flex-1 text-left group-data-[collapsed=true]:sr-only">New issue</span>
             <kbd className="rounded border bg-muted px-1 font-mono text-[10px] text-muted-foreground group-data-[collapsed=true]:hidden">C</kbd>
           </button>
         </RailTip>
-        <NavItem href="/personal" icon={<Sun className="size-3.5" />} active={path.startsWith("/personal")} label="Personal" collapsed={collapsed}>Personal</NavItem>
-        <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")} label="Issues" collapsed={collapsed}>Issues</NavItem>
-        <NavItem href="/settings" icon={<Settings className="size-3.5" />} active={path === "/settings"} label="Settings" collapsed={collapsed}>Settings</NavItem>
-        <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"} label="Trash" collapsed={collapsed}>Trash</NavItem>
+        <NavItem href="/personal" icon={<Sun className="size-3.5" />} active={path.startsWith("/personal")} label="Personal" collapsed={collapsed}>
+          Personal
+        </NavItem>
+        <NavItem href="/issues" icon={<ListTodo className="size-3.5" />} active={path.startsWith("/issues")} label="Issues" collapsed={collapsed}>
+          Issues
+        </NavItem>
+        <NavItem href="/settings" icon={<Settings className="size-3.5" />} active={path === "/settings"} label="Settings" collapsed={collapsed}>
+          Settings
+        </NavItem>
+        <NavItem href="/trash" icon={<Trash2 className="size-3.5" />} active={path === "/trash"} label="Trash" collapsed={collapsed}>
+          Trash
+        </NavItem>
         <div className="flex items-center justify-between pb-1 pt-4 group-data-[collapsed=true]:mt-2 group-data-[collapsed=true]:flex-col group-data-[collapsed=true]:gap-1 group-data-[collapsed=true]:border-t group-data-[collapsed=true]:border-sidebar-border group-data-[collapsed=true]:pt-2">
-          <Link href="/projects" className="px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground group-data-[collapsed=true]:hidden">Projects</Link>
+          <Link href="/projects" className="px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground group-data-[collapsed=true]:hidden">
+            Projects
+          </Link>
           <RailTip label="New project" show={collapsed}>
-            <NewProjectButton size="icon" variant="ghost" className="size-5 text-muted-foreground"><Plus className="size-3.5" /><span className="sr-only">New project</span></NewProjectButton>
+            <NewProjectButton size="icon" variant="ghost" className="size-5 text-muted-foreground">
+              <Plus className="size-3.5" />
+              <span className="sr-only">New project</span>
+            </NewProjectButton>
           </RailTip>
         </div>
         {projectsUnavailable ? (
@@ -159,7 +178,9 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
             icon={
               <>
                 <span className="size-2.5 rounded-[3px] bg-muted-foreground/50 group-data-[collapsed=true]:hidden" />
-                <span className="hidden size-5 place-items-center rounded-[5px] bg-muted-foreground/15 text-[10px] font-semibold uppercase text-sidebar-foreground group-data-[collapsed=true]:grid">{p.name.charAt(0)}</span>
+                <span className="hidden size-5 place-items-center rounded-[5px] bg-muted-foreground/15 text-[10px] font-semibold uppercase text-sidebar-foreground group-data-[collapsed=true]:grid">
+                  {p.name.charAt(0)}
+                </span>
               </>
             }
           >
@@ -169,8 +190,12 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
       </nav>
       <div className="space-y-2 border-t border-sidebar-border p-2">
         <div className="flex items-center gap-2 px-1 group-data-[collapsed=true]:flex-col group-data-[collapsed=true]:px-0">
-          <div className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold uppercase text-primary" title={login}>{login.charAt(0)}</div>
-          <span className="truncate text-[12px] text-sidebar-foreground group-data-[collapsed=true]:sr-only" title={login}>{login}</span>
+          <div className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/15 text-[10px] font-semibold uppercase text-primary" title={login}>
+            {login.charAt(0)}
+          </div>
+          <span className="truncate text-[12px] text-sidebar-foreground group-data-[collapsed=true]:sr-only" title={login}>
+            {login}
+          </span>
           <ThemeToggle />
         </div>
       </div>
@@ -178,7 +203,19 @@ function SidebarContent({ projects, projectsUnavailable, login, collapsed = fals
   );
 }
 
-export function AppShell({ projects, projectsUnavailable = false, login, defaultCollapsed = false, children }: { projects: ShellProject[]; projectsUnavailable?: boolean; login: string; /** From the cookie, read on the server, so the first paint already has the right width. */ defaultCollapsed?: boolean; children: ReactNode }) {
+export function AppShell({
+  projects,
+  projectsUnavailable = false,
+  login,
+  defaultCollapsed = false,
+  children,
+}: {
+  projects: ShellProject[];
+  projectsUnavailable?: boolean;
+  login: string /** From the cookie, read on the server, so the first paint already has the right width. */;
+  defaultCollapsed?: boolean;
+  children: ReactNode;
+}) {
   const path = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const desktop = useMediaQuery("(min-width: 768px)");
@@ -229,35 +266,40 @@ export function AppShell({ projects, projectsUnavailable = false, login, default
 
   return (
     <TooltipProvider delayDuration={300}>
-    <div className="flex h-dvh flex-col overflow-hidden md:flex-row">
-      <aside
-        data-collapsed={collapsed}
-        className={cn("group hidden shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex", collapsed ? "w-12" : "w-[232px]")}
-      >
-        <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} collapsed={collapsed} onToggle={toggleCollapsed} />
-      </aside>
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-2 md:hidden">
-        <button type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="grid size-9 place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent"><Menu className="size-5" /></button>
-        <TracciaMark className="size-6 shrink-0" />
-        <span className="text-[13px] font-medium">Traccia</span>
-      </div>
-      <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DialogContent
-          aria-describedby={undefined}
-          className="inset-y-0 left-0 top-0 flex h-dvh w-[85vw] max-w-[280px] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 border-r border-sidebar-border bg-sidebar p-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-[280px] md:hidden"
-          showCloseButton={false}
+      <div className="flex h-dvh flex-col overflow-hidden md:flex-row">
+        <aside
+          data-collapsed={collapsed}
+          className={cn(
+            "group hidden shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
+            collapsed ? "w-12" : "w-[232px]",
+          )}
         >
-          <DialogTitle className="sr-only">Menu</DialogTitle>
-          <div ref={setDrawerBody} className="flex min-h-0 flex-1 flex-col">
-            <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
-          </div>
-        </DialogContent>
-      </Dialog>
-      <main className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
-        <AppBackground />
-        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
-      </main>
-    </div>
+          <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} collapsed={collapsed} onToggle={toggleCollapsed} />
+        </aside>
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-2 md:hidden">
+          <button type="button" aria-label="Open menu" onClick={() => setDrawerOpen(true)} className="grid size-9 place-items-center rounded-md text-sidebar-foreground hover:bg-sidebar-accent">
+            <Menu className="size-5" />
+          </button>
+          <TracciaMark className="size-6 shrink-0" />
+          <span className="text-[13px] font-medium">Traccia</span>
+        </div>
+        <Dialog open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DialogContent
+            aria-describedby={undefined}
+            className="inset-y-0 left-0 top-0 flex h-dvh w-[85vw] max-w-[280px] translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 border-r border-sidebar-border bg-sidebar p-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:zoom-out-100 data-[state=open]:zoom-in-100 sm:max-w-[280px] md:hidden"
+            showCloseButton={false}
+          >
+            <DialogTitle className="sr-only">Menu</DialogTitle>
+            <div ref={setDrawerBody} className="flex min-h-0 flex-1 flex-col">
+              <SidebarContent projects={projects} projectsUnavailable={projectsUnavailable} login={login} />
+            </div>
+          </DialogContent>
+        </Dialog>
+        <main className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+          <AppBackground />
+          <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        </main>
+      </div>
     </TooltipProvider>
   );
 }

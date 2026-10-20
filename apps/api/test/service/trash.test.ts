@@ -598,7 +598,8 @@ describe("to-dos", () => {
   type Setup = Awaited<ReturnType<typeof setup>>;
   const todoRow = (s: Setup, id: string) =>
     s.db.select().from(todos).where(eq(todos.id, id)).get();
-  const refCount = (s: Setup) => s.db.select().from(todoReferences).all().length;
+  const refCount = (s: Setup) =>
+    s.db.select().from(todoReferences).all().length;
   afterEach(() => vi.useRealTimers());
 
   /** A parent and two Sub-to-dos; the parent and one Sub-to-do name the Project. */

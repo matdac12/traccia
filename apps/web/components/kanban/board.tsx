@@ -1,8 +1,5 @@
 "use client";
-import {
-  closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors,
-  type DragEndEvent, type DragOverEvent, type DragStartEvent,
-} from "@dnd-kit/core";
+import { closestCorners, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ISSUE_STATUSES, type IssueStatus } from "@traccia/shared";
@@ -23,9 +20,7 @@ import { STATUS_LABEL, StatusIcon } from "@/components/traccia/atoms";
 import { Button } from "@/components/ui/button";
 import type { IssueRow, Label, Milestone, Project } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
-import {
-  applyServerIssue, findCard, moveCard, moveErrorMessage, planMove, type BoardColumn, type MoveRequest, type MoveResult,
-} from "./board-model";
+import { applyServerIssue, findCard, moveCard, moveErrorMessage, planMove, type BoardColumn, type MoveRequest, type MoveResult } from "./board-model";
 
 export type BoardProps = {
   columns: BoardColumn[];
@@ -72,7 +67,10 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
   /** Moves in flight; a new drag waits for them so a failed move can be undone on its own. */
   const inFlight = useRef(0);
   const current = useRef(columns);
-  const commit = useCallback((next: BoardColumn[]) => { current.current = next; setColumns(next); }, []);
+  const commit = useCallback((next: BoardColumn[]) => {
+    current.current = next;
+    setColumns(next);
+  }, []);
   const inline = useInlineEdit({ onRow: (row) => commit(upsertRow(current.current, row)) });
   const editor: InlineEditor = { edit: inline.edit, labels };
   const del = useIssueDelete({ onRemove: (row) => commit(removeRow(current.current, row.id)), onRestore: (row) => commit(insertRow(current.current, row)) });
@@ -91,13 +89,10 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     return () => register?.(null);
   }, [register, commit, inline.pending, del.pending]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
   const statusOf = (id: string | number): IssueStatus | null =>
-    (ISSUE_STATUSES as readonly string[]).includes(String(id)) ? (id as IssueStatus) : findCard(current.current, String(id))?.status ?? null;
+    (ISSUE_STATUSES as readonly string[]).includes(String(id)) ? (id as IssueStatus) : (findCard(current.current, String(id))?.status ?? null);
 
   const onStart = (e: DragStartEvent) => {
     if (inFlight.current > 0) return;
@@ -149,7 +144,10 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
       try {
         const result = await move(request);
         if (result.ok) commit(applyServerIssue(current.current, result.issue));
-        else { undo(); setError(moveErrorMessage(request.identifier, result.code, result.message)); }
+        else {
+          undo();
+          setError(moveErrorMessage(request.identifier, result.code, result.message));
+        }
       } catch {
         undo();
         setError(moveErrorMessage(request.identifier, "unreachable", "network error"));
@@ -167,15 +165,21 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
     startTransition(async () => {
       try {
         const page = await loadMore({ query, status: column.status, cursor });
-        commit(current.current.map((c) => {
-          if (c.status !== column.status) return c;
-          const known = new Set(c.items.map((i) => i.id));
-          return { ...c, items: [...c.items, ...page.items.filter((i) => !known.has(i.id))], nextCursor: page.nextCursor };
-        }));
+        commit(
+          current.current.map((c) => {
+            if (c.status !== column.status) return c;
+            const known = new Set(c.items.map((i) => i.id));
+            return { ...c, items: [...c.items, ...page.items.filter((i) => !known.has(i.id))], nextCursor: page.nextCursor };
+          }),
+        );
       } catch {
         setError(`Could not load more ${STATUS_LABEL[column.status].toLowerCase()} issues.`);
       } finally {
-        setLoading((l) => { const n = new Set(l); n.delete(column.status); return n; });
+        setLoading((l) => {
+          const n = new Set(l);
+          n.delete(column.status);
+          return n;
+        });
       }
     });
   };
@@ -185,7 +189,9 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
       {error && (
         <div role="alert" className="flex shrink-0 items-center gap-2 border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">
           <span className="flex-1">{error}</span>
-          <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setError(null)}><X className="size-3.5" /></Button>
+          <Button type="button" variant="ghost" size="icon" className="size-5" aria-label="Dismiss" onClick={() => setError(null)}>
+            <X className="size-3.5" />
+          </Button>
         </div>
       )}
       {inline.notice && <InlineEditNotice notice={inline.notice} onDismiss={inline.dismiss} />}
@@ -197,11 +203,25 @@ export function Board({ columns: initial, query, move = moveBoardIssue, loadMore
         onDragStart={onStart}
         onDragOver={onOver}
         onDragEnd={onEnd}
-        onDragCancel={() => { if (snapshot.current && active) restore(snapshot.current, active.id); setActive(null); snapshot.current = null; }}
+        onDragCancel={() => {
+          if (snapshot.current && active) restore(snapshot.current, active.id);
+          setActive(null);
+          snapshot.current = null;
+        }}
       >
         <div className="relative min-h-0 flex-1">
           <div ref={scroller} onScroll={measure} className="flex h-full gap-3 overflow-x-auto p-4">
-            {columns.map((c) => <Column key={c.status} column={c} editor={editor} menu={menu} loading={loading.has(c.status)} onMore={() => more(c)} onAdd={creator ? () => creator.open({ status: c.status, ...(projectId ? { projectId } : {}) }) : undefined} />)}
+            {columns.map((c) => (
+              <Column
+                key={c.status}
+                column={c}
+                editor={editor}
+                menu={menu}
+                loading={loading.has(c.status)}
+                onMore={() => more(c)}
+                onAdd={creator ? () => creator.open({ status: c.status, ...(projectId ? { projectId } : {}) }) : undefined}
+              />
+            ))}
           </div>
           {hiddenRight && <div aria-hidden data-testid="board-fade" className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent" />}
         </div>
@@ -218,16 +238,24 @@ function Column({ column, editor, menu, loading, onMore, onAdd }: { column: Boar
       <h2 className="m-0 mb-2 flex items-center gap-2 px-1 text-[13px] font-medium">
         <StatusIcon status={column.status} />
         <span>{STATUS_LABEL[column.status]}</span>
-        <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${column.status}`}>{column.items.length}{column.nextCursor ? "+" : ""}</span>
+        <span className="text-xs font-normal text-muted-foreground" data-testid={`count-${column.status}`}>
+          {column.items.length}
+          {column.nextCursor ? "+" : ""}
+        </span>
         {onAdd && (
           <Button type="button" variant="ghost" size="icon" className="ml-auto size-5 text-muted-foreground" aria-label={`New ${STATUS_LABEL[column.status].toLowerCase()} issue`} onClick={onAdd}>
             <Plus className="size-3.5" />
           </Button>
         )}
       </h2>
-      <div ref={setNodeRef} className={cn("flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-transparent bg-surface p-1.5 transition-colors", isOver && "border-primary/40 bg-primary/5")}>
+      <div
+        ref={setNodeRef}
+        className={cn("flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border border-transparent bg-surface p-1.5 transition-colors", isOver && "border-primary/40 bg-primary/5")}
+      >
         <SortableContext items={column.items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-          {column.items.map((i) => <SortableCard key={i.id} issue={i} editor={editor} menu={menu} />)}
+          {column.items.map((i) => (
+            <SortableCard key={i.id} issue={i} editor={editor} menu={menu} />
+          ))}
         </SortableContext>
         {column.items.length === 0 && <p className="m-auto py-4 text-xs text-muted-foreground">No issues</p>}
         {column.nextCursor && (
@@ -248,8 +276,13 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
   const dragged = useRef(false);
   const node = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (isDragging) { dragged.current = true; return; }
-    const t = setTimeout(() => { dragged.current = false; }, 0);
+    if (isDragging) {
+      dragged.current = true;
+      return;
+    }
+    const t = setTimeout(() => {
+      dragged.current = false;
+    }, 0);
     return () => clearTimeout(t);
   }, [isDragging]);
   // The whole card opens the issue, except its own controls. Menus and pickers render in portals, whose events
@@ -268,10 +301,22 @@ function SortableCard({ issue, editor, menu }: { issue: IssueRow; editor: Inline
     el.addEventListener("click", open);
     return () => el.removeEventListener("click", open);
   }, [issue.identifier, router]);
-  const setRef = useCallback((el: HTMLDivElement | null) => { node.current = el; setNodeRef(el); }, [setNodeRef]);
+  const setRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      node.current = el;
+      setNodeRef(el);
+    },
+    [setNodeRef],
+  );
   return (
     <IssueContextMenu issue={issue} menu={menu}>
-      <div ref={setRef} style={{ transform: CSS.Transform.toString(transform), transition }} {...attributes} {...listeners} className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring">
+      <div
+        ref={setRef}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+        {...attributes}
+        {...listeners}
+        className="group select-none outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
+      >
         <Card issue={issue} editor={editor} dragging={isDragging} showMenuButton />
       </div>
     </IssueContextMenu>
@@ -283,7 +328,9 @@ const INERT: InlineEditor = { edit: () => {}, labels: [] };
 
 function Card({ issue, editor, dragging, overlay, showMenuButton }: { issue: IssueRow; editor: InlineEditor; dragging?: boolean; overlay?: boolean; showMenuButton?: boolean }) {
   return (
-    <div className={cn("cursor-grab rounded-lg border bg-card p-2.5 shadow-sm transition-colors hover:border-foreground/20", dragging && "opacity-30", overlay && "rotate-1 cursor-grabbing shadow-xl")}>
+    <div
+      className={cn("cursor-grab rounded-lg border bg-card p-2.5 shadow-sm transition-colors hover:border-foreground/20", dragging && "opacity-30", overlay && "rotate-1 cursor-grabbing shadow-xl")}
+    >
       <div className="mb-1.5 flex items-center justify-between">
         <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
           <StatusPicker issue={issue} editor={editor} />
@@ -294,7 +341,9 @@ function Card({ issue, editor, dragging, overlay, showMenuButton }: { issue: Iss
           <AssigneePicker issue={issue} editor={editor} size={16} />
         </span>
       </div>
-      <Link href={`/issues/${issue.identifier}`} draggable={false} className="line-clamp-2 text-[13px] leading-snug hover:underline">{issue.title}</Link>
+      <Link href={`/issues/${issue.identifier}`} draggable={false} className="line-clamp-2 text-[13px] leading-snug hover:underline">
+        {issue.title}
+      </Link>
       <div className="mt-2 flex items-center gap-1.5">
         <PriorityPicker issue={issue} editor={editor} />
         <LabelsPicker issue={issue} editor={editor} />

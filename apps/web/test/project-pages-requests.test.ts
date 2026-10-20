@@ -7,7 +7,11 @@ vi.mock("../lib/api/client", async (orig) => {
   const client = mod.createApiClient({ baseUrl: "http://api", token: "t", fetch: ((...a: unknown[]) => fetchMock(...a)) as never });
   return { ...mod, api: () => client };
 });
-vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NEXT_NOT_FOUND"); } }));
+vi.mock("next/navigation", () => ({
+  notFound: () => {
+    throw new Error("NEXT_NOT_FOUND");
+  },
+}));
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const project = { id: "p1", key: "K", name: "P", description: "d", status: "active", createdBy: "you", createdAt: "a", updatedAt: "a" };
@@ -35,14 +39,18 @@ describe("project pages", () => {
   it("Overview loads the project, milestones and labels, and no issues", async () => {
     const { default: Page } = await import("../app/(app)/projects/[id]/page");
     await Page({ params: Promise.resolve({ id: "p1" }) });
-    const paths = urls().map((u) => u.pathname).sort();
+    const paths = urls()
+      .map((u) => u.pathname)
+      .sort();
     expect(paths).toEqual(["/v1/labels", "/v1/projects/p1", "/v1/projects/p1/milestones"]);
   });
 
   it("Activity asks for the activity feed of this project only, and reuses the project list's milestones", async () => {
     const { default: Page } = await import("../app/(app)/projects/[id]/activity/page");
     await Page({ params: Promise.resolve({ id: "p1" }) });
-    const paths = urls().map((u) => u.pathname).sort();
+    const paths = urls()
+      .map((u) => u.pathname)
+      .sort();
     // The feed, the project itself and the shared project list; no separate milestones call (TRC-107).
     expect(paths).toEqual(["/v1/activity", "/v1/projects", "/v1/projects/p1"]);
     const feed = urls().find((u) => u.pathname === "/v1/activity");
@@ -52,7 +60,9 @@ describe("project pages", () => {
   it("Issues is scoped to the project whatever ?project= says, keeps the filters, and skips a milestones call", async () => {
     const { default: Page } = await import("../app/(app)/projects/[id]/issues/page");
     await Page({ params: Promise.resolve({ id: "p1" }), searchParams: Promise.resolve({ project: "other", status: "todo" }) });
-    const paths = urls().map((u) => u.pathname).sort();
+    const paths = urls()
+      .map((u) => u.pathname)
+      .sort();
     expect(paths).toEqual(["/v1/issues/groups", "/v1/labels", "/v1/projects", "/v1/projects/p1"]);
     const groups = urls().find((u) => u.pathname === "/v1/issues/groups");
     expect(groups?.searchParams.get("project")).toBe("p1");
@@ -69,7 +79,11 @@ describe("project pages", () => {
     });
     const { default: Page } = await import("../app/(app)/projects/[id]/activity/page");
     await Page({ params: Promise.resolve({ id: "K" }) });
-    expect(urls().find((u) => u.pathname === "/v1/activity")?.searchParams.get("project")).toBe("K");
+    expect(
+      urls()
+        .find((u) => u.pathname === "/v1/activity")
+        ?.searchParams.get("project"),
+    ).toBe("K");
   });
 
   it("an unknown project is a 404 on every tab", async () => {

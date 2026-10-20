@@ -356,7 +356,9 @@ describe("drag to reorder", () => {
     await user.keyboard("{ArrowDown}");
     await user.keyboard(" ");
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(a.id, { afterId: b.id }));
-    const order = within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"));
+    const order = within(section(/^Today/))
+      .getAllByRole("listitem")
+      .map((li) => li.getAttribute("data-todo-id"));
     expect(order).toEqual([b.id, a.id, c.id]);
   });
 
@@ -370,7 +372,11 @@ describe("drag to reorder", () => {
     await user.keyboard(" ");
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalled());
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't reorder it. Must be in the same bucket");
-    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id]);
+    expect(
+      within(section(/^Today/))
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("data-todo-id")),
+    ).toEqual([a.id, b.id]);
   });
 
   it("keeps today's Sub-to-dos in a block after the top-level rows, so the top-level rows drag among themselves", async () => {
@@ -381,15 +387,27 @@ describe("drag to reorder", () => {
     moveTodoAction.mockImplementation(hang);
     const { user } = setup(page([parent, sub, a, b]));
     // Position can't be compared across buckets: the Sub-to-do's 1 doesn't put it first.
-    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([a.id, b.id, sub.id]);
-    expect(within(section(/^Today/)).getByRole("button", { name: "Open “Buy tiles”" }).closest("li")).toHaveTextContent("Kitchen ›");
+    expect(
+      within(section(/^Today/))
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("data-todo-id")),
+    ).toEqual([a.id, b.id, sub.id]);
+    expect(
+      within(section(/^Today/))
+        .getByRole("button", { name: "Open “Buy tiles”" })
+        .closest("li"),
+    ).toHaveTextContent("Kitchen ›");
     screen.getByRole("button", { name: "Reorder “Alpha”" }).focus();
     await user.keyboard(" ");
     await user.keyboard("{ArrowDown}");
     await user.keyboard(" ");
     await waitFor(() => expect(moveTodoAction).toHaveBeenCalledWith(a.id, { afterId: b.id }));
     // Dragged past the end of its block, the row lands where it was released: the Sub-to-do's block doesn't count.
-    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([b.id, a.id, sub.id]);
+    expect(
+      within(section(/^Today/))
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("data-todo-id")),
+    ).toEqual([b.id, a.id, sub.id]);
   });
 
   it("drags a Sub-to-do among its own parent's, in a block of its own", async () => {
@@ -400,7 +418,11 @@ describe("drag to reorder", () => {
     moveTodoAction.mockImplementation(hang);
     const { user } = setup(page([p2, p1, s3, s2, s1]));
     // By parent (Kitchen, then Garden), each parent's by Position.
-    expect(within(section(/^Today/)).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"))).toEqual([s1.id, s2.id, s3.id]);
+    expect(
+      within(section(/^Today/))
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("data-todo-id")),
+    ).toEqual([s1.id, s2.id, s3.id]);
     screen.getByRole("button", { name: "Reorder “Buy tiles”" }).focus();
     await user.keyboard(" ");
     await user.keyboard("{ArrowDown}");
@@ -409,7 +431,10 @@ describe("drag to reorder", () => {
   });
 
   describe("Move up and Move down in the … menu", () => {
-    const items = (section: HTMLElement) => within(section).getAllByRole("listitem").map((li) => li.getAttribute("data-todo-id"));
+    const items = (section: HTMLElement) =>
+      within(section)
+        .getAllByRole("listitem")
+        .map((li) => li.getAttribute("data-todo-id"));
     const openMenu = async (user: ReturnType<typeof userEvent.setup>, title: string) => {
       await user.click(screen.getByRole("button", { name: `Actions for ${title}` }));
       await screen.findByRole("menu");

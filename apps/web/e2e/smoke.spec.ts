@@ -20,7 +20,10 @@ async function clickUntil(click: () => Promise<void>, done: () => Promise<boolea
 /** Opens the issue's Status menu and picks `label`. */
 async function pickStatus(page: Page, label: string) {
   const item = page.getByRole("menuitem", { name: label });
-  await clickUntil(() => page.getByRole("button", { name: "Status" }).click(), () => item.isVisible());
+  await clickUntil(
+    () => page.getByRole("button", { name: "Status" }).click(),
+    () => item.isVisible(),
+  );
   await item.click();
 }
 
@@ -130,16 +133,16 @@ test("changing the status in the issue detail persists", async ({ page }) => {
   await visit(page, `/issues/${issue.identifier}`);
   await pickStatus(page, "Done");
   await expect(page.getByRole("button", { name: "Status" })).toContainText("Done");
-  await expect
-    .poll(async () => (await api.get<{ status: string }>(`/issues/${issue.identifier}`)).status)
-    .toBe("done");
+  await expect.poll(async () => (await api.get<{ status: string }>(`/issues/${issue.identifier}`)).status).toBe("done");
 });
 
 test("the issue detail Back button returns to the filtered list without a reload", async ({ page }) => {
   const issue = await createIssue(api, projectId, unique("Back to list"), "todo");
   const listUrl = "/issues?view=kanban&status=todo";
   await visit(page, listUrl);
-  await page.evaluate(() => { (window as unknown as { __noReload: boolean }).__noReload = true; });
+  await page.evaluate(() => {
+    (window as unknown as { __noReload: boolean }).__noReload = true;
+  });
   await page.getByRole("link", { name: issue.title }).click();
   await expect(page.getByLabel("Title")).toHaveValue(issue.title);
   await page.getByRole("link", { name: "Back" }).click();
@@ -199,9 +202,7 @@ test("dragging a card across Kanban columns persists after reload", async ({ pag
   await page.mouse.move(to.x + to.width / 2, to.y + 60, { steps: 20 });
   await page.mouse.up();
   await expect(target.getByRole("link", { name: issue.title })).toBeVisible();
-  await expect
-    .poll(async () => (await api.get<{ status: string }>(`/issues/${issue.identifier}`)).status)
-    .toBe("in_progress");
+  await expect.poll(async () => (await api.get<{ status: string }>(`/issues/${issue.identifier}`)).status).toBe("in_progress");
   await page.reload();
   await expect(page.getByRole("region", { name: "In Progress" }).getByRole("link", { name: issue.title })).toBeVisible();
 });
@@ -223,7 +224,10 @@ test("deleting an issue moves it to Trash and Restore brings it back", async ({ 
   const issue = await createIssue(api, projectId, unique("Delete and restore"));
   await visit(page, `/issues/${issue.identifier}`);
   const del = page.getByRole("button", { name: "Delete", exact: true });
-  await clickUntil(() => del.click(), () => page.getByText("Move to Trash?").isVisible());
+  await clickUntil(
+    () => del.click(),
+    () => page.getByText("Move to Trash?").isVisible(),
+  );
   await del.click();
   await expect(page.getByRole("status").filter({ hasText: "moved to Trash" })).toBeVisible();
 
@@ -233,7 +237,14 @@ test("deleting an issue moves it to Trash and Restore brings it back", async ({ 
   await row.getByRole("button", { name: "Restore" }).click();
   await expect(row).toHaveCount(0);
   // The row leaves the list before the restore lands; wait until the API serves the issue again.
-  await expect.poll(() => api.get(`/issues/${issue.identifier}`).then(() => 200, () => 404)).toBe(200);
+  await expect
+    .poll(() =>
+      api.get(`/issues/${issue.identifier}`).then(
+        () => 200,
+        () => 404,
+      ),
+    )
+    .toBe(200);
   await visit(page, `/issues/${issue.identifier}`);
   // Next may briefly retain the outgoing editor during navigation; wait for the destination to settle.
   await expect(page.getByLabel("Title")).toHaveCount(1);
@@ -281,7 +292,9 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(page.getByRole("heading", { name: "Issues" })).toBeVisible();
     await expect(page.locator("html")).toHaveClass(scheme === "dark" ? /dark/ : /^((?!dark).)*$/);
     const luminance = await page.evaluate(() => {
-      const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g)!.map(Number);
+      const [r, g, b] = getComputedStyle(document.body)
+        .backgroundColor.match(/\d+(\.\d+)?/g)!
+        .map(Number);
       return (0.2126 * r! + 0.7152 * g! + 0.0722 * b!) / 255;
     });
     // Visual smoke: the page is light on light and dark on dark, not a pixel comparison.

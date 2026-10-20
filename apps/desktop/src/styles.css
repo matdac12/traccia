@@ -7,13 +7,15 @@
 
 @font-face {
   font-family: "Geist";
-  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+  src: url("../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2")
+    format("woff2");
   font-weight: 100 900;
   font-display: block;
 }
 @font-face {
   font-family: "Geist Mono";
-  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2") format("woff2");
+  src: url("../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2")
+    format("woff2");
   font-weight: 100 900;
   font-display: block;
 }
@@ -23,10 +25,21 @@
   --font-geist-mono: "Geist Mono", ui-monospace, Consolas, monospace;
   color-scheme: light;
 }
-.dark { color-scheme: dark; }
+.dark {
+  color-scheme: dark;
+}
 
-html, body, #root { height: 100%; margin: 0; overflow: hidden; }
-body { font-size: 13px; user-select: none; }
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+body {
+  font-size: 13px;
+  user-select: none;
+}
 
 /* A closed row's title (docs/desktop-app.md §3.3): the Personal Space's 1.5 px orange line, grey when dropped. */
 .todo-strike {
@@ -41,7 +54,10 @@ body { font-size: 13px; user-select: none; }
   color: var(--muted-foreground);
 }
 [data-state="dropped"] .todo-strike {
-  background-image: linear-gradient(var(--muted-foreground), var(--muted-foreground));
+  background-image: linear-gradient(
+    var(--muted-foreground),
+    var(--muted-foreground)
+  );
   background-size: 100% 1.5px;
   color: var(--muted-foreground);
 }
@@ -51,5 +67,7 @@ body { font-size: 13px; user-select: none; }
   text-underline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .todo-strike { transition: none; }
+  .todo-strike {
+    transition: none;
+  }
 }

@@ -1,5 +1,17 @@
 import "server-only";
-import { createIssueInputSchema, getIssueQuerySchema, issuePositionBodySchema, listIssueGroupsQuerySchema, listIssuesQuerySchema, listLabelsRequestQuerySchema, listMilestonesRequestQuerySchema, type IssueStatus, patchIssueBodySchema, type PatchIssueBody, searchQuerySchema } from "@traccia/shared";
+import {
+  createIssueInputSchema,
+  getIssueQuerySchema,
+  issuePositionBodySchema,
+  listIssueGroupsQuerySchema,
+  listIssuesQuerySchema,
+  listLabelsRequestQuerySchema,
+  listMilestonesRequestQuerySchema,
+  type IssueStatus,
+  patchIssueBodySchema,
+  type PatchIssueBody,
+  searchQuerySchema,
+} from "@traccia/shared";
 import { filtersToApiQuery, visibleStatuses, type IssueFilters } from "../issue-filters";
 import type { CreateIssueInput } from "@traccia/shared";
 import { z } from "zod";
@@ -56,7 +68,11 @@ export async function refreshIssueGroups(filters: IssueFilters, counts: Partial<
   for (;;) {
     const pending = merged.filter((g) => g.nextCursor && g.items.length < (counts[g.status] ?? 0) && g.pages < MAX_REFRESH_PAGES);
     if (!pending.length) break;
-    const next = await fetchGroups(f, pending.map((g) => g.status), Object.fromEntries(pending.map((g) => [g.status, g.nextCursor!])));
+    const next = await fetchGroups(
+      f,
+      pending.map((g) => g.status),
+      Object.fromEntries(pending.map((g) => [g.status, g.nextCursor!])),
+    );
     for (const page of next.groups) {
       const group = merged.find((g) => g.status === page.status)!;
       group.items.push(...page.items);
@@ -85,8 +101,7 @@ export async function latestIssueChange(since?: string): Promise<string | null> 
 /** Global labels; with `project`, also that project's own labels. */
 export const listLabels = (project?: string) => listAll("/labels", labelSchema, listLabelsRequestQuerySchema, { project });
 
-export const listProjectMilestones = (projectId: string) =>
-  listAll(`/projects/${encodeURIComponent(projectId)}/milestones`, milestoneSchema, listMilestonesRequestQuerySchema, {});
+export const listProjectMilestones = (projectId: string) => listAll(`/projects/${encodeURIComponent(projectId)}/milestones`, milestoneSchema, listMilestonesRequestQuerySchema, {});
 
 /**
  * Creates the issue, then sets its labels (the create route has no `labels` field). If only the
@@ -184,8 +199,7 @@ export function toFtsQuery(q: string) {
 /** The board shows each column in `sortOrder` (Kanban position), whatever sort the table uses. */
 const boardFilters = (f: IssueFilters): IssueFilters => ({ ...f, orderBy: "sortOrder", order: "asc" });
 
-export const listBoardPage = (filters: IssueFilters, status: IssueStatus, cursor?: string) =>
-  listIssuePage(boardFilters(filters), status, cursor);
+export const listBoardPage = (filters: IssueFilters, status: IssueStatus, cursor?: string) => listIssuePage(boardFilters(filters), status, cursor);
 
 export const listBoardColumns = (filters: IssueFilters) => listIssueGroups(boardFilters(filters));
 

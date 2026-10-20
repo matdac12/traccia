@@ -9,7 +9,10 @@ let captured: { onDragStart: (e: unknown) => void; onDragOver: (e: unknown) => v
 // jsdom cannot do real pointer drags: capture the DndContext handlers and call them with synthetic events.
 vi.mock("@dnd-kit/core", async (orig) => ({
   ...(await orig<typeof import("@dnd-kit/core")>()),
-  DndContext: (props: { children: React.ReactNode } & NonNullable<typeof captured>) => { captured = props; return <>{props.children}</>; },
+  DndContext: (props: { children: React.ReactNode } & NonNullable<typeof captured>) => {
+    captured = props;
+    return <>{props.children}</>;
+  },
 }));
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace: vi.fn() }), usePathname: () => "/issues" }));
@@ -17,14 +20,26 @@ vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn
 
 const label = { id: "l1", name: "bug", color: "#f00", projectId: null };
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 1, estimate: 3, assignee: "agent" as const,
-  milestoneId: null, createdBy: "agent" as const, updatedAt: new Date().toISOString(), labels: [label], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 1,
+  estimate: 3,
+  assignee: "agent" as const,
+  milestoneId: null,
+  createdBy: "agent" as const,
+  updatedAt: new Date().toISOString(),
+  labels: [label],
+  ...over,
 });
-const columns = (): BoardColumn[] => emptyColumns().map((c) => ({
-  ...c,
-  items: c.status === "todo" ? [issue(1, "todo"), issue(2, "todo")] as BoardColumn["items"] : [],
-  nextCursor: c.status === "todo" ? "cur" : null,
-}));
+const columns = (): BoardColumn[] =>
+  emptyColumns().map((c) => ({
+    ...c,
+    items: c.status === "todo" ? ([issue(1, "todo"), issue(2, "todo")] as BoardColumn["items"]) : [],
+    nextCursor: c.status === "todo" ? "cur" : null,
+  }));
 
 describe("Board", () => {
   it("renders a column per status with cards linking to the issue", () => {
@@ -60,7 +75,7 @@ describe("Board drop handling", () => {
     h.onDragOver(e);
     h.onDragEnd(e);
   };
-  const cols = (): BoardColumn[] => emptyColumns().map((c) => ({ ...c, items: c.status === "todo" ? [issue(1, "todo"), issue(2, "todo")] as BoardColumn["items"] : [] }));
+  const cols = (): BoardColumn[] => emptyColumns().map((c) => ({ ...c, items: c.status === "todo" ? ([issue(1, "todo"), issue(2, "todo")] as BoardColumn["items"]) : [] }));
 
   it("moves optimistically, sends neighbour ids, and keeps the move on success", async () => {
     const move = vi.fn().mockResolvedValue({ ok: true, issue: issue(1, "done", { updatedAt: "2030-01-01T00:00:00.000Z" }) });

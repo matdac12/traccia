@@ -2,12 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../lib/api/client";
 
 const m = {
-  createMemory: vi.fn(), updateMemory: vi.fn(), deleteMemory: vi.fn(),
-  updateDocument: vi.fn(), deleteDocument: vi.fn(), restoreDocumentation: vi.fn(),
+  createMemory: vi.fn(),
+  updateMemory: vi.fn(),
+  deleteMemory: vi.fn(),
+  updateDocument: vi.fn(),
+  deleteDocument: vi.fn(),
+  restoreDocumentation: vi.fn(),
 };
 vi.mock("@/lib/api/documentation", () => ({
-  createMemory: (...a: unknown[]) => m.createMemory(...a), updateMemory: (...a: unknown[]) => m.updateMemory(...a), deleteMemory: (...a: unknown[]) => m.deleteMemory(...a),
-  updateDocument: (...a: unknown[]) => m.updateDocument(...a), deleteDocument: (...a: unknown[]) => m.deleteDocument(...a), restoreDocumentation: (...a: unknown[]) => m.restoreDocumentation(...a),
+  createMemory: (...a: unknown[]) => m.createMemory(...a),
+  updateMemory: (...a: unknown[]) => m.updateMemory(...a),
+  deleteMemory: (...a: unknown[]) => m.deleteMemory(...a),
+  updateDocument: (...a: unknown[]) => m.updateDocument(...a),
+  deleteDocument: (...a: unknown[]) => m.deleteDocument(...a),
+  restoreDocumentation: (...a: unknown[]) => m.restoreDocumentation(...a),
 }));
 const revalidatePath = vi.fn();
 vi.mock("next/cache", () => ({ revalidatePath: (...a: unknown[]) => revalidatePath(...a) }));

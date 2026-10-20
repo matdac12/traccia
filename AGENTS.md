@@ -18,4 +18,4 @@ Connect to the Traccia MCP and see the tool reference in `docs/agent-setup.md` a
 
 ### Checks
 
-`pnpm check` runs lint + typecheck + tests. There is no CI: versioned git hooks (`.githooks/`, wired by `pnpm install`) lint staged files on commit and run `pnpm check` on push.
+`pnpm check` runs lint + format check + typecheck + tests (`pnpm format` fixes formatting). There is no CI: versioned git hooks (`.githooks/`, wired by `pnpm install`) lint and format-check staged files on commit and run `pnpm check` on push.

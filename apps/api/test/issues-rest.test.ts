@@ -228,7 +228,11 @@ describe("issues", () => {
       "GET",
       `/issues/${a.identifier}?include=relations`,
     );
-    expect(rel.json.relations).toEqual({ blockedBy: [], blocks: [], related: [] });
+    expect(rel.json.relations).toEqual({
+      blockedBy: [],
+      blocks: [],
+      related: [],
+    });
 
     // project move through PATCH keeps the identifier
     const lone = await t.mk("Lone");

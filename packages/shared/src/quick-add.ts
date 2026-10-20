@@ -55,7 +55,8 @@ const DAY_WORD = word(
 );
 
 /** `HH:MM` or `H:MM`, 0:00 to 23:59, not part of a longer time (`10:00:00`), range (`9:00-10:00`) or word (`3:15pm`). */
-const TIME = /(?<![\p{L}\p{N}@:-])([01]?\d|2[0-3]):([0-5]\d)(?![\p{L}\p{N}:-])/gu;
+const TIME =
+  /(?<![\p{L}\p{N}@:-])([01]?\d|2[0-3]):([0-5]\d)(?![\p{L}\p{N}:-])/gu;
 
 /** Quick add is typed as "what, then when", so when a day word or time appears twice the last one counts. */
 const lastMatch = (text: string, pattern: RegExp) =>
@@ -121,7 +122,10 @@ export function parseQuickAdd(input: string, today: string): QuickAddParse {
  * collapsed. A composer calls it when a value is picked in its Day or Reminder field (docs/desktop-app.md §5.3):
  * the line then names no day (or time) of its own, so the picked one is used and the title stays clean.
  */
-export function withoutQuickAddWords(input: string, kind: "day" | "time"): string {
+export function withoutQuickAddWords(
+  input: string,
+  kind: "day" | "time",
+): string {
   return input
     .replace(kind === "day" ? DAY_WORD : TIME, " ")
     .replace(/\s+/g, " ")

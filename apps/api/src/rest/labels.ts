@@ -24,7 +24,9 @@ export function mountLabelRoutes(v1: Hono<AppEnv>, container: AppContainer) {
       c,
       listLabelsRequestQuerySchema,
     );
-    return c.json(pageOfArray(labels.list(filter), decodePage({ limit, cursor })));
+    return c.json(
+      pageOfArray(labels.list(filter), decodePage({ limit, cursor })),
+    );
   });
 
   v1.post("/labels", async (c) => {

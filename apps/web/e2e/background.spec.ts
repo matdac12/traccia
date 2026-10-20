@@ -1,7 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
 // A small two-color bitmap; real browser decoding and canvas rendering are part of this scenario.
-const bitmap = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAHgAAABQCAIAAABd+SbeAAAAz0lEQVR4nO3QAQ2DUABEMYRNBCKmZMKmBDHIePeTJlXQ6/ndx/l8/8e58jXRu/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfSuF+a2JFhkBzWlAAAAAElFTkSuQmCC", "base64");
+const bitmap = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAHgAAABQCAIAAABd+SbeAAAAz0lEQVR4nO3QAQ2DUABEMYRNBCKmZMKmBDHIePeTJlXQ6/ndx/l8/8e58jXRu/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfQu0aJF5/I10btEixady9dE7xItWnQuXxO9S7Ro0bl8TfSuF+a2JFhkBzWlAAAAAElFTkSuQmCC",
+  "base64",
+);
 
 test("personal background upload, effects, replacement and disable survive navigation and reload", async ({ page }) => {
   await page.goto("/settings");
@@ -18,14 +21,25 @@ test("personal background upload, effects, replacement and disable survive navig
   await expect(page.locator("aside .background-image-layer")).toHaveCount(0);
   const originalBackground = await layer.evaluate((element) => (element as HTMLElement).style.backgroundImage);
 
-  for (const [label, effect] of [["None", "none"], ["Dither", "dither"], ["ASCII", "ascii"], ["Halftone", "halftone"], ["Scanlines", "scanlines"], ["Haze", "haze"]]) {
+  for (const [label, effect] of [
+    ["None", "none"],
+    ["Dither", "dither"],
+    ["ASCII", "ascii"],
+    ["Halftone", "halftone"],
+    ["Scanlines", "scanlines"],
+    ["Haze", "haze"],
+  ]) {
     await page.getByRole("button", { name: label, exact: true }).click();
     await expect(layer).toHaveAttribute("data-effect", effect!);
     await expect(page.getByRole("img", { name: "Background preview" })).toHaveAttribute("data-effect", effect!);
     if (["dither", "ascii", "halftone"].includes(effect!)) {
-      await expect.poll(() => layer.evaluate((element, original) => {
-        return (element as HTMLElement).style.backgroundImage !== original;
-      }, originalBackground)).toBe(true);
+      await expect
+        .poll(() =>
+          layer.evaluate((element, original) => {
+            return (element as HTMLElement).style.backgroundImage !== original;
+          }, originalBackground),
+        )
+        .toBe(true);
     }
   }
 
@@ -138,13 +152,17 @@ async function verifyFineEffects(page: Page) {
     }
   }
   await page.setViewportSize({ width: 1800, height: 1000 });
-  await expect.poll(() => layer.evaluate(async (element) => {
-    const image = new Image();
-    image.src = (element as HTMLElement).style.backgroundImage.slice(5, -2);
-    await image.decode();
-    const box = element.getBoundingClientRect();
-    return image.naturalWidth === Math.round(box.width * devicePixelRatio) && image.naturalHeight === Math.round(box.height * devicePixelRatio);
-  })).toBe(true);
+  await expect
+    .poll(() =>
+      layer.evaluate(async (element) => {
+        const image = new Image();
+        image.src = (element as HTMLElement).style.backgroundImage.slice(5, -2);
+        await image.decode();
+        const box = element.getBoundingClientRect();
+        return image.naturalWidth === Math.round(box.width * devicePixelRatio) && image.naturalHeight === Math.round(box.height * devicePixelRatio);
+      }),
+    )
+    .toBe(true);
 }
 
 test("ASCII and halftone render a fine grid at the actual display size", async ({ page }) => {

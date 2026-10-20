@@ -18,8 +18,7 @@ import { TodoMenu } from "./todo-menu";
 import { SubTodoCount, TodoCheck, TodoError, TodoRow, useCheckToggle } from "./todo-row";
 import { TodoTitle } from "./todo-title";
 
-const FIELD =
-  "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent";
+const FIELD = "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent";
 const LABEL = "text-[11px] font-medium text-muted-foreground";
 
 /** "Today · Sat 17 Oct", or just "Thu 15 Oct" when the label is already the date. */
@@ -81,7 +80,11 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
         <dt className="text-muted-foreground">Reminder</dt>
         <dd>
           <ReminderPicker day={todo.day} time={todo.reminder?.time ?? null} today={today} timeZone={actions.timeZone} onSelect={(time) => void actions.update(todo, { time })}>
-            <button type="button" aria-label={todo.reminder ? `Change Reminder (${reminderDescription(todo.reminder)})` : "Add a Reminder"} className={cn(FIELD, !todo.reminder && "text-muted-foreground")}>
+            <button
+              type="button"
+              aria-label={todo.reminder ? `Change Reminder (${reminderDescription(todo.reminder)})` : "Add a Reminder"}
+              className={cn(FIELD, !todo.reminder && "text-muted-foreground")}
+            >
               {todo.reminder ? (
                 <ReminderTime todo={todo} />
               ) : (

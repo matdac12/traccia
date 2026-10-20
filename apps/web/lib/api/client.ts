@@ -146,7 +146,19 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
    */
   async function raw(
     path: string,
-    { method = "GET", headers = {}, body, signal, root = false }: { method?: string; headers?: Record<string, string>; body?: BodyInit | null; signal?: AbortSignal; /** `path` is relative to the API root, not `/v1` (document downloads: `/files/doc/:id`). */ root?: boolean },
+    {
+      method = "GET",
+      headers = {},
+      body,
+      signal,
+      root = false,
+    }: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: BodyInit | null;
+      signal?: AbortSignal /** `path` is relative to the API root, not `/v1` (document downloads: `/files/doc/:id`). */;
+      root?: boolean;
+    },
   ): Promise<Response> {
     const url = `${baseUrl.replace(/\/+$/, "")}${root ? "" : "/v1"}${path}`;
     try {

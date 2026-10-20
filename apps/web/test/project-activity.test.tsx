@@ -8,7 +8,15 @@ const fetchMock = vi.fn();
 const { ProjectActivity } = await import("../components/project/project-activity");
 
 const row = (id: string, over: Partial<ActivityFeedItem> = {}): ActivityFeedItem => ({
-  id, issueId: `i-${id}`, identifier: `TRC-${id}`, title: `Issue ${id}`, actor: "agent", type: "status_changed", data: { from: "todo", to: "done" }, createdAt: "2026-01-01T00:00:00.000Z", ...over,
+  id,
+  issueId: `i-${id}`,
+  identifier: `TRC-${id}`,
+  title: `Issue ${id}`,
+  actor: "agent",
+  type: "status_changed",
+  data: { from: "todo", to: "done" },
+  createdAt: "2026-01-01T00:00:00.000Z",
+  ...over,
 });
 const props = { projectId: "p1", milestoneNames: { m1: "Beta" }, projectNames: {} };
 const ok = (body: unknown) => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });

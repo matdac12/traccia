@@ -67,7 +67,10 @@ function holdStrike() {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-17T13:00:00Z"));
-  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise(() => {})),
+  );
   updateTodoAction.mockReset();
   bodyRenders.clear();
 });

@@ -14,7 +14,9 @@ export function NewProjectButton({ children, className, variant, size = "sm" }: 
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size={size} variant={variant} className={className} onClick={() => setOpen(true)}>{children}</Button>
+      <Button size={size} variant={variant} className={className} onClick={() => setOpen(true)}>
+        {children}
+      </Button>
       <NewProjectDialog open={open} onOpenChange={setOpen} />
     </>
   );
@@ -88,15 +90,31 @@ export function NewProjectDialog({ open, onOpenChange }: { open: boolean; onOpen
         </div>
         <div className="flex items-center gap-1.5 border-t px-4 py-2.5">
           <Select value={status} onValueChange={(v) => setStatus(v as ProjectStatus)}>
-            <SelectTrigger size="sm" aria-label="Status" className="h-7 gap-1.5 text-xs capitalize"><SelectValue /></SelectTrigger>
-            <SelectContent>{PROJECT_STATUSES.map((s) => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+            <SelectTrigger size="sm" aria-label="Status" className="h-7 gap-1.5 text-xs capitalize">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROJECT_STATUSES.map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
           {fieldErrors.status ? <span className="text-xs text-destructive">Status {fieldErrors.status}</span> : null}
         </div>
-        {error ? <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="border-t px-4 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        ) : null}
         <div className="flex items-center justify-end gap-2 border-t px-4 py-3">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button size="sm" onClick={submit} disabled={pending}>{pending ? "Creating…" : "Create project"}</Button>
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={submit} disabled={pending}>
+            {pending ? "Creating…" : "Create project"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -11,14 +11,23 @@ import { POLL_INTERVAL_MS } from "../lib/polling/use-poll";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }), usePathname: () => "/issues" }));
 vi.mock("../app/(app)/issues/board-actions", () => ({ loadMoreBoardIssues: vi.fn(), moveBoardIssue: vi.fn() }));
 vi.mock("../app/(app)/issues/[identifier]/actions", () => ({
-  updateIssueAction: vi.fn(), deleteIssueAction: vi.fn(), restoreIssueAction: vi.fn(),
-  createCommentAction: vi.fn(), deleteCommentAction: vi.fn(), updateCommentAction: vi.fn(), deleteAttachmentAction: vi.fn(), restoreAttachmentAction: vi.fn(),
+  updateIssueAction: vi.fn(),
+  deleteIssueAction: vi.fn(),
+  restoreIssueAction: vi.fn(),
+  createCommentAction: vi.fn(),
+  deleteCommentAction: vi.fn(),
+  updateCommentAction: vi.fn(),
+  deleteAttachmentAction: vi.fn(),
+  restoreAttachmentAction: vi.fn(),
 }));
 
 let captured: { onDragStart: (e: unknown) => void; onDragOver: (e: unknown) => void; onDragEnd: (e: unknown) => void } | null = null;
 vi.mock("@dnd-kit/core", async (orig) => ({
   ...(await orig<typeof import("@dnd-kit/core")>()),
-  DndContext: (props: { children: React.ReactNode } & NonNullable<typeof captured>) => { captured = props; return <>{props.children}</>; },
+  DndContext: (props: { children: React.ReactNode } & NonNullable<typeof captured>) => {
+    captured = props;
+    return <>{props.children}</>;
+  },
 }));
 
 const fetchMock = vi.fn();
@@ -31,11 +40,25 @@ beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 1, estimate: null, assignee: "agent" as const,
-  milestoneId: null, createdBy: "agent" as const, updatedAt: "2026-01-01T00:00:00.000Z", labels: [], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 1,
+  estimate: null,
+  assignee: "agent" as const,
+  milestoneId: null,
+  createdBy: "agent" as const,
+  updatedAt: "2026-01-01T00:00:00.000Z",
+  labels: [],
+  ...over,
 });
 const group = (status: string, items: unknown[] = [], nextCursor: string | null = null) => ({ status, items, nextCursor });
 const cols = (todo: unknown[]): BoardColumn[] => emptyColumns().map((c) => ({ ...c, items: c.status === "todo" ? (todo as BoardColumn["items"]) : [] }));
@@ -59,7 +82,11 @@ describe("useListSync", () => {
     expect(urls().at(-1)).toContain("/api/issues/groups?query=view%3Dkanban&counts=backlog%3A0%2Ctodo%3A0");
     // The next probe starts after the change just applied.
     await advance(POLL_INTERVAL_MS);
-    expect(urls().filter((u) => u.includes("changes")).at(-1)).toContain("since=2026-01-01T00%3A00%3A05.000Z");
+    expect(
+      urls()
+        .filter((u) => u.includes("changes"))
+        .at(-1),
+    ).toContain("since=2026-01-01T00%3A00%3A05.000Z");
   });
 
   it("without a token the first probe only records the baseline", async () => {
@@ -80,7 +107,11 @@ describe("useListSync", () => {
     act(() => result.current.register(a));
     await advance(POLL_INTERVAL_MS * 2);
     expect(a.apply).toHaveBeenCalledTimes(2);
-    expect(urls().filter((u) => u.includes("changes")).every((u) => u.includes("since=2026-01-01T00%3A00%3A00.000Z"))).toBe(true);
+    expect(
+      urls()
+        .filter((u) => u.includes("changes"))
+        .every((u) => u.includes("since=2026-01-01T00%3A00%3A00.000Z")),
+    ).toBe(true);
   });
 
   it("discards an answer when the shown counts changed while it was in flight", async () => {
@@ -112,7 +143,15 @@ describe("useListSync", () => {
 describe("Board live refresh", () => {
   const setup = (todo: unknown[]) => {
     let reg: GroupsApplier | null = null;
-    render(<Board columns={cols(todo)} query="" register={(a) => { reg = a; }} />);
+    render(
+      <Board
+        columns={cols(todo)}
+        query=""
+        register={(a) => {
+          reg = a;
+        }}
+      />,
+    );
     return () => reg!;
   };
   const drag = (h: NonNullable<typeof captured>, id: string, overId: string) => {
@@ -124,7 +163,9 @@ describe("Board live refresh", () => {
     const applier = setup([issue(1, "todo")]);
     expect(applier().counts().todo).toBe(1);
     let taken = false;
-    act(() => { taken = applier().apply(allGroups([issue(1, "todo"), issue(2, "todo", { title: "From the agent" })]) as never); });
+    act(() => {
+      taken = applier().apply(allGroups([issue(1, "todo"), issue(2, "todo", { title: "From the agent" })]) as never);
+    });
     expect(taken).toBe(true);
     expect(screen.getByRole("link", { name: "From the agent" })).toBeInTheDocument();
   });
@@ -134,11 +175,15 @@ describe("Board live refresh", () => {
     const e = drag(captured!, "i1", "done");
     act(() => captured!.onDragStart(e));
     let taken = true;
-    act(() => { taken = applier().apply(allGroups([]) as never); });
+    act(() => {
+      taken = applier().apply(allGroups([]) as never);
+    });
     expect(taken).toBe(false);
     expect(screen.getByRole("link", { name: "Issue 1" })).toBeInTheDocument();
     act(() => captured!.onDragEnd({ ...e, over: null })); // dropped nowhere: cancelled
-    act(() => { taken = applier().apply(allGroups([issue(2, "todo")]) as never); });
+    act(() => {
+      taken = applier().apply(allGroups([issue(2, "todo")]) as never);
+    });
     expect(taken).toBe(true);
     expect(screen.queryByRole("link", { name: "Issue 1" })).toBeNull();
   });
@@ -159,11 +204,23 @@ describe("external delete (TRC-90)", () => {
 
 describe("IssueDetail live refresh", () => {
   const detail = (over = {}) => ({
-    ...issue(7, "todo", { description: "Original", createdAt: "2026-01-01T00:00:00.000Z" }), key: "TRK", number: 7,
-    comments: [], activity: [], attachments: [], children: [], relations: { blockedBy: [], blocks: [], related: [] }, parentId: null, ...over,
+    ...issue(7, "todo", { description: "Original", createdAt: "2026-01-01T00:00:00.000Z" }),
+    key: "TRK",
+    number: 7,
+    comments: [],
+    activity: [],
+    attachments: [],
+    children: [],
+    relations: { blockedBy: [], blocks: [], related: [] },
+    parentId: null,
+    ...over,
   });
   const mount = (d = detail()) =>
-    render(<TooltipProvider><IssueDetail issue={d as never} projects={[{ id: "p1", key: "TRK", name: "Traccia" }]} labels={[]} milestones={[]} parent={null} /></TooltipProvider>);
+    render(
+      <TooltipProvider>
+        <IssueDetail issue={d as never} projects={[{ id: "p1", key: "TRK", name: "Traccia" }]} labels={[]} milestones={[]} parent={null} />
+      </TooltipProvider>,
+    );
 
   it("applies a newer copy when nothing is being edited", async () => {
     mount();
@@ -178,10 +235,15 @@ describe("IssueDetail live refresh", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: /Edit/ }));
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "My unsaved text" } });
-    fetchMock.mockResolvedValue(json(detail({
-      description: "Agent text", updatedAt: "2026-01-01T00:01:00.000Z",
-      activity: [{ id: "a1", issueId: "i7", actor: "agent", type: "updated", data: {}, createdAt: "2026-01-01T00:01:00.000Z" }],
-    })));
+    fetchMock.mockResolvedValue(
+      json(
+        detail({
+          description: "Agent text",
+          updatedAt: "2026-01-01T00:01:00.000Z",
+          activity: [{ id: "a1", issueId: "i7", actor: "agent", type: "updated", data: {}, createdAt: "2026-01-01T00:01:00.000Z" }],
+        }),
+      ),
+    );
     await advance(POLL_INTERVAL_MS);
     expect(screen.getByLabelText("Description")).toHaveValue("My unsaved text");
     expect(screen.getByTestId("stale-banner")).toHaveTextContent("TRK-7 was updated by an agent");

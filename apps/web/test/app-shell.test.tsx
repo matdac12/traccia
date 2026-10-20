@@ -11,7 +11,11 @@ vi.mock("../components/traccia/theme-toggle", () => ({ ThemeToggle: () => null }
 
 describe("AppShell on narrow screens", () => {
   it("opens the sidebar navigation in a drawer from the menu button", async () => {
-    render(<AppShell projects={[{ id: "p1", name: "Alpha" }]} login="me@x">content</AppShell>);
+    render(
+      <AppShell projects={[{ id: "p1", name: "Alpha" }]} login="me@x">
+        content
+      </AppShell>,
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
     const drawer = await screen.findByRole("dialog");
@@ -21,7 +25,11 @@ describe("AppShell on narrow screens", () => {
   });
 
   it("closes the drawer when a link in it is clicked", async () => {
-    render(<AppShell projects={[]} login="me@x">content</AppShell>);
+    render(
+      <AppShell projects={[]} login="me@x">
+        content
+      </AppShell>,
+    );
     await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
     await userEvent.click(within(await screen.findByRole("dialog")).getByRole("link", { name: "Issues" }));
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -30,7 +38,11 @@ describe("AppShell on narrow screens", () => {
 
 describe("AppShell navigation", () => {
   it("puts Personal first, above Issues", () => {
-    render(<AppShell projects={[]} login="me@x">content</AppShell>);
+    render(
+      <AppShell projects={[]} login="me@x">
+        content
+      </AppShell>,
+    );
     const nav = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
     expect(nav.indexOf("/personal")).toBeGreaterThan(-1);
     expect(nav.indexOf("/personal")).toBeLessThan(nav.indexOf("/issues"));

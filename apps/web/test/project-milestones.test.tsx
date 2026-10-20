@@ -18,7 +18,9 @@ const list = [
   ms({ id: "m2", name: "Beta", targetDate: "2026-03-09", progress: { done: 1, total: 4 } }),
   ms({ id: "m3", name: "Gamma", progress: { done: 0, total: 0 } }),
 ];
-beforeEach(() => { for (const f of Object.values(actions)) f.mockReset().mockResolvedValue({ ok: true, data: undefined }); });
+beforeEach(() => {
+  for (const f of Object.values(actions)) f.mockReset().mockResolvedValue({ ok: true, data: undefined });
+});
 
 describe("milestone list", () => {
   it("renders one row per milestone with dot, name, percent, issue count and description", () => {

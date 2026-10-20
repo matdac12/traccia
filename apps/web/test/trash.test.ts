@@ -11,8 +11,17 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const { purgeAction, restoreAction } = await import("../app/(app)/trash/actions");
 
 const item = (o: Partial<TrashItem>): TrashItem => ({
-  type: "issue", id: "i1", label: "MAT-1 Fix it", deletedAt: "2026-10-05T10:00:00Z", deletedBatch: "b1", issueId: null,
-  parentId: null, projectId: "p1", projectName: "P", deletedBy: "you", ...o,
+  type: "issue",
+  id: "i1",
+  label: "MAT-1 Fix it",
+  deletedAt: "2026-10-05T10:00:00Z",
+  deletedBatch: "b1",
+  issueId: null,
+  parentId: null,
+  projectId: "p1",
+  projectName: "P",
+  deletedBy: "you",
+  ...o,
 });
 
 beforeEach(() => {
@@ -38,7 +47,9 @@ describe("restore", () => {
   it("shows the API message when a parent is still deleted", async () => {
     restoreItem.mockRejectedValue(new ApiError(409, "conflict", "Cannot restore comment: its issue is deleted. Restore the issue first."));
     expect(await restoreAction("comment", "c1")).toEqual({
-      ok: false, code: "conflict", message: "Cannot restore comment: its issue is deleted. Restore the issue first.",
+      ok: false,
+      code: "conflict",
+      message: "Cannot restore comment: its issue is deleted. Restore the issue first.",
     });
   });
   it("rejects an unknown type without calling the API", async () => {

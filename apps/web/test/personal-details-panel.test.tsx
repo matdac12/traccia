@@ -50,7 +50,10 @@ function setup(data: PersonalSpaceData, url = "/personal") {
   return { user: userEvent.setup(), serverSends };
 }
 const panel = () => screen.getByRole("complementary", { name: "To-do details" });
-const row = (title: string) => within(screen.getByRole("region", { name: /^Today/ })).getByText(title).closest("li") as HTMLElement;
+const row = (title: string) =>
+  within(screen.getByRole("region", { name: /^Today/ }))
+    .getByText(title)
+    .closest("li") as HTMLElement;
 // A write that stays on its way until the test ends. React entangles pending transitions, so one left hanging would
 // hold every later test's rollbacks back.
 const hanging: (() => void)[] = [];
@@ -63,7 +66,10 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   // The poll stays quiet unless a test answers it.
-  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise(() => {})),
+  );
   for (const action of [createTodoAction, updateTodoAction, deleteTodoAction]) action.mockReset();
 });
 afterEach(async () => {
@@ -313,7 +319,11 @@ describe("Sub-to-dos", () => {
     const { user, serverSends } = setup(page([parent, open], { id: parent.id, extra: [old] }), `/personal?todo=${parent.id}`);
 
     const list = within(panel()).getByRole("list", { name: "Sub-to-dos" });
-    expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([expect.stringContaining("Buy tiles"), expect.stringContaining("Measure the wall")]);
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .map((li) => li.textContent),
+    ).toEqual([expect.stringContaining("Buy tiles"), expect.stringContaining("Measure the wall")]);
     expect(panel()).toHaveTextContent("1/2");
     // Undated Sub-to-dos only show under their parent.
     expect(within(screen.getByRole("region", { name: /^Today/ })).queryByText("Buy tiles")).toBeNull();
@@ -326,7 +336,9 @@ describe("Sub-to-dos", () => {
     // The revalidation brings it back: under the parent, with its day and Reminder.
     const added = todo({ title: "Call the electrician", parentId: parent.id, day: "2026-10-18", reminder: { time: "09:30", status: "pending", failure: null, sentAt: null }, subTodos: null });
     serverSends(page([{ ...parent, subTodos: { done: 1, total: 3 } }, open, added], { id: parent.id, extra: [old] }));
-    const item = within(within(panel()).getByRole("list", { name: "Sub-to-dos" })).getByText("Call the electrician").closest("li") as HTMLElement;
+    const item = within(within(panel()).getByRole("list", { name: "Sub-to-dos" }))
+      .getByText("Call the electrician")
+      .closest("li") as HTMLElement;
     expect(item).toHaveTextContent("Tomorrow");
     expect(item).toHaveTextContent("09:30");
     // The 340 px column is too narrow for the day beside the title: it sits under it, in the title's own column.

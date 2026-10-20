@@ -17,7 +17,14 @@ const withProjects = (ui: ReactNode) => (
 
 beforeEach(() => {
   // The tooltip opens on hover and Radix measures it; jsdom has no ResizeObserver.
-  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 afterEach(() => vi.unstubAllGlobals());
 

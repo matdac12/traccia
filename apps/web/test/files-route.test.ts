@@ -94,9 +94,7 @@ describe("proxy.ts covers the file routes", () => {
 
 describe("POST /api/issues/[identifier]/attachments", () => {
   const post = (identifier: string, headers: Record<string, string>, body?: BodyInit) =>
-    import("../app/api/issues/[identifier]/attachments/route").then(({ POST }) =>
-      POST(new Request("http://dash/x", { method: "POST", headers, body }), { params: Promise.resolve({ identifier }) }),
-    );
+    import("../app/api/issues/[identifier]/attachments/route").then(({ POST }) => POST(new Request("http://dash/x", { method: "POST", headers, body }), { params: Promise.resolve({ identifier }) }));
 
   it("forwards the multipart body and returns the API's error shape unchanged", async () => {
     const form = new FormData();

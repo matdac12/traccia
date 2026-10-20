@@ -55,14 +55,20 @@ describe("usePoll", () => {
     const tick = vi.fn().mockResolvedValue(undefined);
     renderHook(() => usePoll(tick));
     await advance(5_000);
-    act(() => { window.dispatchEvent(new Event("focus")); });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
     await advance(0);
     expect(tick).toHaveBeenCalledTimes(1);
-    act(() => { window.dispatchEvent(new Event("focus")); });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
     await advance(0);
     expect(tick).toHaveBeenCalledTimes(1);
     await advance(2_000);
-    act(() => { window.dispatchEvent(new Event("focus")); });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
     await advance(0);
     expect(tick).toHaveBeenCalledTimes(2);
   });
@@ -95,7 +101,9 @@ describe("usePoll", () => {
     await advance(1_000 + 2_000 + 4_000);
     expect(tick).toHaveBeenCalledTimes(3);
     await advance(3_000);
-    act(() => { window.dispatchEvent(new Event("online")); });
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
     await advance(0);
     expect(tick).toHaveBeenCalledTimes(4);
     await advance(2_000); // failure count restarted: the next wait is 2 s again, not 16 s
@@ -104,10 +112,17 @@ describe("usePoll", () => {
 
   it("never overlaps polls", async () => {
     let release!: () => void;
-    const tick = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const tick = vi.fn(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
     renderHook(() => usePoll(tick));
     await advance(POLL_INTERVAL_MS);
-    act(() => { window.dispatchEvent(new Event("focus")); });
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
     await advance(POLL_MAX_BACKOFF_MS);
     expect(tick).toHaveBeenCalledTimes(1);
     await act(async () => release());
@@ -115,10 +130,18 @@ describe("usePoll", () => {
 
   it("runs a refresh asked for mid-poll once that poll ends, instead of dropping it", async () => {
     let release!: () => void;
-    const tick = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const tick = vi.fn(
+      () =>
+        new Promise<void>((r) => {
+          release = r;
+        }),
+    );
     const { result } = renderHook(() => usePoll(tick));
     await advance(POLL_INTERVAL_MS);
-    act(() => { result.current.refresh(); result.current.refresh(); });
+    act(() => {
+      result.current.refresh();
+      result.current.refresh();
+    });
     expect(tick).toHaveBeenCalledTimes(1);
     await act(async () => release());
     await advance(0);

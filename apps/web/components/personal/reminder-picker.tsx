@@ -110,7 +110,11 @@ function ReminderPickerPanel({ day, time, today, timeZone, onSelect }: ReminderP
           aria-describedby={valuePast ? errorId : undefined}
           className="h-8 min-w-0 flex-1 rounded-md border bg-transparent px-2 font-mono text-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <button type="submit" disabled={!valid || valuePast} className={cn(PICKER_BUTTON, "h-8 bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40")}>
+        <button
+          type="submit"
+          disabled={!valid || valuePast}
+          className={cn(PICKER_BUTTON, "h-8 bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-40")}
+        >
           Set
         </button>
       </form>

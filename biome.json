@@ -14,7 +14,8 @@
       "!prototypes",
       "!.agents",
       "!skills-lock.json",
-      "!opencode.json"
+      "!opencode.json",
+      "!**/migrations/meta"
     ]
   },
   "formatter": {
@@ -35,6 +36,12 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["apps/web/**"],
+      "formatter": {
+        "lineWidth": 200
+      }
+    },
     {
       "includes": ["**/test/**", "**/*.test.ts", "**/*.test.tsx"],
       "linter": {

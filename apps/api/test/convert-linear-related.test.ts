@@ -10,7 +10,10 @@ import {
 function setup() {
   const { sqlite, db } = createTestDb();
   const services = createServices({ db, defaultIssueKey: "TRC" });
-  const project = services.projects.create("you", { name: "Traccia", key: "TRC" });
+  const project = services.projects.create("you", {
+    name: "Traccia",
+    key: "TRC",
+  });
   const mk = (title: string, description: string) =>
     services.issues.create("you", { project: project.id, title, description });
   return { sqlite, db, services, mk };

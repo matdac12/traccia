@@ -16,7 +16,15 @@ describe("listIssueGroups", () => {
     expect(request.mock.calls[0][0]).toBe("/issues/groups");
     expect(request.mock.calls[0][1].query).toMatchObject({
       status: ["backlog", "todo", "in_progress", "in_review", "done", "canceled"],
-      project: "p1", assignee: "none", label: ["bug", "ui"], priority: 0, milestone: "m1", q: "cache", orderBy: "priority", order: "asc", limit: GROUP_PAGE_SIZE,
+      project: "p1",
+      assignee: "none",
+      label: ["bug", "ui"],
+      priority: 0,
+      milestone: "m1",
+      q: "cache",
+      orderBy: "priority",
+      order: "asc",
+      limit: GROUP_PAGE_SIZE,
     });
   });
 });

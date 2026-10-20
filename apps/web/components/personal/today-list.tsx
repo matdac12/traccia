@@ -34,14 +34,20 @@ export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: st
         <>
           {list.overdue.length ? (
             <section aria-labelledby="personal-overdue">
-              <SectionLabel id="personal-overdue" tone="danger" count={list.overdue.length}>Overdue</SectionLabel>
+              <SectionLabel id="personal-overdue" tone="danger" count={list.overdue.length}>
+                Overdue
+              </SectionLabel>
               <ul>
-                {list.overdue.map((t) => <TodoRow key={t.id} todo={t} showDay />)}
+                {list.overdue.map((t) => (
+                  <TodoRow key={t.id} todo={t} showDay />
+                ))}
               </ul>
             </section>
           ) : null}
           <section aria-labelledby="personal-today">
-            <SectionLabel id="personal-today" count={open}>Today</SectionLabel>
+            <SectionLabel id="personal-today" count={open}>
+              Today
+            </SectionLabel>
             <SortableRows id="personal-today" rows={[...list.today, ...list.subTodos]}>
               <SortableGroup rows={list.today}>
                 <ul>
@@ -62,7 +68,9 @@ export function TodayList({ todos, today, timeZone }: { todos: Todo[]; today: st
             </SortableRows>
             {list.closed.length ? (
               <ul aria-label="Closed today">
-                {list.closed.map((t) => <TodoRow key={t.id} todo={t} />)}
+                {list.closed.map((t) => (
+                  <TodoRow key={t.id} todo={t} />
+                ))}
               </ul>
             ) : null}
           </section>

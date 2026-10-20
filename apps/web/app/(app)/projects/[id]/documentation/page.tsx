@@ -21,7 +21,9 @@ export default async function ProjectMemoryPage({ params, searchParams }: { para
   return (
     <>
       <DocNav projectId={project.value.id} active="memory" counts={{ memory: (all.value ?? shown.value).length }} />
-      <div className="px-4 pt-4 sm:px-6"><SearchForm placeholder="Search memories" query={query} hidden={tag ? { tag } : undefined} /></div>
+      <div className="px-4 pt-4 sm:px-6">
+        <SearchForm placeholder="Search memories" query={query} hidden={tag ? { tag } : undefined} />
+      </div>
       <MemoriesView projectId={project.value.id} memories={shown.value} tags={tagsOf(all.value ?? shown.value)} activeTag={tag} query={query} />
     </>
   );

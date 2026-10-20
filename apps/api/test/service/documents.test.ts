@@ -81,7 +81,9 @@ describe("documents: create", () => {
     const rec = services.documents.getRecord(d.id);
     expect(files()).toHaveLength(1);
     // Storage keys use "/"; on Windows path.join yields "\\".
-    expect(files()[0]?.replaceAll(path.sep, "/").endsWith(rec.storageKey)).toBe(true);
+    expect(files()[0]?.replaceAll(path.sep, "/").endsWith(rec.storageKey)).toBe(
+      true,
+    );
     expect(db.select().from(documents).all()).toHaveLength(1);
   });
 

@@ -7,7 +7,9 @@ export default function GlobalError({ reset }: { error: Error; reset: () => void
       <body style={{ fontFamily: "system-ui, sans-serif", display: "grid", placeItems: "center", minHeight: "100dvh", margin: 0 }}>
         <div style={{ textAlign: "center" }}>
           <h1 style={{ fontSize: "1.1rem" }}>Something went wrong</h1>
-          <button type="button" onClick={reset}>Try again</button>
+          <button type="button" onClick={reset}>
+            Try again
+          </button>
         </div>
       </body>
     </html>

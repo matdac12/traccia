@@ -1,12 +1,5 @@
 "use server";
-import {
-  createLabelInputSchema,
-  createMilestoneInputSchema,
-  projectStatusSchema,
-  updateLabelInputSchema,
-  updateMilestoneInputSchema,
-  updateProjectInputSchema,
-} from "@traccia/shared";
+import { createLabelInputSchema, createMilestoneInputSchema, projectStatusSchema, updateLabelInputSchema, updateMilestoneInputSchema, updateProjectInputSchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "@/lib/action-result";
@@ -67,7 +60,7 @@ export async function restoreProjectAction(projectId: string): Promise<ActionRes
   return attempt.ok ? success(undefined) : toFailure(attempt.error);
 }
 
-export type MilestoneFormValues = { name: string; /** `YYYY-MM-DD`, or empty for none. */ targetDate: string };
+export type MilestoneFormValues = { name: string /** `YYYY-MM-DD`, or empty for none. */; targetDate: string };
 
 export async function createMilestoneAction(projectId: string, values: MilestoneFormValues) {
   return run(projectId, createMilestoneInputSchema, { name: values.name, targetDate: values.targetDate || null }, (d) => createMilestone(projectId, d));
@@ -82,7 +75,7 @@ export async function deleteMilestoneAction(projectId: string, id: string) {
   return run(projectId, noInput, {}, () => deleteMilestone(id));
 }
 
-export type LabelFormValues = { name: string; color: string; /** Project-scoped (true) or global. */ scoped: boolean };
+export type LabelFormValues = { name: string; color: string /** Project-scoped (true) or global. */; scoped: boolean };
 
 export async function createLabelAction(projectId: string, values: LabelFormValues) {
   return run(projectId, createLabelInputSchema, { name: values.name, color: values.color, project: values.scoped ? projectId : null }, (d) => createLabel(d));
@@ -96,4 +89,3 @@ export async function updateLabelAction(projectId: string, id: string, values: P
 export async function deleteLabelAction(projectId: string, id: string) {
   return run(projectId, noInput, {}, () => deleteLabel(id));
 }
-

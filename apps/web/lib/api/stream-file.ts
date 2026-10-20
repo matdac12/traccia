@@ -8,8 +8,7 @@ import { ATTACHMENT_ID } from "@/lib/attachments";
 
 const FORWARDED_HEADERS = ["content-type", "content-disposition"];
 
-const error = (status: number, code: string, message: string) =>
-  Response.json({ error: { code, message } }, { status, headers: { "cache-control": "no-store" } });
+const error = (status: number, code: string, message: string) => Response.json({ error: { code, message } }, { status, headers: { "cache-control": "no-store" } });
 
 /** `apiPath` is the API-side path for the id (`root`: relative to the API root, not `/v1`). */
 export async function serveFile(

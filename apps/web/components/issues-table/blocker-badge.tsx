@@ -24,7 +24,11 @@ export function BlockerBadge({ blockers, className = "" }: { blockers: IssueRow[
         </TooltipTrigger>
         <TooltipContent className="max-w-xs" side="top" sideOffset={4}>
           <ul className="space-y-1">
-            {unresolved.map((b) => <li key={b.id}><span className="font-mono">{b.identifier}</span>: {b.title}</li>)}
+            {unresolved.map((b) => (
+              <li key={b.id}>
+                <span className="font-mono">{b.identifier}</span>: {b.title}
+              </li>
+            ))}
           </ul>
         </TooltipContent>
       </Tooltip>

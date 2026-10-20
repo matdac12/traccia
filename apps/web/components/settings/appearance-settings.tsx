@@ -29,11 +29,15 @@ export function AppearanceSettings() {
 
   return (
     <section aria-labelledby="appearance-heading" className="space-y-6">
-      <h2 id="appearance-heading" className="text-sm font-medium">Appearance</h2>
+      <h2 id="appearance-heading" className="text-sm font-medium">
+        Appearance
+      </h2>
 
       <div className="space-y-3">
         <div>
-          <h3 className="text-[13px] font-medium" id="accent-label">Accent color</h3>
+          <h3 className="text-[13px] font-medium" id="accent-label">
+            Accent color
+          </h3>
           <p className="text-xs text-muted-foreground">Buttons, focus rings and the selected sidebar item. Status colors and the agent cyan stay fixed.</p>
         </div>
         <fieldset aria-labelledby="accent-label" className="m-0 flex min-w-0 flex-wrap gap-2 border-0 p-0">
@@ -43,7 +47,7 @@ export function AppearanceSettings() {
               <button
                 key={c.hex}
                 type="button"
-                                aria-pressed={selected}
+                aria-pressed={selected}
                 aria-label={c.name}
                 title={c.name}
                 onClick={() => pick(c.hex)}
@@ -56,7 +60,9 @@ export function AppearanceSettings() {
           })}
         </fieldset>
         <div className="flex items-center gap-2">
-          <label htmlFor="accent-hex" className="text-xs text-muted-foreground">Custom hex</label>
+          <label htmlFor="accent-hex" className="text-xs text-muted-foreground">
+            Custom hex
+          </label>
           <Input
             id="accent-hex"
             value={draft}
@@ -71,7 +77,9 @@ export function AppearanceSettings() {
             className="h-8 w-28 font-mono"
           />
           <span aria-hidden className="size-6 rounded-md border" style={{ backgroundColor: accent }} />
-          <Button type="button" variant="ghost" size="sm" disabled={accent === DEFAULT_ACCENT} onClick={() => pick(DEFAULT_ACCENT)}>Reset</Button>
+          <Button type="button" variant="ghost" size="sm" disabled={accent === DEFAULT_ACCENT} onClick={() => pick(DEFAULT_ACCENT)}>
+            Reset
+          </Button>
         </div>
         <p id="accent-hex-note" role={invalid || adjustedIn.length ? "alert" : undefined} className={cn("min-h-4 text-xs", invalid ? "text-destructive" : "text-muted-foreground")}>
           {invalid
@@ -84,7 +92,9 @@ export function AppearanceSettings() {
 
       <div className="space-y-3">
         <div>
-          <h3 className="text-[13px] font-medium" id="font-label">Font</h3>
+          <h3 className="text-[13px] font-medium" id="font-label">
+            Font
+          </h3>
           <p className="text-xs text-muted-foreground">Used across the whole interface. Code stays monospaced.</p>
         </div>
         <fieldset aria-labelledby="font-label" className="m-0 grid min-w-0 gap-2 border-0 p-0 sm:grid-cols-3">
@@ -92,7 +102,7 @@ export function AppearanceSettings() {
             <button
               key={f.value}
               type="button"
-                            aria-pressed={f.value === font}
+              aria-pressed={f.value === font}
               data-font-option={f.value}
               onClick={() => setFont(f.value)}
               className={cn(
@@ -109,7 +119,19 @@ export function AppearanceSettings() {
 
       <BackgroundSettings />
       <p className="text-xs text-muted-foreground">Saved in this browser only.</p>
-      <Button type="button" variant="outline" size="sm" disabled={background ? background.uploading || !background.ready : false} onClick={() => { reset(); background?.reset(); setDraft(DEFAULT_ACCENT); }}>Reset appearance</Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={background ? background.uploading || !background.ready : false}
+        onClick={() => {
+          reset();
+          background?.reset();
+          setDraft(DEFAULT_ACCENT);
+        }}
+      >
+        Reset appearance
+      </Button>
     </section>
   );
 }

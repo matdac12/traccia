@@ -62,31 +62,45 @@ export function IssueDetail(props: IssueDetailProps) {
   // overwritten: a newer server copy waits in `stale` behind an "updated, reload" banner. Comments, activity
   // and attachments cannot clash with a draft, so they always update.
   const dirty = useRef(new Set<string>());
-  const setDirty = useCallback((key: string, on: boolean) => { if (on) dirty.current.add(key); else dirty.current.delete(key); }, []);
+  const setDirty = useCallback((key: string, on: boolean) => {
+    if (on) dirty.current.add(key);
+    else dirty.current.delete(key);
+  }, []);
   const [stale, setStale] = useState<IssueDetailData | null>(null);
   const [resetKey, setResetKey] = useState(0);
-  const sync = usePoll(async () => {
-    const remote = await getJson<IssueDetailData>(`/api/issues/${encodeURIComponent(issueRef.current.identifier)}`);
-    const cur = issueRef.current;
-    if (JSON.stringify(remote) === JSON.stringify(cur)) return setStale(null);
-    if (dirty.current.size === 0 && !inFlight.current) {
-      setIssue(remote);
-      return setStale(null);
-    }
-    const timeline = { comments: remote.comments, activity: remote.activity, attachments: remote.attachments };
-    if (JSON.stringify(timeline) !== JSON.stringify({ comments: cur.comments, activity: cur.activity, attachments: cur.attachments })) setIssue((c) => ({ ...c, ...timeline }));
-    setStale(remote.updatedAt !== cur.updatedAt ? remote : null);
-  }, { enabled: !deleted });
+  const sync = usePoll(
+    async () => {
+      const remote = await getJson<IssueDetailData>(`/api/issues/${encodeURIComponent(issueRef.current.identifier)}`);
+      const cur = issueRef.current;
+      if (JSON.stringify(remote) === JSON.stringify(cur)) return setStale(null);
+      if (dirty.current.size === 0 && !inFlight.current) {
+        setIssue(remote);
+        return setStale(null);
+      }
+      const timeline = { comments: remote.comments, activity: remote.activity, attachments: remote.attachments };
+      if (JSON.stringify(timeline) !== JSON.stringify({ comments: cur.comments, activity: cur.activity, attachments: cur.attachments })) setIssue((c) => ({ ...c, ...timeline }));
+      setStale(remote.updatedAt !== cur.updatedAt ? remote : null);
+    },
+    { enabled: !deleted },
+  );
   // Refreshing retries a failed parent read and picks up renamed parents, even when parentId is unchanged.
   // biome-ignore lint/correctness/useExhaustiveDependencies: refresh signals intentionally trigger a new read.
   useEffect(() => {
-    if (!issue.parentId) { setResolvedParent(null); return; }
-    if (parent?.id === issue.parentId) { setResolvedParent(parent); return; }
+    if (!issue.parentId) {
+      setResolvedParent(null);
+      return;
+    }
+    if (parent?.id === issue.parentId) {
+      setResolvedParent(parent);
+      return;
+    }
     const abort = new AbortController();
-    setResolvedParent((current) => current?.id === issue.parentId ? current : null);
-    void getJson<IssueRef>(`/api/issues/${encodeURIComponent(issue.parentId)}`, abort.signal).then((next) => {
-      if (!abort.signal.aborted) setResolvedParent(next);
-    }).catch(() => {});
+    setResolvedParent((current) => (current?.id === issue.parentId ? current : null));
+    void getJson<IssueRef>(`/api/issues/${encodeURIComponent(issue.parentId)}`, abort.signal)
+      .then((next) => {
+        if (!abort.signal.aborted) setResolvedParent(next);
+      })
+      .catch(() => {});
     return () => abort.abort();
   }, [issue.parentId, parent, props.refreshVersion, sync.lastUpdated]);
   const lastRefresh = useRef(props.refreshVersion);
@@ -104,7 +118,9 @@ export function IssueDetail(props: IssueDetailProps) {
     setResetKey((k) => k + 1);
   };
   const staleBy = stale && [...stale.activity].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]?.actor;
-  useEffect(() => { if (stale && stale.updatedAt === issue.updatedAt) setStale(null); }, [stale, issue.updatedAt]);
+  useEffect(() => {
+    if (stale && stale.updatedAt === issue.updatedAt) setStale(null);
+  }, [stale, issue.updatedAt]);
 
   const view = { ...issue, ...optimistic };
   const project = projects.find((p) => p.id === issue.projectId);
@@ -173,71 +189,134 @@ export function IssueDetail(props: IssueDetailProps) {
       <div className="grid h-full place-items-center p-6">
         <div role="status" className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 text-[13px] shadow-sm">
           <Trash2 className="size-4 text-muted-foreground" />
-          <span><span className="font-mono text-xs">{issue.identifier}</span> moved to Trash.</span>
-          <Button size="sm" variant="outline" disabled={busy} className="h-7 gap-1.5" onClick={async () => {
-            setBusy(true);
-            const res = await restoreIssueAction(issue.identifier);
-            setBusy(false);
-            if (res.ok) setDeleted(false);
-            else setError(res.message);
-          }}><Undo2 className="size-3.5" />Undo</Button>
-          <Link href="/issues" className="text-muted-foreground hover:text-foreground">Back to issues</Link>
-          {error && <span role="alert" className="text-destructive">{error}</span>}
+          <span>
+            <span className="font-mono text-xs">{issue.identifier}</span> moved to Trash.
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            className="h-7 gap-1.5"
+            onClick={async () => {
+              setBusy(true);
+              const res = await restoreIssueAction(issue.identifier);
+              setBusy(false);
+              if (res.ok) setDeleted(false);
+              else setError(res.message);
+            }}
+          >
+            <Undo2 className="size-3.5" />
+            Undo
+          </Button>
+          <Link href="/issues" className="text-muted-foreground hover:text-foreground">
+            Back to issues
+          </Link>
+          {error && (
+            <span role="alert" className="text-destructive">
+              {error}
+            </span>
+          )}
         </div>
       </div>
     );
   }
 
-  const propertiesPanel = <Properties issue={view} projects={projects} labels={labels.filter((l) => !l.projectId || l.projectId === view.projectId)} milestones={milestones.filter((m) => m.projectId === view.projectId)} parent={resolvedParent} onChange={change} disabled={busy} />;
-  const blockedBy = <BlockerList
-    title="Blocked by"
-    issues={issue.relations.blockedBy}
-    disabled={busy}
-    highlighted={peek && issue.relations.blockedBy.some((b) => isUnresolvedIssueStatus(b.status))}
-    exclude={[issue.identifier, ...refs(issue.relations.blockedBy)]}
-    onAdd={(r) => change(`blocked by ${r.identifier}`, (cur) => ({ blockedBy: [...new Set([...refs(cur.relations.blockedBy), r.identifier])] }))}
-    onRemove={(r) => change(`remove blocker ${r.identifier}`, (cur) => ({ blockedBy: refs(cur.relations.blockedBy).filter((x) => x !== r.identifier) }))}
-  />;
-  const timeline = <><ActivityTimeline rows={issue.activity} lookups={lookups} /><div className="mt-6"><Comments identifier={issue.identifier} comments={issue.comments} /></div></>;
+  const propertiesPanel = (
+    <Properties
+      issue={view}
+      projects={projects}
+      labels={labels.filter((l) => !l.projectId || l.projectId === view.projectId)}
+      milestones={milestones.filter((m) => m.projectId === view.projectId)}
+      parent={resolvedParent}
+      onChange={change}
+      disabled={busy}
+    />
+  );
+  const blockedBy = (
+    <BlockerList
+      title="Blocked by"
+      issues={issue.relations.blockedBy}
+      disabled={busy}
+      highlighted={peek && issue.relations.blockedBy.some((b) => isUnresolvedIssueStatus(b.status))}
+      exclude={[issue.identifier, ...refs(issue.relations.blockedBy)]}
+      onAdd={(r) => change(`blocked by ${r.identifier}`, (cur) => ({ blockedBy: [...new Set([...refs(cur.relations.blockedBy), r.identifier])] }))}
+      onRemove={(r) => change(`remove blocker ${r.identifier}`, (cur) => ({ blockedBy: refs(cur.relations.blockedBy).filter((x) => x !== r.identifier) }))}
+    />
+  );
+  const timeline = (
+    <>
+      <ActivityTimeline rows={issue.activity} lookups={lookups} />
+      <div className="mt-6">
+        <Comments identifier={issue.identifier} comments={issue.comments} />
+      </div>
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col">
-      {!peek && <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
-        <BackButton fallbackHref={`/projects/${issue.projectId}`} />
-        <Link href="/issues" className="text-muted-foreground hover:text-foreground">Issues</Link>
-        <ChevronRight className="size-3.5 text-muted-foreground" />
-        <Link href={`/projects/${issue.projectId}`} className="text-muted-foreground hover:text-foreground">{project?.name ?? issue.key}</Link>
-        <ChevronRight className="size-3.5 text-muted-foreground" />
-        <span className="font-mono text-xs">{issue.identifier}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground" onClick={() => navigator.clipboard?.writeText(issue.identifier)}><Link2 className="size-3.5" />Copy ID</Button>
-          {confirmDelete ? (
-            <span className="flex items-center gap-1 text-muted-foreground">
-              Move to Trash?
-              <Button size="sm" variant="destructive" className="h-7" disabled={busy} onClick={async () => {
-                setBusy(true);
-                const res = await deleteIssueAction(issue.identifier);
-                setBusy(false);
-                setConfirmDelete(false);
-                if (res.ok) setDeleted(true);
-                else setError(res.message);
-              }}>Delete</Button>
-              <Button size="sm" variant="ghost" className="h-7" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-            </span>
-          ) : (
-            <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}><Trash2 className="size-3.5" />Delete</Button>
-          )}
-        </div>
-      </header>}
+      {!peek && (
+        <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-1.5 border-b px-3 py-1 text-[13px] sm:px-4">
+          <BackButton fallbackHref={`/projects/${issue.projectId}`} />
+          <Link href="/issues" className="text-muted-foreground hover:text-foreground">
+            Issues
+          </Link>
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+          <Link href={`/projects/${issue.projectId}`} className="text-muted-foreground hover:text-foreground">
+            {project?.name ?? issue.key}
+          </Link>
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+          <span className="font-mono text-xs">{issue.identifier}</span>
+          <div className="ml-auto flex items-center gap-1">
+            <LiveStatus lastUpdated={sync.lastUpdated} failures={sync.failures} onRefresh={sync.refresh} />
+            <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground" onClick={() => navigator.clipboard?.writeText(issue.identifier)}>
+              <Link2 className="size-3.5" />
+              Copy ID
+            </Button>
+            {confirmDelete ? (
+              <span className="flex items-center gap-1 text-muted-foreground">
+                Move to Trash?
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-7"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    const res = await deleteIssueAction(issue.identifier);
+                    setBusy(false);
+                    setConfirmDelete(false);
+                    if (res.ok) setDeleted(true);
+                    else setError(res.message);
+                  }}
+                >
+                  Delete
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </Button>
+              </span>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-[13px] text-muted-foreground hover:text-destructive" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="size-3.5" />
+                Delete
+              </Button>
+            )}
+          </div>
+        </header>
+      )}
 
       {stale && (
         <div role="alert" data-testid="stale-banner" className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-[13px]">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="flex-1">
-            <span className="font-medium">{issue.identifier} was updated{staleBy === "agent" ? " by an agent" : " elsewhere"}</span> while you were editing. Your edit is untouched; reload to see the latest version (this discards it).
+            <span className="font-medium">
+              {issue.identifier} was updated{staleBy === "agent" ? " by an agent" : " elsewhere"}
+            </span>{" "}
+            while you were editing. Your edit is untouched; reload to see the latest version (this discards it).
           </p>
-          <Button size="sm" className="h-7" onClick={reload}>Reload</Button>
+          <Button size="sm" className="h-7" onClick={reload}>
+            Reload
+          </Button>
         </div>
       )}
 
@@ -247,15 +326,22 @@ export function IssueDetail(props: IssueDetailProps) {
           {conflict ? (
             <>
               <p className="flex-1">
-                <span className="font-medium">{issue.identifier} was changed by someone else</span> after you opened it, so your change ({conflict.label}) was <span className="font-medium">not saved</span>. The page now shows the latest version.
+                <span className="font-medium">{issue.identifier} was changed by someone else</span> after you opened it, so your change ({conflict.label}) was{" "}
+                <span className="font-medium">not saved</span>. The page now shows the latest version.
               </p>
-              <Button size="sm" className="h-7" disabled={busy} onClick={() => commit(conflict.label, conflict.build, {}, conflict.guard)}>Re-apply my change</Button>
-              <Button size="sm" variant="ghost" className="h-7" onClick={() => setConflict(null)}>Dismiss</Button>
+              <Button size="sm" className="h-7" disabled={busy} onClick={() => commit(conflict.label, conflict.build, {}, conflict.guard)}>
+                Re-apply my change
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={() => setConflict(null)}>
+                Dismiss
+              </Button>
             </>
           ) : (
             <>
               <p className="flex-1">{error}</p>
-              <Button size="sm" variant="ghost" className="h-7" onClick={() => setError(null)}>Dismiss</Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={() => setError(null)}>
+                Dismiss
+              </Button>
             </>
           )}
         </div>
@@ -266,10 +352,17 @@ export function IssueDetail(props: IssueDetailProps) {
           <div className="mx-auto max-w-[720px] px-4 py-5 sm:px-8 sm:py-8">
             {resolvedParent && (
               <Link href={`/issues/${resolvedParent.identifier}`} className="mb-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-                <GitBranch className="size-3" />{resolvedParent.identifier} {resolvedParent.title}
+                <GitBranch className="size-3" />
+                {resolvedParent.identifier} {resolvedParent.title}
               </Link>
             )}
-            <Title key={`${resetKey}:${issue.updatedAt}:${issue.title}`} onDirty={setDirty} value={view.title} disabled={busy} onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))} />
+            <Title
+              key={`${resetKey}:${issue.updatedAt}:${issue.title}`}
+              onDirty={setDirty}
+              value={view.title}
+              disabled={busy}
+              onSave={(title) => commit("title", () => ({ title }), { title }, sameAs("title", "title"))}
+            />
 
             {!wide && (
               <section aria-label="Properties" className="mt-4 rounded-lg border bg-surface p-3">
@@ -281,7 +374,12 @@ export function IssueDetail(props: IssueDetailProps) {
             {peek && blockedBy}
 
             <div className="mt-5">
-              <Description key={resetKey} onDirty={setDirty} value={view.description} onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))} />
+              <Description
+                key={resetKey}
+                onDirty={setDirty}
+                value={view.description}
+                onSave={(description) => commit("description", () => ({ description }), {}, sameAs("description", "description"))}
+              />
             </div>
 
             <Attachments identifier={issue.identifier} attachments={issue.attachments} />
@@ -307,7 +405,17 @@ export function IssueDetail(props: IssueDetailProps) {
               onRemove={(r) => change(`remove related ${r.identifier}`, (cur) => ({ related: refs(cur.relations.related).filter((x) => x !== r.identifier) }))}
             />
 
-            {peek ? <details className="mt-8 border-t pt-4"><summary className="cursor-pointer text-xs text-muted-foreground">Activity and comments</summary><div className="mt-4">{timeline}</div></details> : <section className="mt-10" aria-label="Activity"><h3 className="mb-3 text-[13px] font-medium">Activity</h3>{timeline}</section>}
+            {peek ? (
+              <details className="mt-8 border-t pt-4">
+                <summary className="cursor-pointer text-xs text-muted-foreground">Activity and comments</summary>
+                <div className="mt-4">{timeline}</div>
+              </details>
+            ) : (
+              <section className="mt-10" aria-label="Activity">
+                <h3 className="mb-3 text-[13px] font-medium">Activity</h3>
+                {timeline}
+              </section>
+            )}
           </div>
         </div>
 
@@ -325,7 +433,10 @@ export function IssueDetail(props: IssueDetailProps) {
 function Title({ value, onSave, onDirty, disabled }: { value: string; onDirty: (key: string, on: boolean) => void; onSave: (title: string) => Promise<boolean>; disabled?: boolean }) {
   const [draft, setDraft] = useState(value);
   const edited = draft !== value;
-  useEffect(() => { onDirty("title", edited); return () => onDirty("title", false); }, [edited, onDirty]);
+  useEffect(() => {
+    onDirty("title", edited);
+    return () => onDirty("title", false);
+  }, [edited, onDirty]);
   const save = async () => {
     const next = draft.trim();
     if (!next || next === value) {

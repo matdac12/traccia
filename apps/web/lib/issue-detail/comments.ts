@@ -1,7 +1,6 @@
 import type { Comment, Reply } from "@/lib/api/schemas";
 
-const byTime = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) =>
-  a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt);
+const byTime = (a: { createdAt: string; id: string }, b: { createdAt: string; id: string }) => (a.createdAt === b.createdAt ? a.id.localeCompare(b.id) : a.createdAt.localeCompare(b.createdAt));
 
 /**
  * Arranges comments into threads: top-level comments oldest first, each with its replies oldest

@@ -226,7 +226,16 @@ describe("projectTodos", () => {
     const todayA = todo({ position: 1, references: [ref("CRM")] });
     const parent = todo({ day: null });
     const list = projectTodos(
-      [anytime, todayB, late, todayA, parent, todo({ references: [ref("TRC")] }), todo({ day: null, parentId: parent.id, references: [ref("CRM")] }), todo({ state: "done", closedAt: "2026-10-17T08:00:00Z", references: [ref("CRM")] })],
+      [
+        anytime,
+        todayB,
+        late,
+        todayA,
+        parent,
+        todo({ references: [ref("TRC")] }),
+        todo({ day: null, parentId: parent.id, references: [ref("CRM")] }),
+        todo({ state: "done", closedAt: "2026-10-17T08:00:00Z", references: [ref("CRM")] }),
+      ],
       "CRM",
     );
     expect(ids(list)).toEqual([late.id, todayA.id, todayB.id, anytime.id]);

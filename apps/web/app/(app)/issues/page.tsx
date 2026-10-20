@@ -10,11 +10,7 @@ async function load(filters: ReturnType<typeof parseFilters>): Promise<{ data: I
   try {
     // Three API requests: the groups (with the sync token), the projects (with their milestones; the layout's
     // sidebar shares this fetch) and the labels.
-    const [{ groups, syncToken }, projects, labels] = await Promise.all([
-      filters.view === "kanban" ? listBoardColumns(filters) : listIssueGroups(filters),
-      listProjects(),
-      listLabels(),
-    ]);
+    const [{ groups, syncToken }, projects, labels] = await Promise.all([filters.view === "kanban" ? listBoardColumns(filters) : listIssueGroups(filters), listProjects(), listLabels()]);
     return { data: { groups, projects, labels, milestones: projects.flatMap((p) => p.milestones), syncToken } };
   } catch (err) {
     if (err instanceof ApiError) return { error: err.code === "validation_error" ? `The API rejected these filters: ${err.message}` : err.message };

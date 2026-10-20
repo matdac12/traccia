@@ -44,8 +44,14 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
   return (
     <section className="mt-8" aria-label="Sub-issues">
       <h3 className="mb-2 flex items-center gap-2 text-[13px] font-medium">
-        Sub-issues <span className="text-xs font-normal text-muted-foreground">{done}/{items.length}</span>
-        <Button variant="ghost" size="sm" className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => (a ? null : "create"))}><Plus className="size-3" />Add</Button>
+        Sub-issues{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          {done}/{items.length}
+        </span>
+        <Button variant="ghost" size="sm" className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => (a ? null : "create"))}>
+          <Plus className="size-3" />
+          Add
+        </Button>
       </h3>
       {items.length === 0 && !adding && <p className="text-xs text-muted-foreground">No sub-issues.</p>}
       {items.length > 0 && (
@@ -55,7 +61,9 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
               <StatusIcon status={s.status} />
               <span className="font-mono text-xs text-muted-foreground">{s.identifier}</span>
               <span className="truncate">{s.title}</span>
-              <span className="ml-auto"><ActorAvatar who={s.assignee} size={16} /></span>
+              <span className="ml-auto">
+                <ActorAvatar who={s.assignee} size={16} />
+              </span>
             </Link>
           ))}
         </div>
@@ -63,19 +71,65 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
       {adding && (
         <div className="mt-2 space-y-1">
           <fieldset className="flex gap-1 text-xs" aria-label="Add sub-issue">
-            <Button size="xs" variant={adding === "create" ? "secondary" : "ghost"} aria-pressed={adding === "create"} onClick={() => { setAdding("create"); setError(null); }}>Create new</Button>
-            <Button size="xs" variant={adding === "link" ? "secondary" : "ghost"} aria-pressed={adding === "link"} onClick={() => { setAdding("link"); setError(null); }}>Link existing</Button>
+            <Button
+              size="xs"
+              variant={adding === "create" ? "secondary" : "ghost"}
+              aria-pressed={adding === "create"}
+              onClick={() => {
+                setAdding("create");
+                setError(null);
+              }}
+            >
+              Create new
+            </Button>
+            <Button
+              size="xs"
+              variant={adding === "link" ? "secondary" : "ghost"}
+              aria-pressed={adding === "link"}
+              onClick={() => {
+                setAdding("link");
+                setError(null);
+              }}
+            >
+              Link existing
+            </Button>
           </fieldset>
           {adding === "create" ? (
             <div className="flex gap-2">
-              <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") setAdding(null); }} placeholder="Sub-issue title" aria-label="Sub-issue title" className="h-8 text-[13px] md:text-[13px]" />
-              <Button size="sm" disabled={!title.trim() || busy} onClick={add}>Create</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setAdding(null); setError(null); }}>Cancel</Button>
+              <Input
+                autoFocus
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") add();
+                  if (e.key === "Escape") setAdding(null);
+                }}
+                placeholder="Sub-issue title"
+                aria-label="Sub-issue title"
+                className="h-8 text-[13px] md:text-[13px]"
+              />
+              <Button size="sm" disabled={!title.trim() || busy} onClick={add}>
+                Create
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAdding(null);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
             </div>
           ) : (
             <IssuePicker autoFocus exclude={[parentIdentifier, ...items.map((c) => c.identifier)]} placeholder="Issue to link as a sub-issue…" onPick={link} />
           )}
-          {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-xs text-destructive">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </section>
@@ -83,7 +137,15 @@ export function SubIssues({ parentIdentifier, items }: { parentIdentifier: strin
 }
 
 /** "Blocked by" or "Blocks": a list with remove buttons and an identifier search to add. */
-export function BlockerList({ title, issues, exclude, onAdd, onRemove, disabled, highlighted = false }: {
+export function BlockerList({
+  title,
+  issues,
+  exclude,
+  onAdd,
+  onRemove,
+  disabled,
+  highlighted = false,
+}: {
   title: string;
   issues: IssueRef[];
   exclude: readonly string[];
@@ -97,7 +159,10 @@ export function BlockerList({ title, issues, exclude, onAdd, onRemove, disabled,
     <section className={`mt-6 ${highlighted ? "rounded-lg border border-orange-500/25 bg-orange-500/5 p-3" : ""}`} aria-label={title}>
       <h3 className={`mb-2 flex items-center gap-2 text-[13px] font-medium ${highlighted ? "text-orange-700 dark:text-orange-400" : ""}`}>
         {title} <span className="text-xs font-normal text-muted-foreground">{issues.length}</span>
-        <Button variant="ghost" size="sm" disabled={disabled} className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => !a)}><Plus className="size-3" />Add</Button>
+        <Button variant="ghost" size="sm" disabled={disabled} className="ml-auto h-6 gap-1 px-1.5 text-xs text-muted-foreground" onClick={() => setAdding((a) => !a)}>
+          <Plus className="size-3" />
+          Add
+        </Button>
       </h3>
       {issues.length > 0 && (
         <div className="overflow-hidden rounded-lg border">
@@ -108,13 +173,32 @@ export function BlockerList({ title, issues, exclude, onAdd, onRemove, disabled,
                 <span className="font-mono text-xs text-muted-foreground">{s.identifier}</span>
                 <span className="truncate">{s.title}</span>
               </Link>
-              <button type="button" disabled={disabled} aria-label={`Remove ${s.identifier}`} onClick={() => onRemove(s)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"><X className="size-3.5" /></button>
+              <button
+                type="button"
+                disabled={disabled}
+                aria-label={`Remove ${s.identifier}`}
+                onClick={() => onRemove(s)}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              >
+                <X className="size-3.5" />
+              </button>
             </div>
           ))}
         </div>
       )}
       {issues.length === 0 && !adding && <p className="text-xs text-muted-foreground">None.</p>}
-      {adding && <div className="mt-2"><IssuePicker autoFocus exclude={exclude} onPick={(i) => { onAdd(i); setAdding(false); }} /></div>}
+      {adding && (
+        <div className="mt-2">
+          <IssuePicker
+            autoFocus
+            exclude={exclude}
+            onPick={(i) => {
+              onAdd(i);
+              setAdding(false);
+            }}
+          />
+        </div>
+      )}
     </section>
   );
 }

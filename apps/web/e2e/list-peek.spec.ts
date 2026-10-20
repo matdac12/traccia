@@ -44,7 +44,7 @@ test("list issue peek preserves the list, edits properties and returns focus on 
   expect(page.url()).toBe(originalUrl);
 });
 
- test("blockers and compact labels remain visible while metadata columns are optional", async ({ page }) => {
+test("blockers and compact labels remain visible while metadata columns are optional", async ({ page }) => {
   const issue = await createIssue(api, projectId, title("Metadata"), "todo");
   const blocker = await createIssue(api, projectId, title("Dependency"), "in_progress");
   const names = [title("api"), title("docs"), title("ux")];
@@ -86,7 +86,7 @@ test("list issue peek preserves the list, edits properties and returns focus on 
   await expect(badge).toBeHidden();
 });
 
- test("multiple blockers, mobile peek, keyboard opening and full-page navigation", async ({ page }) => {
+test("multiple blockers, mobile peek, keyboard opening and full-page navigation", async ({ page }) => {
   const issue = await createIssue(api, projectId, title("Mobile peek"), "todo");
   const a = await createIssue(api, projectId, title("First blocker"));
   const b = await createIssue(api, projectId, title("Second blocker"));
@@ -116,7 +116,7 @@ test("list issue peek preserves the list, edits properties and returns focus on 
   await expect(page.getByLabel("Title", { exact: true })).toHaveValue(issue.title);
 });
 
- test("peek keeps a description draft after a concurrent edit and reports the conflict", async ({ page }) => {
+test("peek keeps a description draft after a concurrent edit and reports the conflict", async ({ page }) => {
   const issue = await createIssue(api, projectId, title("Conflict peek"), "todo");
   await api.patch(`/issues/${issue.identifier}`, { description: "Original description" });
   await visit(page, `/issues?project=${projectId}&status=todo`);
@@ -131,7 +131,7 @@ test("list issue peek preserves the list, edits properties and returns focus on 
   await expect.poll(async () => (await api.get<{ description: string }>(`/issues/${issue.identifier}`)).description).toBe("Changed elsewhere");
 });
 
- test("manual refresh updates the peek parent and focus returns after status regrouping", async ({ page }) => {
+test("manual refresh updates the peek parent and focus returns after status regrouping", async ({ page }) => {
   const issue = await createIssue(api, projectId, title("Refresh peek"), "todo");
   const parent = await createIssue(api, projectId, title("Peek parent"), "todo");
   await visit(page, `/issues?project=${projectId}`);

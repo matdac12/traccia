@@ -6,7 +6,7 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 export function ditherPixels(data: Uint8ClampedArray, width: number): void {
   for (let offset = 0; offset < data.length; offset += 4) {
     const pixel = offset / 4;
-    const threshold = (BAYER[(Math.floor(pixel / width) % 4) * 4 + pixel % width % 4]! / 16 - 0.5) * 64;
+    const threshold = (BAYER[(Math.floor(pixel / width) % 4) * 4 + ((pixel % width) % 4)]! / 16 - 0.5) * 64;
     for (let channel = 0; channel < 3; channel++) {
       data[offset + channel] = Math.round((data[offset + channel]! + threshold) / 85) * 85;
     }

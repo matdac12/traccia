@@ -10,7 +10,13 @@ import type { IssueRow } from "@/lib/api/schemas";
 export type BoardColumn = { status: IssueStatus; items: IssueRow[]; nextCursor: string | null };
 
 /** The body of `PATCH /issues/:identifier/position`. */
-export type MoveRequest = { identifier: string; status: IssueStatus; beforeId?: string; afterId?: string; /** The card's `updatedAt` when it was read; a stale one is a 409. */ expectedUpdatedAt?: string };
+export type MoveRequest = {
+  identifier: string;
+  status: IssueStatus;
+  beforeId?: string;
+  afterId?: string /** The card's `updatedAt` when it was read; a stale one is a 409. */;
+  expectedUpdatedAt?: string;
+};
 
 export type MoveResult = { ok: true; issue: IssueRow } | { ok: false; code: string; message: string };
 

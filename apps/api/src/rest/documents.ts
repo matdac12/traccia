@@ -1,5 +1,9 @@
 import { Readable } from "node:stream";
-import { listDocumentsQuerySchema, purgeQuerySchema, updateDocumentBodySchema } from "@traccia/shared";
+import {
+  listDocumentsQuerySchema,
+  purgeQuerySchema,
+  updateDocumentBodySchema,
+} from "@traccia/shared";
 import Busboy from "busboy";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { DOCUMENT_MAX_BYTES } from "../service/documents.js";

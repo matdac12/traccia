@@ -8,10 +8,7 @@ import { forbiddenResponse } from "./lib/forbidden";
  * be trusted here. Next.js 16 calls this file `proxy` (formerly `middleware`).
  */
 export function proxy(request: NextRequest) {
-  const decision = checkAccess(
-    request.headers.get(LOGIN_HEADER),
-    accessConfigFromEnv(process.env),
-  );
+  const decision = checkAccess(request.headers.get(LOGIN_HEADER), accessConfigFromEnv(process.env));
   if (!decision.ok) {
     return forbiddenResponse(decision.reason, request.nextUrl.pathname);
   }

@@ -28,9 +28,13 @@ function Picker({ label, triggerClass, trigger: shown, children, className }: { 
     <Isolated className={className}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={label} onKeyDown={(e) => e.stopPropagation()} className={cn(trigger, triggerClass)}>{shown}</button>
+          <button type="button" aria-label={label} onKeyDown={(e) => e.stopPropagation()} className={cn(trigger, triggerClass)}>
+            {shown}
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto" onKeyDown={(e) => e.stopPropagation()}>{children}</DropdownMenuContent>
+        <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto" onKeyDown={(e) => e.stopPropagation()}>
+          {children}
+        </DropdownMenuContent>
       </DropdownMenu>
     </Isolated>
   );
@@ -38,8 +42,16 @@ function Picker({ label, triggerClass, trigger: shown, children, className }: { 
 
 function Options({ options }: { options: PickOption[] }) {
   return options.map((o) => (
-    <DropdownMenuItem key={o.key} onSelect={(e) => { if (o.keepOpen) e.preventDefault(); o.onSelect(e); }}>
-      {o.icon}{o.text}<Tick on={o.checked} />
+    <DropdownMenuItem
+      key={o.key}
+      onSelect={(e) => {
+        if (o.keepOpen) e.preventDefault();
+        o.onSelect(e);
+      }}
+    >
+      {o.icon}
+      {o.text}
+      <Tick on={o.checked} />
     </DropdownMenuItem>
   ));
 }
@@ -60,9 +72,30 @@ export function PriorityPicker({ issue, editor, className }: { issue: IssueRow; 
   );
 }
 
-export function AssigneePicker({ issue, editor, size = 18, quietUnassigned = false, className }: { issue: IssueRow; editor: InlineEditor; size?: number; quietUnassigned?: boolean; className?: string }) {
+export function AssigneePicker({
+  issue,
+  editor,
+  size = 18,
+  quietUnassigned = false,
+  className,
+}: {
+  issue: IssueRow;
+  editor: InlineEditor;
+  size?: number;
+  quietUnassigned?: boolean;
+  className?: string;
+}) {
   return (
-    <Picker label={`Change assignee of ${issue.identifier}`} triggerClass="group/assignee rounded-full p-0.5" className={className} trigger={<span className={quietUnassigned && !issue.assignee ? "opacity-0 group-hover/assignee:opacity-100 group-focus-visible/assignee:opacity-100" : undefined}><ActorAvatar who={issue.assignee} size={size} /></span>}>
+    <Picker
+      label={`Change assignee of ${issue.identifier}`}
+      triggerClass="group/assignee rounded-full p-0.5"
+      className={className}
+      trigger={
+        <span className={quietUnassigned && !issue.assignee ? "opacity-0 group-hover/assignee:opacity-100 group-focus-visible/assignee:opacity-100" : undefined}>
+          <ActorAvatar who={issue.assignee} size={size} />
+        </span>
+      }
+    >
       <Options options={assigneeOptions(issue, editor)} />
     </Picker>
   );
@@ -75,12 +108,18 @@ export function LabelsPicker({ issue, editor, visible = 2, compact = false, clas
       label={`Change labels of ${issue.identifier}`}
       triggerClass="min-h-5 min-w-0 max-w-full gap-1 overflow-hidden px-0.5"
       className={className}
-      trigger={issue.labels.length ? (
-        <>
-          {issue.labels.slice(0, visible).map((l) => <LabelChip key={l.id} name={l.name} color={l.color} compact={compact} />)}
-          {issue.labels.length > visible && <span className="shrink-0 text-[11px] text-muted-foreground">+{issue.labels.length - visible}</span>}
-        </>
-      ) : <Tag className="size-3.5 text-muted-foreground/50" />}
+      trigger={
+        issue.labels.length ? (
+          <>
+            {issue.labels.slice(0, visible).map((l) => (
+              <LabelChip key={l.id} name={l.name} color={l.color} compact={compact} />
+            ))}
+            {issue.labels.length > visible && <span className="shrink-0 text-[11px] text-muted-foreground">+{issue.labels.length - visible}</span>}
+          </>
+        ) : (
+          <Tag className="size-3.5 text-muted-foreground/50" />
+        )
+      }
     >
       {options.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No labels yet.</div>}
       <Options options={options} />

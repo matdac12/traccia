@@ -14,12 +14,16 @@ import * as storageModule from "../lib/background-storage";
 // jsdom cannot decode/rasterize images. Keep the provider, controls and IndexedDB operations real;
 // replace only the bitmap preparation boundary, which is exercised in the browser.
 vi.mock("../lib/background", async (original) => ({
-  ...await original<typeof import("../lib/background")>(),
+  ...(await original<typeof import("../lib/background")>()),
   prepareBackgroundImage: vi.fn(),
 }));
 
 async function settings() {
-  const view = render(<AppearanceProvider initialAccent="#ff9e0b" initialFont="mono"><AppearanceSettings /></AppearanceProvider>);
+  const view = render(
+    <AppearanceProvider initialAccent="#ff9e0b" initialFont="mono">
+      <AppearanceSettings />
+    </AppearanceProvider>,
+  );
   await waitFor(() => expect(screen.getByLabelText("Upload background image")).toBeEnabled());
   return view;
 }
@@ -80,7 +84,9 @@ describe("background settings", () => {
     saved();
     await settings();
     await screen.findByRole("img", { name: "Background preview" });
-    const storage = vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(() => { throw new DOMException("Full", "QuotaExceededError"); });
+    const storage = vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(() => {
+      throw new DOMException("Full", "QuotaExceededError");
+    });
     await userEvent.click(screen.getByRole("button", { name: "None" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not save/i);
     expect(screen.getByRole("button", { name: "Haze" })).toHaveAttribute("aria-pressed", "true");
@@ -129,7 +135,11 @@ describe("background settings", () => {
 
   it("prevents reset while an upload is pending so its completion cannot undo a reset", async () => {
     let finish!: (result: typeof image) => void;
-    vi.mocked(prepareBackgroundImage).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    vi.mocked(prepareBackgroundImage).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
     await settings();
     await userEvent.upload(screen.getByLabelText("Upload background image"), new File(["image"], "mountains.png", { type: "image/png" }));
     expect(screen.getByRole("button", { name: "Reset appearance" })).toBeDisabled();
@@ -146,8 +156,12 @@ describe("background settings", () => {
     const old = await read();
     let finish!: () => void;
     let started!: () => void;
-    const pending = new Promise<void>((resolve) => { finish = resolve; });
-    const reading = new Promise<void>((resolve) => { started = resolve; });
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const reading = new Promise<void>((resolve) => {
+      started = resolve;
+    });
     vi.spyOn(storageModule, "readBackground").mockImplementationOnce(async () => {
       started();
       await pending;
@@ -159,7 +173,10 @@ describe("background settings", () => {
       await reading;
       await userEvent.click(screen.getByRole("button", { name: "None" }));
       await waitFor(async () => expect((await read()).effect).toBe("none"));
-      await act(async () => { finish(); await pending; });
+      await act(async () => {
+        finish();
+        await pending;
+      });
       fireEvent.change(screen.getByRole("slider", { name: "Background opacity" }), { target: { value: "40" } });
       await waitFor(async () => expect(await read()).toMatchObject({ effect: "none", opacity: 40 }));
     } finally {

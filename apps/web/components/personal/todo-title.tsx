@@ -5,7 +5,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { useProjectOptions } from "./projects-context";
 
-export const CHIP = "mx-px inline-flex translate-y-[-1px] items-center rounded-[4px] border bg-surface px-1 align-middle font-mono text-[10.5px] font-medium leading-4 tracking-wide text-foreground/80";
+export const CHIP =
+  "mx-px inline-flex translate-y-[-1px] items-center rounded-[4px] border bg-surface px-1 align-middle font-mono text-[10.5px] font-medium leading-4 tracking-wide text-foreground/80";
 
 /**
  * A Project key as a chip. With a `projectId` it links to the Project page, with an "Open <name>" tooltip; a click

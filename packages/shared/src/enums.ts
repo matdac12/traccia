@@ -9,8 +9,12 @@ export const ISSUE_STATUSES = [
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
 /** A blocker no longer holds up work once it reaches either of these statuses. */
-export const RESOLVED_ISSUE_STATUSES: readonly IssueStatus[] = ["done", "canceled"];
-export const isUnresolvedIssueStatus = (status: IssueStatus) => !RESOLVED_ISSUE_STATUSES.includes(status);
+export const RESOLVED_ISSUE_STATUSES: readonly IssueStatus[] = [
+  "done",
+  "canceled",
+];
+export const isUnresolvedIssueStatus = (status: IssueStatus) =>
+  !RESOLVED_ISSUE_STATUSES.includes(status);
 
 /** 0 none, 1 urgent, 2 high, 3 medium, 4 low (same as Linear). */
 export const PRIORITIES = [0, 1, 2, 3, 4] as const;

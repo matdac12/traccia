@@ -6,7 +6,14 @@ import type { Memory, ProjectDocument } from "../lib/api/schemas";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
-const act = { createMemoryAction: vi.fn(), updateMemoryAction: vi.fn(), deleteMemoryAction: vi.fn(), restoreDocumentationAction: vi.fn(), deleteDocumentAction: vi.fn(), updateDocumentAction: vi.fn() };
+const act = {
+  createMemoryAction: vi.fn(),
+  updateMemoryAction: vi.fn(),
+  deleteMemoryAction: vi.fn(),
+  restoreDocumentationAction: vi.fn(),
+  deleteDocumentAction: vi.fn(),
+  updateDocumentAction: vi.fn(),
+};
 vi.mock("@/app/(app)/projects/[id]/documentation/actions", () => ({
   createMemoryAction: (...a: unknown[]) => act.createMemoryAction(...a),
   updateMemoryAction: (...a: unknown[]) => act.updateMemoryAction(...a),
@@ -19,8 +26,27 @@ vi.mock("@/app/(app)/projects/[id]/documentation/actions", () => ({
 const { MemoriesView } = await import("../components/documentation/memories-view");
 const { FilesView } = await import("../components/documentation/files-view");
 
-const memory: Memory = { id: "M1", projectId: "p1", title: "Use pnpm", body: "Run **pnpm** only", tags: ["tooling"], createdBy: "agent", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" };
-const doc: ProjectDocument = { id: "D1", projectId: "p1", filename: "spec.pdf", mimeType: "application/pdf", sizeBytes: 2048, description: "The spec", createdBy: "you", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-02T00:00:00.000Z" };
+const memory: Memory = {
+  id: "M1",
+  projectId: "p1",
+  title: "Use pnpm",
+  body: "Run **pnpm** only",
+  tags: ["tooling"],
+  createdBy: "agent",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-02T00:00:00.000Z",
+};
+const doc: ProjectDocument = {
+  id: "D1",
+  projectId: "p1",
+  filename: "spec.pdf",
+  mimeType: "application/pdf",
+  sizeBytes: 2048,
+  description: "The spec",
+  createdBy: "you",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-02T00:00:00.000Z",
+};
 
 describe("MemoriesView", () => {
   it("lists memories with tags, links tag filters and shows an empty state", () => {

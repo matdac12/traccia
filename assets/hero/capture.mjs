@@ -23,38 +23,103 @@ const root = resolve(heroDir, "../..");
 // playwright-core is a transitive dependency of @playwright/test, so under pnpm it is not linked
 // into apps/web/node_modules; resolve it from @playwright/test's own tree.
 const webRequire = createRequire(join(root, "apps/web/package.json"));
-const { chromium } = createRequire(webRequire.resolve("@playwright/test"))("playwright-core");
+const { chromium } = createRequire(webRequire.resolve("@playwright/test"))(
+  "playwright-core",
+);
 
 export function ffmpeg(args) {
-  execFileSync("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", ...args], { stdio: "inherit" });
+  execFileSync(
+    "ffmpeg",
+    ["-y", "-hide_banner", "-loglevel", "error", ...args],
+    { stdio: "inherit" },
+  );
 }
 
 export function encodeH264(pattern, fps, out) {
-  ffmpeg(["-framerate", String(fps), "-i", pattern, "-c:v", "libx264", "-preset", "slow", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]);
+  ffmpeg([
+    "-framerate",
+    String(fps),
+    "-i",
+    pattern,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "slow",
+    "-crf",
+    "18",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    out,
+  ]);
 }
 
 export function encodeVp9(pattern, fps, out) {
-  ffmpeg(["-framerate", String(fps), "-i", pattern, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "33", "-pix_fmt", "yuv420p", out]);
+  ffmpeg([
+    "-framerate",
+    String(fps),
+    "-i",
+    pattern,
+    "-c:v",
+    "libvpx-vp9",
+    "-b:v",
+    "0",
+    "-crf",
+    "33",
+    "-pix_fmt",
+    "yuv420p",
+    out,
+  ]);
 }
 
 /** Renders one scene to a numbered PNG sequence in a temp dir and returns its pattern. */
-export async function renderFrames({ scene, ui = "", ui2 = "", bg = "background.png", caption = "", kicker = "", frame = "blur", width = 1920, height = 1080, pad = 0.032, duration, fps }) {
+export async function renderFrames({
+  scene,
+  ui = "",
+  ui2 = "",
+  bg = "background.png",
+  caption = "",
+  kicker = "",
+  frame = "blur",
+  width = 1920,
+  height = 1080,
+  pad = 0.032,
+  duration,
+  fps,
+}) {
   const frames = Math.round(duration * fps);
-  if (!Number.isFinite(frames) || frames < 2) throw new Error("bad duration/fps");
+  if (!Number.isFinite(frames) || frames < 2)
+    throw new Error("bad duration/fps");
   const work = mkdtempSync(join(tmpdir(), "traccia-hero-"));
-  const query = new URLSearchParams({ w: String(width), h: String(height), pad: String(pad), frame, bg, ui, ui2, caption, kicker });
+  const query = new URLSearchParams({
+    w: String(width),
+    h: String(height),
+    pad: String(pad),
+    frame,
+    bg,
+    ui,
+    ui2,
+    caption,
+    kicker,
+  });
   const url = `file://${join(heroDir, scene)}?${query}`;
 
   const browser = await chromium.launch();
   try {
-    const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      deviceScaleFactor: 1,
+    });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "load" });
     await page.evaluate(() => window.__ready);
     const meta = await page.evaluate(() => window.__meta);
     for (let i = 0; i < frames; i++) {
       await page.evaluate((u) => window.__seek(u), i / frames);
-      await page.screenshot({ path: join(work, `frame-${String(i + 1).padStart(5, "0")}.png`) });
+      await page.screenshot({
+        path: join(work, `frame-${String(i + 1).padStart(5, "0")}.png`),
+      });
     }
     await context.close();
     return { work, pattern: join(work, "frame-%05d.png"), frames, meta };
@@ -102,19 +167,42 @@ async function main() {
     duration,
     fps,
   });
-  console.log(`scene ${meta?.width}x${meta?.height ?? "?"}, ${frames} frames @ ${fps}fps`);
+  console.log(
+    `scene ${meta?.width}x${meta?.height ?? "?"}, ${frames} frames @ ${fps}fps`,
+  );
 
   // The still is the mid-loop frame, the view a reader sees first.
-  copyFileSync(join(work, `frame-${String(Math.round(frames / 2)).padStart(5, "0")}.png`), join(outDir, `${name}-still.png`));
+  copyFileSync(
+    join(work, `frame-${String(Math.round(frames / 2)).padStart(5, "0")}.png`),
+    join(outDir, `${name}-still.png`),
+  );
   encodeH264(pattern, fps, join(outDir, `${name}.mp4`));
   encodeVp9(pattern, fps, join(outDir, `${name}.webm`));
   if (wantGif) {
-    ffmpeg(["-i", join(outDir, `${name}.mp4`), "-vf", "fps=15,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse", "-loop", "0", join(outDir, `${name}.gif`)]);
+    ffmpeg([
+      "-i",
+      join(outDir, `${name}.mp4`),
+      "-vf",
+      "fps=15,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+      "-loop",
+      "0",
+      join(outDir, `${name}.gif`),
+    ]);
   }
   rmSync(work, { recursive: true, force: true });
-  console.log([`${name}.mp4`, `${name}.webm`, ...(wantGif ? [`${name}.gif`] : []), `${name}-still.png`].join("\n"));
+  console.log(
+    [
+      `${name}.mp4`,
+      `${name}.webm`,
+      ...(wantGif ? [`${name}.gif`] : []),
+      `${name}-still.png`,
+    ].join("\n"),
+  );
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   await main();
 }

@@ -33,7 +33,14 @@ export function MarkdownEditor({
     <div className="rounded-md border bg-background">
       <div className="flex gap-1 border-b px-1.5 py-1" role="tablist">
         {(["write", "preview"] as const).map((t) => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={cn("rounded px-2 py-0.5 text-xs capitalize text-muted-foreground hover:text-foreground", tab === t && "bg-accent text-foreground")}>
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={cn("rounded px-2 py-0.5 text-xs capitalize text-muted-foreground hover:text-foreground", tab === t && "bg-accent text-foreground")}
+          >
             {t}
           </button>
         ))}
@@ -63,7 +70,10 @@ export function MarkdownEditor({
 export function Description({ value, onSave, onDirty }: { value: string; onSave: (next: string) => Promise<boolean>; onDirty?: (key: string, on: boolean) => void }) {
   const [editing, setEditing] = useState(false);
   // An open editor is an edit in progress, whether or not anything was typed yet.
-  useEffect(() => { onDirty?.("description", editing); return () => onDirty?.("description", false); }, [editing, onDirty]);
+  useEffect(() => {
+    onDirty?.("description", editing);
+    return () => onDirty?.("description", false);
+  }, [editing, onDirty]);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -80,8 +90,12 @@ export function Description({ value, onSave, onDirty }: { value: string; onSave:
       <div className="space-y-2">
         <MarkdownEditor label="Description" value={draft} onChange={setDraft} onSubmit={save} autoFocus />
         <div className="flex items-center gap-2">
-          <Button size="sm" disabled={saving} onClick={save}>Save</Button>
-          <Button size="sm" variant="ghost" disabled={saving} onClick={() => setEditing(false)}>Cancel</Button>
+          <Button size="sm" disabled={saving} onClick={save}>
+            Save
+          </Button>
+          <Button size="sm" variant="ghost" disabled={saving} onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
           <span className="ml-auto text-[11px] text-muted-foreground">⌘↵ to save</span>
         </div>
       </div>
@@ -96,12 +110,15 @@ export function Description({ value, onSave, onDirty }: { value: string; onSave:
       {value ? (
         <>
           <Button variant="ghost" size="sm" className="absolute -right-1 -top-1 h-6 gap-1 text-xs text-muted-foreground opacity-0 focus-visible:opacity-100 group-hover:opacity-100" onClick={start}>
-            <Pencil className="size-3" />Edit
+            <Pencil className="size-3" />
+            Edit
           </Button>
           <Markdown>{value}</Markdown>
         </>
       ) : (
-        <button type="button" className="text-sm text-muted-foreground hover:text-foreground" onClick={start}>Add description…</button>
+        <button type="button" className="text-sm text-muted-foreground hover:text-foreground" onClick={start}>
+          Add description…
+        </button>
       )}
     </div>
   );

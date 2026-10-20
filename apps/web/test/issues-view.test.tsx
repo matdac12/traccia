@@ -14,8 +14,19 @@ vi.mock("../app/(app)/issues/actions", () => ({ loadMoreIssues: (...a: unknown[]
 
 const label = { id: "l1", name: "bug", color: "#f00", projectId: null };
 const issue = (n: number, status: string, over = {}) => ({
-  id: `i${n}`, projectId: "p1", identifier: `TRK-${n}`, title: `Issue ${n}`, status, priority: 2, estimate: 3, assignee: "you" as const,
-  milestoneId: "m1", createdBy: "you" as const, updatedAt: new Date().toISOString(), labels: [label], ...over,
+  id: `i${n}`,
+  projectId: "p1",
+  identifier: `TRK-${n}`,
+  title: `Issue ${n}`,
+  status,
+  priority: 2,
+  estimate: 3,
+  assignee: "you" as const,
+  milestoneId: "m1",
+  createdBy: "you" as const,
+  updatedAt: new Date().toISOString(),
+  labels: [label],
+  ...over,
 });
 const data = (over: Partial<IssuesData> = {}): IssuesData => ({
   groups: [
@@ -31,10 +42,12 @@ const data = (over: Partial<IssuesData> = {}): IssuesData => ({
   milestones: [{ id: "m1", projectId: "p1", name: "P8 Dashboard", targetDate: null, updatedAt: "2026-01-01T00:00:00.000Z" }],
   ...over,
 });
-const setup = (filters: Partial<IssueFilters> = {}, d: IssuesData | undefined = data(), error?: string) =>
-  render(<IssuesView filters={{ ...DEFAULT_FILTERS, ...filters }} data={d} error={error} />);
+const setup = (filters: Partial<IssueFilters> = {}, d: IssuesData | undefined = data(), error?: string) => render(<IssuesView filters={{ ...DEFAULT_FILTERS, ...filters }} data={d} error={error} />);
 
-beforeEach(() => { replace.mockReset(); loadMore.mockReset(); });
+beforeEach(() => {
+  replace.mockReset();
+  loadMore.mockReset();
+});
 
 describe("IssuesView table", () => {
   it("groups issues by status with counts, hiding empty groups; done starts collapsed", () => {
@@ -129,9 +142,13 @@ describe("IssuesView filters and URL sync", () => {
       const box = screen.getByRole("searchbox", { name: "Search issues" });
       fireEvent.change(box, { target: { value: "c" } });
       fireEvent.change(box, { target: { value: "cache" } });
-      act(() => { vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS - 1); });
+      act(() => {
+        vi.advanceTimersByTime(SEARCH_DEBOUNCE_MS - 1);
+      });
       expect(replace).not.toHaveBeenCalled();
-      act(() => { vi.advanceTimersByTime(1); });
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
       expect(replace).toHaveBeenCalledTimes(1);
       expect(replace).toHaveBeenCalledWith("/issues?q=cache", { scroll: false });
     } finally {

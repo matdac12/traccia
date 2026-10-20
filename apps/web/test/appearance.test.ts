@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
-  ACCENTS, accentCookie, accentCss, accentFor, clampAccent, contrast, DARK_BACKGROUND, DEFAULT_ACCENT, fontCookie,
-  foregroundFor, LIGHT_BACKGROUND, MIN_ACCENT_CONTRAST, normalizeHex, parseAccentCookie, parseFontCookie,
+  ACCENTS,
+  accentCookie,
+  accentCss,
+  accentFor,
+  clampAccent,
+  contrast,
+  DARK_BACKGROUND,
+  DEFAULT_ACCENT,
+  fontCookie,
+  foregroundFor,
+  LIGHT_BACKGROUND,
+  MIN_ACCENT_CONTRAST,
+  normalizeHex,
+  parseAccentCookie,
+  parseFontCookie,
 } from "../lib/appearance";
 
 describe("normalizeHex", () => {

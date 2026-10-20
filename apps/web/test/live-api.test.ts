@@ -11,12 +11,30 @@ vi.mock("../lib/api/client", async (orig) => {
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const row = (n: number, status = "todo") => ({
-  id: `i${n}`, projectId: "p1", key: "TRK", number: n, identifier: `TRK-${n}`, title: `T${n}`, description: "", status, priority: 0, estimate: null,
-  assignee: null, milestoneId: null, parentId: null, createdBy: "you", createdAt: "a", updatedAt: `2026-01-01T00:00:0${n}.000Z`, labels: [],
+  id: `i${n}`,
+  projectId: "p1",
+  key: "TRK",
+  number: n,
+  identifier: `TRK-${n}`,
+  title: `T${n}`,
+  description: "",
+  status,
+  priority: 0,
+  estimate: null,
+  assignee: null,
+  milestoneId: null,
+  parentId: null,
+  createdBy: "you",
+  createdAt: "a",
+  updatedAt: `2026-01-01T00:00:0${n}.000Z`,
+  labels: [],
 });
 const calledUrls = () => fetchMock.mock.calls.map(([u]) => new URL(String(u)));
 
-beforeEach(() => { fetchMock.mockReset(); void createApiClient; });
+beforeEach(() => {
+  fetchMock.mockReset();
+  void createApiClient;
+});
 
 describe("latestIssueChange", () => {
   it("asks for one row changed after `since`, deleted ones included", async () => {
@@ -65,9 +83,7 @@ describe("refreshIssueGroups", () => {
   });
 
   it("only reads the chosen statuses, in one request each time", async () => {
-    fetchMock.mockImplementation(async (u: URL) =>
-      json({ groups: new URL(String(u)).searchParams.getAll("status").map((s) => group(s, [])), syncToken: "t" }),
-    );
+    fetchMock.mockImplementation(async (u: URL) => json({ groups: new URL(String(u)).searchParams.getAll("status").map((s) => group(s, [])), syncToken: "t" }));
     const { refreshIssueGroups, listIssueGroups } = await import("../lib/api/issues");
     const filters = { ...DEFAULT_FILTERS, status: ["todo" as const, "done" as const] };
     expect((await listIssueGroups(filters)).groups.map((g) => g.status)).toEqual(["todo", "done"]);

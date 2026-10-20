@@ -38,7 +38,12 @@ export const MIN_ACCENT_CONTRAST = 2;
 /** `#abc`, `abc`, `#AABBCC` or `aabbcc` becomes `#aabbcc`; anything else is null. */
 export function normalizeHex(input: string | undefined | null): string | null {
   const raw = (input ?? "").trim().replace(/^#/, "");
-  if (/^[0-9a-f]{3}$/i.test(raw)) return `#${raw.split("").map((c) => c + c).join("").toLowerCase()}`;
+  if (/^[0-9a-f]{3}$/i.test(raw))
+    return `#${raw
+      .split("")
+      .map((c) => c + c)
+      .join("")
+      .toLowerCase()}`;
   if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw.toLowerCase()}`;
   return null;
 }
@@ -98,8 +103,7 @@ export function accentFor(hex: string, theme: "light" | "dark"): ThemeAccent {
 
 /** CSS overriding the accent tokens in both themes. Rendered after globals.css so it wins at equal specificity. */
 export function accentCss(hex: string): string {
-  const block = (selector: string, t: ThemeAccent) =>
-    `${selector}{--brand:${t.brand};--brand-foreground:${t.foreground};--brand-ring:${t.ring}}`;
+  const block = (selector: string, t: ThemeAccent) => `${selector}{--brand:${t.brand};--brand-foreground:${t.foreground};--brand-ring:${t.ring}}`;
   return block(":root", accentFor(hex, "light")) + block(".dark", accentFor(hex, "dark"));
 }
 

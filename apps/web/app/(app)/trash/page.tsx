@@ -36,10 +36,7 @@ export default async function TrashPage({ searchParams }: { searchParams: Search
             key={t ?? "all"}
             href={href(t)}
             aria-current={t === type ? "page" : undefined}
-            className={cn(
-              "rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/50",
-              t === type && "bg-accent text-foreground",
-            )}
+            className={cn("rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/50", t === type && "bg-accent text-foreground")}
           >
             {t ? `${TYPE_LABEL[t]}s` : "All"}
           </Link>

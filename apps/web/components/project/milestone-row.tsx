@@ -32,12 +32,16 @@ export function MilestoneRow({ milestone, href }: { milestone: Milestone; href: 
         <StatusIcon status={DOT[state].status} className="size-3.5" />
       </span>
       <div className="min-w-0 flex-1">
-        <Link href={href} className="block truncate rounded text-[13px] font-medium outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">{milestone.name}</Link>
+        <Link href={href} className="block truncate rounded text-[13px] font-medium outline-none after:absolute after:inset-0 focus-visible:ring-2 focus-visible:ring-ring">
+          {milestone.name}
+        </Link>
         {meta.length ? <p className="truncate text-xs text-muted-foreground">{meta.join(" · ")}</p> : null}
       </div>
       <div className="flex shrink-0 items-baseline gap-2 text-xs tabular-nums text-muted-foreground">
         <span className="text-foreground">{percent}%</span>
-        <span>{done}/{total} issues</span>
+        <span>
+          {done}/{total} issues
+        </span>
       </div>
     </>
   );

@@ -49,7 +49,10 @@ function todo(over: Partial<Todo> = {}): Todo {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-17T13:00:00Z"));
-  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => new Promise(() => {})),
+  );
   moveTodoAction.mockReset().mockReturnValue(new Promise(() => {}));
   // jsdom lays nothing out: each row stands 40 px below the one before it.
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {

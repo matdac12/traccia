@@ -53,9 +53,7 @@ export function buildMatchExpression(q: string): string | null {
   const tokens = q.match(/[\p{L}\p{N}]+/gu);
   if (!tokens) return null;
   const last = tokens.length - 1;
-  return tokens
-    .map((t, i) => (i === last ? `"${t}"*` : `"${t}"`))
-    .join(" ");
+  return tokens.map((t, i) => (i === last ? `"${t}"*` : `"${t}"`)).join(" ");
 }
 
 /**

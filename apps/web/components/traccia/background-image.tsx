@@ -20,28 +20,44 @@ export function BackgroundImageLayer({ background, preview = false }: { backgrou
     const measure = () => {
       const box = element.getBoundingClientRect();
       const next = { width: box.width, height: box.height, dpr: window.devicePixelRatio || 1 };
-      setSize((previous) => previous.width === next.width && previous.height === next.height && previous.dpr === next.dpr ? previous : next);
+      setSize((previous) => (previous.width === next.width && previous.height === next.height && previous.dpr === next.dpr ? previous : next));
     };
     measure();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
     observer?.observe(element);
     window.addEventListener("resize", measure);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); };
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, [src]);
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
     if (src && size.width > 0 && size.height > 0 && ["dither", "ascii", "halftone"].includes(effect)) {
       const renderSize = { ...size, light };
-      renderBackgroundEffect(src, effect, renderSize).then((result) => {
-        if (!cancelled) setProcessed({ src, effect, result, size: renderSize });
-      }).catch(() => { if (!cancelled) setFailed(true); });
+      renderBackgroundEffect(src, effect, renderSize)
+        .then((result) => {
+          if (!cancelled) setProcessed({ src, effect, result, size: renderSize });
+        })
+        .catch(() => {
+          if (!cancelled) setFailed(true);
+        });
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [src, effect, size, light]);
   if (!src) return null;
-  const rendered = processed?.src === src && processed.effect === effect && processed.size.width === size.width
-    && processed.size.height === size.height && processed.size.dpr === size.dpr && processed.size.light === light ? processed.result : src;
+  const rendered =
+    processed?.src === src &&
+    processed.effect === effect &&
+    processed.size.width === size.width &&
+    processed.size.height === size.height &&
+    processed.size.dpr === size.dpr &&
+    processed.size.light === light
+      ? processed.result
+      : src;
   const style = { backgroundImage: `url("${rendered}")`, opacity: background.opacity / 100 };
   return (
     <>
@@ -55,9 +71,18 @@ export function BackgroundImageLayer({ background, preview = false }: { backgrou
         data-preview={preview || undefined}
         style={style}
       >
-        {effect === "haze" ? <><span className="background-haze-soft" /><span className="background-haze-strong" /></> : null}
+        {effect === "haze" ? (
+          <>
+            <span className="background-haze-soft" />
+            <span className="background-haze-strong" />
+          </>
+        ) : null}
       </div>
-      {preview && failed ? <p role="alert" className="absolute inset-x-2 bottom-2 rounded bg-background p-2 text-xs text-destructive">Could not render this effect. Try another effect or image.</p> : null}
+      {preview && failed ? (
+        <p role="alert" className="absolute inset-x-2 bottom-2 rounded bg-background p-2 text-xs text-destructive">
+          Could not render this effect. Try another effect or image.
+        </p>
+      ) : null}
     </>
   );
 }
