@@ -1,3 +1,4 @@
+import { searchParamsRecord } from "@traccia/shared";
 import type { Context } from "hono";
 import type { z } from "zod";
 import { ValidationError } from "../service/errors.js";
@@ -16,15 +17,7 @@ export function parse<S extends z.ZodType>(
 }
 
 export function validateQuery<S extends z.ZodType>(c: Context, schema: S) {
-  // Repeated keys become arrays; single keys stay strings.
-  const raw: Record<string, string | string[]> = {};
-  for (const [key, value] of new URL(c.req.url).searchParams.entries()) {
-    const existing = raw[key];
-    if (existing === undefined) raw[key] = value;
-    else
-      raw[key] = [...(Array.isArray(existing) ? existing : [existing]), value];
-  }
-  return parse(schema, raw);
+  return parse(schema, searchParamsRecord(new URL(c.req.url).searchParams));
 }
 
 export function validateParams<S extends z.ZodType>(c: Context, schema: S) {

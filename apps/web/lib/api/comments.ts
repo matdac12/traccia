@@ -1,15 +1,16 @@
 import "server-only";
+import { createCommentInputSchema, updateCommentInputSchema } from "@traccia/shared";
 import { z } from "zod";
 import { api } from "./client";
 import { commentSchema } from "./schemas";
 
 export function createComment(identifier: string, body: { body: string; parentId?: string | null }) {
-  return api().request(`/issues/${encodeURIComponent(identifier)}/comments`, { schema: commentSchema, method: "POST", body });
+  return api().request(`/issues/${encodeURIComponent(identifier)}/comments`, { schema: commentSchema, method: "POST", bodySchema: createCommentInputSchema, body });
 }
 
 /** Only the comment's own actor may edit it; anyone else gets `forbidden`. */
 export function updateComment(id: string, body: string) {
-  return api().request(`/comments/${encodeURIComponent(id)}`, { schema: commentSchema, method: "PATCH", body: { body } });
+  return api().request(`/comments/${encodeURIComponent(id)}`, { schema: commentSchema, method: "PATCH", bodySchema: updateCommentInputSchema, body: { body } });
 }
 
 export function deleteComment(id: string) {

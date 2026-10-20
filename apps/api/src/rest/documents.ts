@@ -1,30 +1,13 @@
 import { Readable } from "node:stream";
-import { purgeQuerySchema } from "@traccia/shared";
+import { listDocumentsQuerySchema, purgeQuerySchema, updateDocumentBodySchema } from "@traccia/shared";
 import Busboy from "busboy";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
-import { z } from "zod";
 import { DOCUMENT_MAX_BYTES } from "../service/documents.js";
 import { NotFoundError, ValidationError } from "../service/errors.js";
 import { contentDisposition, StorageNotFoundError } from "../storage/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
 import { fileStorageFor, servicesFor } from "./services.js";
 import { ifMatch, validateBody, validateQuery } from "./validate.js";
-
-const listQuery = z.object({
-  query: z.string().min(1).optional(),
-  includeDeleted: z
-    .enum(["true", "false"])
-    .transform((v) => v === "true")
-    .optional(),
-  limit: z.coerce.number().int().min(1).optional(),
-  cursor: z.string().min(1).optional(),
-});
-
-const updateBody = z.object({
-  filename: z.string().optional(),
-  description: z.string().optional(),
-  expectedUpdatedAt: z.string().min(1).optional(),
-});
 
 type Upload = {
   filename: string;
@@ -137,7 +120,7 @@ export function mountDocumentRoutes(
   v1.get("/projects/:idOrKey/documents", (c) => {
     const page = documents.list(
       c.req.param("idOrKey"),
-      validateQuery(c, listQuery),
+      validateQuery(c, listDocumentsQuerySchema),
     );
     return c.json({ ...page, items: page.items.map(withUrl) });
   });
@@ -155,7 +138,7 @@ export function mountDocumentRoutes(
   );
 
   v1.patch("/documents/:id", async (c) => {
-    const input = await validateBody(c, updateBody);
+    const input = await validateBody(c, updateDocumentBodySchema);
     input.expectedUpdatedAt ??= ifMatch(c);
     return c.json(withUrl(documents.update(c.req.param("id"), input)));
   });

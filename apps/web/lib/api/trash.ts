@@ -1,4 +1,5 @@
 import "server-only";
+import { deleteQuerySchema, restoreBodySchema, trashQuerySchema } from "@traccia/shared";
 import { api } from "./client";
 import { pageOf, purgeResultSchema, restoreResultSchema, trashItemSchema, type TrashType } from "./schemas";
 
@@ -8,6 +9,7 @@ const MAX_BATCH_PAGES = 20;
 export function listTrash(opts: { type?: TrashType; cursor?: string; limit?: number } = {}) {
   return api().request("/trash", {
     schema: pageOf(trashItemSchema),
+    querySchema: trashQuerySchema,
     query: { type: opts.type, cursor: opts.cursor, limit: opts.limit ?? PAGE_SIZE },
   });
 }
@@ -20,7 +22,7 @@ export async function listAllTrash() {
   const items = [];
   let cursor: string | undefined;
   for (let i = 0; i < MAX_BATCH_PAGES; i++) {
-    const page = await api().request("/trash", { schema: pageOf(trashItemSchema), query: { limit: 250, cursor } });
+    const page = await api().request("/trash", { schema: pageOf(trashItemSchema), querySchema: trashQuerySchema, query: { limit: 250, cursor } });
     items.push(...page.items);
     if (!page.nextCursor) break;
     cursor = page.nextCursor;
@@ -30,7 +32,7 @@ export async function listAllTrash() {
 
 /** Restores the whole batch the item was deleted in. */
 export function restoreItem(type: TrashType, id: string) {
-  return api().request("/restore", { schema: restoreResultSchema, method: "POST", body: { type, id } });
+  return api().request("/restore", { schema: restoreResultSchema, method: "POST", bodySchema: restoreBodySchema, body: { type, id } });
 }
 
 const PURGE_PATH: Record<TrashType, string> = {
@@ -47,6 +49,7 @@ export function purgeItem(type: TrashType, id: string) {
   return api().request(`/${PURGE_PATH[type]}/${encodeURIComponent(id)}`, {
     schema: purgeResultSchema,
     method: "DELETE",
+    querySchema: deleteQuerySchema,
     query: { purge: true },
   });
 }

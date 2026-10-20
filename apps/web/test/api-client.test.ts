@@ -45,6 +45,7 @@ describe("api client", () => {
     const { api, fetchMock } = client(json({ n: 1 }));
     const out = await api.request("/things", {
       schema: z.object({ n: z.number() }),
+      querySchema: z.object({ status: z.array(z.string()), limit: z.coerce.number(), skip: z.string().optional() }),
       query: { status: ["todo", "done"], limit: 5, skip: undefined },
     });
     expect(out).toEqual({ n: 1 });
@@ -54,10 +55,19 @@ describe("api client", () => {
   });
   it("sends body and If-Match on writes", async () => {
     const { api, fetchMock } = client(json({ ok: true }));
-    await api.request("/issues/MAT-1", { schema: z.object({ ok: z.boolean() }), method: "PATCH", body: { title: "x" }, ifMatch: "2026-01-01T00:00:00Z" });
+    await api.request("/issues/MAT-1", { schema: z.object({ ok: z.boolean() }), method: "PATCH", bodySchema: z.object({ title: z.string() }), body: { title: "x" }, ifMatch: "2026-01-01T00:00:00Z" });
     const init = (fetchMock.mock.calls[0] as unknown as [URL, RequestInit])[1];
     expect(init.body).toBe('{"title":"x"}');
     expect((init.headers as Record<string, string>)["if-match"]).toBe("2026-01-01T00:00:00Z");
+  });
+  it("refuses a query or body the request schema rejects, before anything is sent (TRC-137)", async () => {
+    const { api, fetchMock } = client(json({}));
+    const querySchema = z.object({ query: z.string().min(1).optional() });
+    await expect(api.request("/x", { schema: z.unknown(), querySchema, query: { query: "" } })).rejects.toMatchObject({ code: "validation_error" });
+    const bodySchema = z.object({ title: z.string() });
+    // @ts-expect-error `title` is required
+    await expect(api.request("/x", { schema: z.unknown(), method: "POST", bodySchema, body: {} })).rejects.toMatchObject({ code: "validation_error" });
+    expect(fetchMock).toHaveBeenCalledTimes(0);
   });
   it("turns API error bodies into ApiError with code and details", async () => {
     const { api } = client(json({ error: { code: "conflict", message: "stale", details: { currentUpdatedAt: "t" } } }, 409));

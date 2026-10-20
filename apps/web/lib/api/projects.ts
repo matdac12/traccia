@@ -1,5 +1,5 @@
 import "server-only";
-import type { CreateProjectInput, UpdateProjectInput } from "@traccia/shared";
+import { createProjectInputSchema, type CreateProjectInput, listProjectsRequestQuerySchema, updateProjectInputSchema, type UpdateProjectInput } from "@traccia/shared";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { api, ApiError } from "./client";
@@ -15,6 +15,7 @@ export const listProjects = cache(async () => {
   do {
     const page = await api().request("/projects", {
       schema: pageOf(projectWithMilestonesSchema),
+      querySchema: listProjectsRequestQuerySchema,
       query: { limit: 250, cursor, include: "milestones" },
     });
     projects.push(...page.items);
@@ -35,11 +36,11 @@ export function getProjectOr404(idOrKey: string) {
 }
 
 export function updateProject(id: string, body: UpdateProjectInput) {
-  return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", body });
+  return api().request(`/projects/${encodeURIComponent(id)}`, { schema: projectSchema, method: "PATCH", bodySchema: updateProjectInputSchema, body });
 }
 
 export function createProject(body: CreateProjectInput) {
-  return api().request("/projects", { schema: projectSchema, method: "POST", body });
+  return api().request("/projects", { schema: projectSchema, method: "POST", bodySchema: createProjectInputSchema, body });
 }
 
 /** Soft delete: the project, its issues and milestones go to the trash as one batch. */
