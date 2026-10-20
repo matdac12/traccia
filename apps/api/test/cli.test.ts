@@ -390,7 +390,11 @@ describe("traccia db snapshot", () => {
       expect(snapshots(dir)).toHaveLength(3);
     } finally {
       writer.removeAllListeners("exit");
+      // Wait for the process to die: on Windows it holds the database open and
+      // the afterEach cleanup fails with EBUSY if it is still alive.
+      const exited = new Promise<void>((r) => writer.once("exit", () => r()));
       writer.kill();
+      await exited;
     }
   }, 20_000);
 
@@ -430,7 +434,11 @@ describe("traccia db snapshot", () => {
     expect(files[0]).toBe("traccia-20200103T000000Z.db");
   });
 
-  it("fails clearly on a non-writable --out and removes nothing", async () => {
+  // chmod does not make a directory read-only on Windows (it only toggles the
+  // file read-only flag, which directories ignore), so there is no way to
+  // provoke a write failure this way there.
+  it.skipIf(process.platform === "win32")(
+    "fails clearly on a non-writable --out and removes nothing", async () => {
     const e = await migrated();
     const out = join(e.DATA_DIR, "ro");
     mkdirSync(out);
