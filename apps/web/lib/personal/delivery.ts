@@ -5,7 +5,7 @@ export const FAILURE_TEXT: Record<ReminderFailure, string> = {
   telegram_unauthorized: "Telegram rejected the bot token. Check the bot settings.",
   telegram_forbidden: "The bot can't message the chat. Check it isn't blocked and the chat was started.",
   telegram_rejected: "Telegram refused it. Check the bot settings.",
-  gave_up: "Telegram couldn't be reached all day.",
+  gave_up: "Telegram couldn't be reached before the day ended.",
 };
 
 /** What a skipped Reminder says: its day had already passed when it was due (§4). */
