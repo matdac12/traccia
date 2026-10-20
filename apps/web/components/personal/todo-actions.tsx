@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
 import type { ActionResult } from "@/lib/action-result";
 import { ownerNow } from "@/lib/personal/days";
+import { hasPendingReminder } from "@/lib/personal/lists";
 import { applyTodoChange, isClosing, type TodoChange, type TodoMove, type TodoPatch } from "@/lib/personal/todo-changes";
 import { plural } from "@/lib/utils";
 
@@ -95,7 +96,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
     today,
     timeZone,
     update(todo, patch) {
-      if (patch.day === null && todo.reminder && patch.time === undefined) {
+      if (patch.day === null && hasPendingReminder(todo) && patch.time === undefined) {
         setConfirm({ kind: "anytime", todo, patch });
         return Promise.resolve();
       }

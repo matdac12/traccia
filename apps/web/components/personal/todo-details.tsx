@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { dayLabel, shortDate } from "@/lib/personal/days";
 import { reminderNote } from "@/lib/personal/delivery";
-import { isFromParla, isOverdue } from "@/lib/personal/lists";
+import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { MentionInput } from "./mention-input";
@@ -62,7 +62,7 @@ export function TodoDetails({ todo, parent, subTodos }: { todo: Todo; parent: To
       <dl className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-y-1 text-[12px]">
         <dt className="text-muted-foreground">Planned day</dt>
         <dd>
-          <DayPicker day={todo.day} today={today} hasReminder={todo.reminder !== null} align="start" onSelect={(day) => void actions.update(todo, { day })}>
+          <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} align="start" onSelect={(day) => void actions.update(todo, { day })}>
             <button
               type="button"
               aria-label={`Planned day: ${todo.day ? dayText(todo.day, today) : "Anytime"}`}

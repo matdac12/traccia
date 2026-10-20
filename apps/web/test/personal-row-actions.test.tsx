@@ -176,6 +176,29 @@ describe("the day picker", () => {
     await user.click(within(confirm).getByRole("button", { name: "Move and remove Reminder" }));
     expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: null }, UPDATED);
   });
+
+  it("moves a To-do whose Reminder was sent, failed or skipped to Anytime without asking", async () => {
+    const t = todo({ title: "Water plants", reminder: { time: "09:00", status: "sent", failure: null, sentAt: UPDATED } });
+    updateTodoAction.mockReturnValue(hang());
+    const { user } = setup([t]);
+    await user.click(within(row("Water plants")).getByRole("button", { name: "Change Planned day" }));
+    // No "removes the Reminder" hint either: nothing is lost.
+    await user.click(within(await screen.findByRole("dialog", { name: "Planned day" })).getByRole("button", { name: /^Anytime$/ }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { day: null }, UPDATED);
+  });
+
+  it.each([
+    ["pending", pending("18:00"), true],
+    ["sent", { time: "09:00", status: "sent" as const, failure: null, sentAt: UPDATED }, false],
+    ["skipped", { time: "09:00", status: "skipped" as const, failure: null, sentAt: null }, false],
+  ])("hints 'removes the Reminder' in the row menu only for a pending one (%s)", async (_, reminder, hinted) => {
+    const { user } = setup([todo({ title: "Water plants", reminder })]);
+    await user.click(screen.getByRole("button", { name: "Actions for Water plants" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move to" }));
+    const anytime = (await screen.findAllByRole("menuitem")).find((i) => i.textContent?.includes("Anytime"));
+    expect(anytime?.textContent?.includes("removes the Reminder")).toBe(hinted);
+  });
 });
 
 describe("the Reminder picker", () => {

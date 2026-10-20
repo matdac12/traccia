@@ -64,6 +64,9 @@ const byClosedAt = (a: Todo, b: Todo) => (a.closedAt ?? "").localeCompare(b.clos
 /** Open with a Planned day that has passed: it shows in Today until it is moved or closed. */
 export const isOverdue = (t: Pick<Todo, "state" | "day">, today: string) => t.state === "open" && t.day !== null && t.day < today;
 
+/** Whether a Reminder is still to come: only a pending one is lost by moving the To-do to Anytime (§7.5). */
+export const hasPendingReminder = (t: Pick<Todo, "reminder">) => t.reminder?.status === "pending";
+
 /** An open To-do the Today list shows: Overdue, or planned for today. */
 const isOnToday = (t: Todo, today: string) => t.state === "open" && ownRow(t) && t.day !== null && t.day <= today;
 

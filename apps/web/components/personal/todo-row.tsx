@@ -3,7 +3,7 @@ import type { Todo } from "@traccia/shared";
 import { Bell, CalendarDays, Check, X } from "lucide-react";
 import { type CSSProperties, type ReactNode, type Ref, startTransition, useState } from "react";
 import { dayLabel } from "@/lib/personal/days";
-import { isFromParla, isOverdue } from "@/lib/personal/lists";
+import { hasPendingReminder, isFromParla, isOverdue } from "@/lib/personal/lists";
 import { cn } from "@/lib/utils";
 import { DayPicker } from "./day-picker";
 import { ReminderPicker } from "./reminder-picker";
@@ -154,7 +154,7 @@ export function TodoRow({ todo, showDay = false, wrap = false, drag, children }:
         </span>
         <SubTodoCount todo={todo} className="text-[10.5px] text-muted-foreground" />
         {isFromParla(todo.source) ? <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">via Parla</span> : null}
-        <DayPicker day={todo.day} today={today} hasReminder={todo.reminder !== null} onSelect={(day) => void actions.update(todo, { day })}>
+        <DayPicker day={todo.day} today={today} hasReminder={hasPendingReminder(todo)} onSelect={(day) => void actions.update(todo, { day })}>
           {showDay && todo.day ? (
             <button
               type="button"

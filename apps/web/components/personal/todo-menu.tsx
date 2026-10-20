@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { addDays, dayLabel, isMomentPast, ownerNow } from "@/lib/personal/days";
+import { hasPendingReminder } from "@/lib/personal/lists";
 import type { TodoPatch } from "@/lib/personal/todo-changes";
 import { REMINDER_PRESETS } from "./reminder-picker";
 import { useTodoActions } from "./todo-actions";
@@ -66,7 +67,7 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={todo.day === null} onSelect={() => update({ day: null })}>
             <Inbox className="size-3.5" aria-hidden /> Anytime
-            {todo.reminder ? <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">removes the Reminder</span> : null}
+            {hasPendingReminder(todo) ? <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">removes the Reminder</span> : null}
           </DropdownMenuItem>
         </DropdownMenuSubContent>
       </DropdownMenuSub>
