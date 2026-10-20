@@ -188,7 +188,11 @@ parser, `project-autocomplete.ts` for `@` matching, `todo-changes.ts` for the op
   (`GET /todos?state=open`, following `nextCursor`) and the Logbook only as far back as today
   (`GET /todos?state=closed`, newest first). Two requests, plus one per extra page. The page renders it on the server;
   the live refresh (TRC-52) polls the same function through `GET /api/todos`, so a page left open across midnight
-  rolls over to the new day on its next refresh. The page also passes the live Projects (`listProjects`, shared
+  rolls over to the new day on its next refresh. The poll is cheap when nothing changed: the lists are read
+  conditionally (`conditional` on `api().request`: the `ETag` of each page is kept with its parsed answer, and a `304`
+  returns it, so the date logic above still runs on it), and `GET /api/todos` and `/api/todos/logbook` answer the browser
+  with their own `ETag` (`jsonWithEtag`; `getTaggedJson` fetches with `no-cache`, so the browser sends
+  `If-None-Match` and hands back its copy on a `304`). The page also passes the live Projects (`listProjects`, shared
   with the layout through React `cache`) to `projects-context.tsx`, for `@` autocomplete and chip tooltips; the poll
   doesn't re-read them.
 - **Quick add (TRC-160).** `quick-add.tsx` sits at the top of Today (its `defaultDay` prop is the day a line with no

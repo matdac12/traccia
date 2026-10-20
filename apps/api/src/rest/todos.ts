@@ -6,6 +6,7 @@ import {
   updateTodoInputSchema,
 } from "@traccia/shared";
 import type { Hono } from "hono";
+import { etag } from "hono/etag";
 import { initialDelivery } from "../reminders/scheduler.js";
 import { type TodoView, todoUrl } from "../service/index.js";
 import type { AppContainer, AppEnv } from "./env.js";
@@ -20,7 +21,10 @@ export function mountTodoRoutes(v1: Hono<AppEnv>, container: AppContainer) {
     url: todoUrl(container.config.baseUrl, t.id),
   });
 
-  v1.get("/todos", (c) => {
+  // Conditional GET: the dashboard polls both lists. The ETag is a hash of the
+  // body, so any edit, move, delete, restore or Reminder change gives a new one
+  // (`updated_at` alone would miss the scheduler's status changes).
+  v1.get("/todos", etag(), (c) => {
     const page = todos.list(validateQuery(c, listTodosQuerySchema));
     return c.json({ ...page, items: page.items.map(withUrl) });
   });

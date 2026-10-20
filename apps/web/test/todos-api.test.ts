@@ -24,6 +24,12 @@ describe("listOpenTodos", () => {
     expect(request.mock.calls[0][1].query).toEqual({ state: "open", limit: 250, cursor: undefined });
     expect(request.mock.calls[1][1].query).toMatchObject({ state: "open", cursor: "c1" });
   });
+
+  it("reads every page conditionally, so an unchanged poll is a 304", async () => {
+    request.mockResolvedValueOnce({ items: [item("a")], nextCursor: "c1" }).mockResolvedValueOnce({ items: [item("b")], nextCursor: null });
+    await listOpenTodos();
+    expect(request.mock.calls.map((c) => c[1].conditional)).toEqual([true, true]);
+  });
 });
 
 describe("listTodosClosedOn", () => {
@@ -37,6 +43,7 @@ describe("listTodosClosedOn", () => {
     // The second page reached an earlier day, so the third is never asked for.
     expect(request).toHaveBeenCalledTimes(2);
     expect(request.mock.calls[0][1].query).toMatchObject({ state: "closed", limit: 50 });
+    expect(request.mock.calls.every((c) => c[1].conditional === true)).toBe(true);
   });
 
   it("stops after one request when nothing was closed that day", async () => {
@@ -56,6 +63,20 @@ describe("loadPersonalSpace", () => {
     expect(out.today).toBe("2026-10-18");
     expect(request.mock.calls.filter((c) => c[0] === "/todos").map((c) => c[1].query.state)).toEqual(["open", "closed"]);
     expect(out.todos.map((t) => [t.id, t.subTodos])).toEqual([["p", { done: 2, total: 3 }], ["k", null]]);
+  });
+});
+
+describe("loadPersonalSpace across midnight with unchanged lists", () => {
+  it("re-dates today and re-sorts the kept Logbook page, since the lists alone say nothing about the day", async () => {
+    // The same two answers each time, as the API's 304 gives them back.
+    const open = { items: [{ id: "o", state: "open", closedAt: null }], nextCursor: null };
+    const closed = { items: [{ id: "k", state: "done", closedAt: "2026-10-17T21:30:00Z" }], nextCursor: null };
+    request.mockImplementation(async (path: string, options: { query?: { state?: string } }) => (path !== "/todos" ? { ok: true } : options.query?.state === "open" ? open : closed));
+    // 21:30Z on the 17th is 23:30 in Rome: closed today. An hour later it is the 18th and k is yesterday's.
+    const before = await loadPersonalSpace(new Date("2026-10-17T21:45:00Z"));
+    const after = await loadPersonalSpace(new Date("2026-10-17T22:15:00Z"));
+    expect([before.today, before.todos.map((t) => t.id)]).toEqual(["2026-10-17", ["o", "k"]]);
+    expect([after.today, after.todos.map((t) => t.id)]).toEqual(["2026-10-18", ["o"]]);
   });
 });
 

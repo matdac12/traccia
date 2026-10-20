@@ -29,6 +29,15 @@ Every route returns To-dos in this shape:
 - `DELETE /v1/todos/:id` deletes a To-do (`?purge=true` purges it). `POST /v1/restore` with `{ type: "todo", id }` restores it. See [Delete, restore and purge](#delete-restore-and-purge).
 - `GET /v1/todos/delivery` says whether Reminders are being delivered. See [Delivery](#delivery).
 
+## Conditional requests
+
+Both lists (`GET /v1/todos?state=open` and `?state=closed`) carry a strong `ETag`: a hash of the response body. Send it back as `If-None-Match` and an unchanged list is `304 Not Modified` with no body and the same `ETag`; anything else is the usual `200`. The dashboard's poll does this every few seconds.
+
+- The tag is of the whole page, so it changes with any edit, move, close, delete, restore, Sub-to-do count, Project reference or Reminder status change, including the ones the scheduler makes, which don't touch `updatedAt`. A deleted To-do is gone from the next `200`; it never produces a `304`.
+- Each list, query (`state`, `limit`, `cursor`, `includeDeleted`) and page has its own tag. A tag for another URL just doesn't match.
+- Nothing depends on the date, so a poll that crosses midnight is as correct as any: a client that groups the Logbook by day does that itself from the page it holds.
+- A request that is refused (`400`, `401`, `403`) is never `304`. The single-To-do and Sub-to-do routes aren't tagged.
+
 ## Sub-to-dos
 
 A Sub-to-do is a full To-do (own day, `details` and references) that hangs under a parent through `parentId`. They go one level deep: a Sub-to-do cannot have children.

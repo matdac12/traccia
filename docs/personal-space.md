@@ -226,7 +226,7 @@ This follows the TRC-144 research document `research-telegram-reminder-delivery.
 
 ## 7. Dashboard
 
-Desktop first: the owner uses it from a laptop about 95% of the time. Build it to the prototype's variant A, in the existing Linear-calm style (Geist, the orange accent, shadcn and Radix, the existing tokens). Writes go through server actions, as in `app/(app)/issues/actions.ts`. Reads follow the existing data-refresh polling (TRC-52).
+Desktop first: the owner uses it from a laptop about 95% of the time. Build it to the prototype's variant A, in the existing Linear-calm style (Geist, the orange accent, shadcn and Radix, the existing tokens). Writes go through server actions, as in `app/(app)/issues/actions.ts`. Reads follow the existing data-refresh polling (TRC-52). Each poll is cheap when nothing changed: the To-do lists answer `304` to `If-None-Match` ([`rest-todos.md`](rest-todos.md#conditional-requests)), and the dashboard's own poll route does the same toward the browser.
 
 ### 7.1 Placement
 

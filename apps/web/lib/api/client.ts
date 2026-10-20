@@ -35,6 +35,11 @@ export type RequestOptions<S extends z.ZodType, QS extends z.ZodType | undefined
   body?: BS extends z.ZodType ? z.input<BS> : undefined;
   /** Sent as `If-Match`, the issue's last seen `updatedAt` (optimistic concurrency). */
   ifMatch?: string;
+  /**
+   * A GET that revalidates: the answer is kept with its `ETag`, and the next read of the same URL sends `If-None-Match`.
+   * On a 304 the kept (parsed) answer is returned as it is, so treat it as read-only. For lists the API tags (To-dos).
+   */
+  conditional?: boolean;
   signal?: AbortSignal;
 };
 
@@ -48,6 +53,8 @@ export type ApiClientConfig = {
 
 const MAX_RETRY_WAIT_MS = 5000;
 const DEFAULT_RETRY_WAIT_MS = 1000;
+/** Answers kept for `conditional` reads, oldest dropped first. */
+const MAX_KEPT_ANSWERS = 32;
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -57,6 +64,16 @@ const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(r
  * route handlers only (see README).
  */
 export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep = defaultSleep }: ApiClientConfig) {
+  const kept = new Map<string, { etag: string; value: unknown }>();
+  /** Most recently read last, so the oldest go first when over the cap. */
+  const remember = (href: string, answer: { etag: string; value: unknown }) => {
+    kept.delete(href);
+    kept.set(href, answer);
+    for (const oldest of kept.keys()) {
+      if (kept.size <= MAX_KEPT_ANSWERS) break;
+      kept.delete(oldest);
+    }
+  };
   /** One retry on a 429, waiting `Retry-After` (capped) so a burst of page loads degrades to a short delay. */
   const fetchWithRetry: typeof fetch = async (input, init) => {
     const res = await rawFetch(input, init);
@@ -69,7 +86,7 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
 
   async function request<S extends z.ZodType, QS extends z.ZodType | undefined = undefined, BS extends z.ZodType | undefined = undefined>(
     path: string,
-    { schema, method = "GET", querySchema, query, bodySchema, body, ifMatch, signal }: RequestOptions<S, QS, BS>,
+    { schema, method = "GET", querySchema, query, bodySchema, body, ifMatch, conditional, signal }: RequestOptions<S, QS, BS>,
   ): Promise<z.output<S>> {
     // Plain concatenation keeps any path prefix in the base URL (new URL("/v1…", base) would drop it).
     const url = new URL(`${baseUrl.replace(/\/+$/, "")}/v1${path}`);
@@ -82,6 +99,9 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
     const headers: Record<string, string> = { authorization: `Bearer ${token}`, accept: "application/json" };
     if (body !== undefined) headers["content-type"] = "application/json";
     if (ifMatch) headers["if-match"] = ifMatch;
+    const revalidate = conditional && method === "GET";
+    const before = revalidate ? kept.get(url.href) : undefined;
+    if (before) headers["if-none-match"] = before.etag;
 
     let res: Response;
     try {
@@ -96,6 +116,10 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
       throw new ApiError(0, "unreachable", `API unreachable at ${baseUrl}: ${String(err)}`);
     }
 
+    if (res.status === 304 && before) {
+      remember(url.href, before);
+      return before.value as z.output<S>;
+    }
     const text = await res.text();
     const json: unknown = text ? safeJson(text) : undefined;
     if (!res.ok) {
@@ -110,6 +134,9 @@ export function createApiClient({ baseUrl, token, fetch: rawFetch = fetch, sleep
     if (!parsed.success) {
       throw new ApiError(res.status, "bad_response", `Unexpected API response for ${method} ${path}: ${parsed.error.message}`);
     }
+    const etag = revalidate ? res.headers.get("etag") : null;
+    if (etag) remember(url.href, { etag, value: parsed.data });
+    else kept.delete(url.href);
     return parsed.data;
   }
 

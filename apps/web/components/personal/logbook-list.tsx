@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/traccia/empty-state";
 import { Button } from "@/components/ui/button";
 import { dayLabel } from "@/lib/personal/days";
 import { type LogbookEnd, type LogbookPage, logbookList, mergeById } from "@/lib/personal/lists";
-import { getJson } from "@/lib/polling/fetch-json";
+import { getTaggedJson } from "@/lib/polling/fetch-json";
 import { DaySection, ListHeading } from "./list-heading";
 import { TodoRow } from "./todo-row";
 
@@ -18,7 +18,7 @@ const noPages = (today: string): LogbookPages => ({ today, items: [], nextCursor
 const MAX_REREAD_PAGES = 20;
 
 /** One page of the Logbook: the newest, or the one `cursor` reads. */
-const readPage = (cursor: string | null) => getJson<LogbookPage>(`/api/todos/logbook${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
+const readPage = (cursor: string | null) => getTaggedJson<LogbookPage>(`/api/todos/logbook${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
 
 /**
  * The Logbook's own read (docs/personal-space.md §7.3): `GET /v1/todos?state=closed` a page at a time, newest first,

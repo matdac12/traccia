@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LiveStatus } from "@/components/traccia/live-status";
 import { PageHeader } from "@/components/traccia/page-header";
 import { byPosition, closedDay, listMenuCounts, listOf, mergeById, type PersonalList, type PersonalSpaceData } from "@/lib/personal/lists";
-import { getJson } from "@/lib/polling/fetch-json";
+import { getTaggedJson } from "@/lib/polling/fetch-json";
 import { usePoll } from "@/lib/polling/use-poll";
 import { AnytimeList } from "./anytime-list";
 import { DeliveryBanner } from "./delivery-banner";
@@ -67,7 +67,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   // Whether the lists alone leave the panel short; then the poll reads the selected To-do too.
   const needsRead = selectedId !== null && lacksSome(panelContent(selectedId, data.todos, undefined));
   const sync = usePoll(async () => {
-    const remote = await getJson<PersonalSpaceData>(needsRead ? `/api/todos?todo=${encodeURIComponent(selectedId)}` : "/api/todos");
+    const remote = await getTaggedJson<PersonalSpaceData>(needsRead ? `/api/todos?todo=${encodeURIComponent(selectedId)}` : "/api/todos");
     // An unchanged answer keeps the same object, so nothing re-renders.
     // A poll that couldn't read the delivery state keeps the last one, so the banner doesn't flicker.
     setData((current) => {

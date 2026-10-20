@@ -12,12 +12,15 @@ import { pageOf, todoSchema } from "./schemas";
 /** Logbook page size: newest first, so the first page usually holds every To-do closed today. */
 const LOGBOOK_PAGE_LIMIT = 50;
 
-/** Every open To-do, Sub-to-dos included: by day (Anytime last), then Position. */
-export const listOpenTodos = () => listAll("/todos", todoSchema, listTodosQuerySchema, { state: "open" });
+/**
+ * Every open To-do, Sub-to-dos included: by day (Anytime last), then Position. Read conditionally (`ETag`), as the poll
+ * does it every few seconds: an unchanged list is a 304 and the copy kept from the last read.
+ */
+export const listOpenTodos = () => listAll("/todos", todoSchema, listTodosQuerySchema, { state: "open" }, { conditional: true });
 
-/** One Logbook page (`GET /v1/todos?state=closed`): done and dropped To-dos, most recently closed first. */
+/** One Logbook page (`GET /v1/todos?state=closed`): done and dropped To-dos, most recently closed first. Read conditionally, like the open list. */
 export function listLogbookPage(cursor?: string): Promise<LogbookPage> {
-  return api().request("/todos", { schema: pageOf(todoSchema), querySchema: listTodosQuerySchema, query: { state: "closed", limit: LOGBOOK_PAGE_LIMIT, cursor } });
+  return api().request("/todos", { schema: pageOf(todoSchema), querySchema: listTodosQuerySchema, query: { state: "closed", limit: LOGBOOK_PAGE_LIMIT, cursor }, conditional: true });
 }
 
 /**
