@@ -1,9 +1,9 @@
 "use client";
 import type { ProjectOption, Todo } from "@traccia/shared";
-import { AlertDialog } from "radix-ui";
 import { Undo2, X } from "lucide-react";
 import { createContext, type ReactNode, startTransition, useContext, useMemo, useOptimistic, useRef, useState } from "react";
 import { deleteTodoAction, moveTodoAction, restoreTodoAction, type TodoWriteFailure, updateTodoAction } from "@/app/(app)/personal/actions";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { firstError } from "@/lib/action-message";
 import type { ActionResult } from "@/lib/action-result";
@@ -251,34 +251,31 @@ function ConfirmDialog({ confirm, onAccept, onCancel }: { confirm: Confirm | nul
   if (confirm && confirm !== last) setLast(confirm);
   const text = last ? confirmText(last) : null;
   return (
-    <AlertDialog.Root open={confirm !== null} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <AlertDialog.Content
-          // The picker or menu it came from has closed: focus goes back to the To-do's row (its check).
-          onCloseAutoFocus={(e) => {
-            const check = last && document.querySelector<HTMLElement>(`[data-todo-id="${last.todo.id}"] [data-todo-check]`);
-            if (!check) return;
-            e.preventDefault();
-            check.focus();
-          }}
-          className="fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-3 rounded-lg border bg-background p-5 shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
-          <AlertDialog.Title className="text-sm font-semibold">{text?.title}</AlertDialog.Title>
-          <AlertDialog.Description className="text-[13px] text-muted-foreground">{text?.body}</AlertDialog.Description>
-          <div className="flex justify-end gap-2">
-            <AlertDialog.Cancel asChild>
-              <Button variant="ghost" size="sm">
-                Cancel
-              </Button>
-            </AlertDialog.Cancel>
-            <AlertDialog.Action asChild>
-              <Button size="sm" onClick={onAccept}>
-                {text?.action}
-              </Button>
-            </AlertDialog.Action>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && onCancel()}>
+      <AlertDialogContent
+        // The picker or menu it came from has closed: focus goes back to the To-do's row (its check).
+        onCloseAutoFocus={(e) => {
+          const check = last && document.querySelector<HTMLElement>(`[data-todo-id="${last.todo.id}"] [data-todo-check]`);
+          if (!check) return;
+          e.preventDefault();
+          check.focus();
+        }}
+      >
+        <AlertDialogTitle>{text?.title}</AlertDialogTitle>
+        <AlertDialogDescription>{text?.body}</AlertDialogDescription>
+        <AlertDialogFooter>
+          <AlertDialogCancel asChild>
+            <Button variant="ghost" size="sm">
+              Cancel
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button size="sm" onClick={onAccept}>
+              {text?.action}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

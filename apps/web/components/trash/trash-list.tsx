@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertDialog } from "radix-ui";
 import { FileImage, Flag, FolderKanban, ListTodo, Loader2, MessageSquare, RotateCcw, SquareCheck, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { purgeAction, restoreAction } from "@/app/(app)/trash/actions";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { TrashItem, TrashType } from "@/lib/api/schemas";
 import { batchPeers, deletedByText, groupedRows, itemHref, purgeConfirmation, restoreSummary, summarize, TYPE_LABEL, togetherText } from "./trash-model";
@@ -128,39 +128,36 @@ export function TrashList({ items, all, group = true }: { items: TrashItem[]; al
         })}
       </ul>
 
-      <AlertDialog.Root open={confirm !== null} onOpenChange={(o) => !o && !pending && setConfirm(null)}>
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
-          <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 grid w-full max-w-md -translate-x-1/2 -translate-y-1/2 gap-3 rounded-lg border bg-background p-5 shadow-lg">
-            <AlertDialog.Title className="text-sm font-semibold">{text?.title}</AlertDialog.Title>
-            <AlertDialog.Description asChild>
-              <div className="space-y-2 text-[13px] text-muted-foreground">
-                <p>
-                  <span className="font-medium text-foreground">“{text?.name}”</span> will be deleted forever. {text?.warning}
-                </p>
-                {text?.withIt ? <p>{text.withIt}</p> : null}
-                <p>Purging is reserved for you.</p>
-              </div>
-            </AlertDialog.Description>
-            {purgeError ? (
-              <p role="alert" className="text-[13px] text-destructive">
-                {purgeError}
+      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && !pending && setConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogTitle>{text?.title}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2">
+              <p>
+                <span className="font-medium text-foreground">“{text?.name}”</span> will be deleted forever. {text?.warning}
               </p>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              <AlertDialog.Cancel asChild>
-                <Button variant="ghost" size="sm" disabled={pending}>
-                  Cancel
-                </Button>
-              </AlertDialog.Cancel>
-              <Button variant="destructive" size="sm" disabled={pending} onClick={() => confirm && purge(confirm)}>
-                {pending ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                Purge permanently
-              </Button>
+              {text?.withIt ? <p>{text.withIt}</p> : null}
+              <p>Purging is reserved for you.</p>
             </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+          </AlertDialogDescription>
+          {purgeError ? (
+            <p role="alert" className="text-[13px] text-destructive">
+              {purgeError}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="ghost" size="sm" disabled={pending}>
+                Cancel
+              </Button>
+            </AlertDialogCancel>
+            <Button variant="destructive" size="sm" disabled={pending} onClick={() => confirm && purge(confirm)}>
+              {pending ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              Purge permanently
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
