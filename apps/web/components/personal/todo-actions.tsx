@@ -1,5 +1,5 @@
 "use client";
-import type { Todo } from "@traccia/shared";
+import type { ProjectOption, Todo } from "@traccia/shared";
 import { AlertDialog } from "radix-ui";
 import { Undo2, X } from "lucide-react";
 import { createContext, type ReactNode, startTransition, useContext, useMemo, useOptimistic, useRef, useState } from "react";
@@ -60,7 +60,7 @@ const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.
  * Two edits ask first: moving a To-do with a Reminder to Anytime, and closing a parent the API says still has open
  * Sub-to-dos (its 409 `openSubTodos`), which is retried with `closeSubTodos: true` once confirmed.
  */
-export function useTodoWrites(todos: Todo[], today: string, timeZone: string, listener: WriteListener = {}) {
+export function useTodoWrites(todos: Todo[], today: string, timeZone: string, projects: readonly ProjectOption[], listener: WriteListener = {}) {
   // The deletes the API took, applied to whatever copies of those To-dos the page still holds (a Logbook page read
   // before the delete), with the same cascade as the optimistic delete. An id leaves once no copy is left.
   const [deleted, setDeleted] = useState<string[]>([]);
@@ -129,7 +129,7 @@ export function useTodoWrites(todos: Todo[], today: string, timeZone: string, li
   const write = (todo: Todo, patch: TodoPatch, optimistic: boolean) =>
     run(
       todo,
-      optimistic ? { type: "update", id: todo.id, patch, at: latestInstantOn(today, timeZone).toISOString(), now: ownerNow(timeZone) } : null,
+      optimistic ? { type: "update", id: todo.id, patch, at: latestInstantOn(today, timeZone).toISOString(), now: ownerNow(timeZone), projects } : null,
       () => updateTodoAction(todo.id, patch, todo.updatedAt),
       (result) => {
         if (result.openSubTodos && isClosing(patch)) {

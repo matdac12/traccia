@@ -83,7 +83,7 @@ export function PersonalSpace({ initial, projects }: { initial: PersonalSpaceDat
   // then the Logbook's pages, whose To-dos closed today the poll holds in full.
   const all = useMemo(() => mergeById(data.todos, extra, logbook.items.filter((t) => closedDay(t, timeZone) !== today)), [data.todos, extra, logbook.items, timeZone, today]);
   // What the page shows: the data with the writes still on their way applied.
-  const { todos, actions, dialog, notice } = useTodoWrites(all, today, timeZone, logbook);
+  const { todos, actions, dialog, notice } = useTodoWrites(all, today, timeZone, projects, logbook);
 
   // The URL's list, else the one a link's To-do belongs to, else Today.
   const linked = !url.list && selectedId ? linkedList(selectedId, todos, today) : null;

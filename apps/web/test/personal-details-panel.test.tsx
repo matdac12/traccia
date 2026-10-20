@@ -223,7 +223,9 @@ describe("the title", () => {
     expect(within(panel()).getByRole("combobox", { name: "Title" })).toHaveValue("Call Luca @CRM ");
     await user.keyboard("{Enter}");
     expect(updateTodoAction).toHaveBeenCalledWith(t.id, { title: "Call Luca @CRM" }, "2026-10-17T12:00:00.000Z");
-    expect(within(panel()).getByRole("heading", { name: "Call Luca @CRM" })).toBeInTheDocument();
+    // The chip is there at once, before the API answers.
+    expect(within(panel()).getByRole("heading", { level: 2 })).toHaveTextContent(/^Call Luca/);
+    expect(within(within(panel()).getByRole("heading", { level: 2 })).getByRole("link", { name: "CRM" })).toBeInTheDocument();
   });
 
   it("re-derives the chips from the API's answer", async () => {
@@ -237,6 +239,20 @@ describe("the title", () => {
     await user.click(within(panel()).getByLabelText("Details"));
     expect(updateTodoAction).toHaveBeenCalledWith(t.id, { title: "Call Luca @crm" }, UPDATED);
     serverSends(page([saved]));
+    expect(within(panel()).getByRole("link", { name: "CRM" })).toHaveAttribute("href", "/projects/p-crm");
+  });
+});
+
+describe("the title's chips before the API answers", () => {
+  it("shows a newly typed @KEY as a chip at once", async () => {
+    const t = todo({ title: "Call Luca" });
+    updateTodoAction.mockReturnValue(hang());
+    const { user } = setup(page([t]), `/personal?todo=${t.id}`);
+    await user.click(within(panel()).getByRole("button", { name: "Edit title" }));
+    await user.type(within(panel()).getByRole("combobox", { name: "Title" }), " @crm");
+    await user.click(within(panel()).getByLabelText("Details"));
+    expect(updateTodoAction).toHaveBeenCalledWith(t.id, { title: "Call Luca @crm" }, UPDATED);
+    // The write is still on its way: the chip comes from the Projects the page knows.
     expect(within(panel()).getByRole("link", { name: "CRM" })).toHaveAttribute("href", "/projects/p-crm");
   });
 });

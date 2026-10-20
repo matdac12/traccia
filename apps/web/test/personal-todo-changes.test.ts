@@ -109,6 +109,33 @@ describe("applyTodoChange: the optimistic copy of a write", () => {
   });
 });
 
+describe("applyTodoChange: a new title's @KEYs", () => {
+  const projects = [
+    { id: "p-crm", key: "CRM", name: "CRM rebuild", status: "active" as const },
+    { id: "p-trc", key: "TRC", name: "Traccia", status: "paused" as const },
+  ];
+  const refs = (t: Todo | undefined) => t?.references.map((r) => r.key);
+
+  it("gives the chips of the Projects the new title names, and takes away the ones it no longer does", () => {
+    const t = todo({ title: "Call @CRM", references: [{ key: "CRM", projectId: "p-crm", projectDeleted: false }] });
+    const named = applyTodoChange([t], { ...update(t.id, { title: "Call Luca @trc, @crm" }), projects });
+    expect(refs(byId(named, t.id))).toEqual(["CRM", "TRC"]);
+    expect(refs(byId(applyTodoChange([t], { ...update(t.id, { title: "Call Luca" }), projects }), t.id))).toEqual([]);
+  });
+
+  it("keeps the greyed reference to a deleted Project the title still names, and ignores an unknown key or an email", () => {
+    const t = todo({ title: "Call @OLD", references: [{ key: "OLD", projectId: "p-old", projectDeleted: true }] });
+    const out = applyTodoChange([t], { ...update(t.id, { title: "Call @OLD @NOPE bob@crm.com" }), projects });
+    expect(byId(out, t.id)?.references).toEqual([{ key: "OLD", projectId: "p-old", projectDeleted: true }]);
+  });
+
+  it("leaves the references alone without the Projects, or when the title doesn't change", () => {
+    const t = todo({ title: "Call @CRM", references: [{ key: "CRM", projectId: "p-crm", projectDeleted: false }] });
+    expect(refs(byId(applyTodoChange([t], update(t.id, { title: "Call Luca" })), t.id))).toEqual(["CRM"]);
+    expect(refs(byId(applyTodoChange([t], { ...update(t.id, { details: "x" }), projects }), t.id))).toEqual(["CRM"]);
+  });
+});
+
 describe("applyTodoChange: a position move", () => {
   const order = (todos: Todo[], ids: string[]) => todos.filter((t) => ids.includes(t.id)).sort((a, b) => a.position - b.position).map((t) => t.id);
 
