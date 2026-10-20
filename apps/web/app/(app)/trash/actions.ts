@@ -4,7 +4,8 @@ import { restoreBodySchema } from "@traccia/shared";
 import { revalidatePath } from "next/cache";
 import { ApiError } from "@/lib/api/client";
 import type { RestoreResult, TrashType } from "@/lib/api/schemas";
-import { purgeItem, restoreItem } from "@/lib/api/trash";
+import { purgeItem } from "@/lib/api/trash";
+import { restoreFromTrash } from "@/lib/trash-restore";
 import { errorText, type ActionError } from "@/components/trash/trash-model";
 
 export type RestoreOutcome = { ok: true; result: RestoreResult } | ActionError;
@@ -24,14 +25,9 @@ function parse(type: string, id: string) {
 export async function restoreAction(type: string, id: string): Promise<RestoreOutcome> {
   const input = parse(type, id);
   if (!input) return { ok: false, code: "validation_error", message: "Invalid item." };
-  try {
-    const result = await restoreItem(input.type, input.id);
-    // A restore brings items back into issue lists and the project nav too.
-    revalidatePath("/", "layout");
-    return { ok: true, result };
-  } catch (err) {
-    return fail(err, "restore");
-  }
+  // A restore brings items back into issue lists and the project nav too.
+  const attempt = await restoreFromTrash(input.type, input.id, () => revalidatePath("/", "layout"));
+  return attempt.ok ? attempt : fail(attempt.error, "restore");
 }
 
 export async function purgeAction(type: string, id: string): Promise<PurgeOutcome> {
