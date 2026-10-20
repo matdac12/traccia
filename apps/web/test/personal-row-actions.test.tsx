@@ -410,6 +410,17 @@ describe("the undo notice after a delete", () => {
     expect(await screen.findByText("Old idea")).toBeInTheDocument();
   });
 
+  it("shows a To-do again that comes back from elsewhere (restored from the Trash page) once the page had dropped it", async () => {
+    const t = todo({ title: "Old idea" });
+    deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
+    const { user, serverSends } = setup([t]);
+    await deleteFromMenu(user, "Old idea");
+    serverSends([]);
+    await screen.findByText(/moved to the Trash/);
+    serverSends([t]);
+    expect(await screen.findByText("Old idea")).toBeInTheDocument();
+  });
+
   it("keeps the notice, with the reason, when the Undo fails; Dismiss closes it", async () => {
     const t = todo({ title: "Old idea" });
     deleteTodoAction.mockResolvedValue({ ok: true, data: undefined });
