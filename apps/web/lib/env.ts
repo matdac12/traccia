@@ -1,6 +1,6 @@
+import { isTimeZone } from "@traccia/shared";
 import { z } from "zod";
 import { accessConfigFromEnv, parseLogins } from "./access";
-import { isTimeZone } from "./time-zone";
 
 /**
  * Server environment, validated once at startup (`instrumentation.ts`) and on first use.

@@ -10,4 +10,6 @@ export * from "./rest-catalog-schemas.js";
 export * from "./rest-issue-schemas.js";
 export * from "./rest-request-schemas.js";
 export * from "./schemas.js";
+export * from "./time-zone.js";
+export * from "./todo-references.js";
 export * from "./todo-schemas.js";

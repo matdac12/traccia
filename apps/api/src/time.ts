@@ -54,22 +54,6 @@ function offsetAt(zone: string, ms: number): number {
 
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
 
-/**
- * The canonical IANA name of `zone` (`europe/rome` → `Europe/Rome`), or
- * undefined when it is not one. Bare offsets like `+01:00` are refused: they
- * have no daylight saving, so they never describe where the owner lives.
- */
-export function canonicalTimeZone(zone: string): string | undefined {
-  if (zone === "" || /^[+-]/.test(zone)) return undefined;
-  try {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: zone,
-    }).resolvedOptions().timeZone;
-  } catch {
-    return undefined;
-  }
-}
-
 /** The day (`YYYY-MM-DD`) and time (`HH:MM`, seconds dropped) of `instant` in `zone`. */
 export function wallClockIn(
   zone: string,

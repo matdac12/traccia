@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { addDays, addMonths, dayInZone, dayLabel, isMomentPast, latestInstantOn, longDate, monthGrid, monthLabel, nextMonday, timeInZone, weekdayName } from "../lib/personal/days";
-import { isTimeZone } from "../lib/time-zone";
 
 describe("dayInZone", () => {
   it("is the calendar day of an instant in the Owner timezone, not in UTC", () => {
@@ -28,16 +27,6 @@ describe("latestInstantOn", () => {
     // Rome goes back to UTC+1 on 25 Oct: that day ends at 22:59:59.999Z.
     expect(latestInstantOn("2026-10-25", "Europe/Rome", new Date("2026-10-25T23:00:01Z")).toISOString()).toBe("2026-10-25T22:59:59.999Z");
     expect(latestInstantOn("2026-10-17", "Europe/Rome", new Date("2026-10-19T09:00:00Z")).toISOString()).toBe("2026-10-17T21:59:59.999Z");
-  });
-});
-
-describe("isTimeZone", () => {
-  it("accepts IANA zones and refuses the rest", () => {
-    expect(isTimeZone("Europe/Rome")).toBe(true);
-    expect(isTimeZone("Mars/Olympus")).toBe(false);
-    // Like the API: a bare offset is not a zone.
-    expect(isTimeZone("+01:00")).toBe(false);
-    expect(isTimeZone("")).toBe(false);
   });
 });
 
