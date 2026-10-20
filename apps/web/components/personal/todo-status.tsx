@@ -11,8 +11,10 @@ export type TodoStatus = { previews: Readonly<Record<string, Todo["state"]>>; er
  */
 export type TodoStatusStore = { get: () => TodoStatus; set: (next: TodoStatus) => void; subscribe: (listener: () => void) => () => void };
 
+const EMPTY: TodoStatus = { previews: {}, errors: {} };
+
 export function createTodoStatusStore(): TodoStatusStore {
-  let status: TodoStatus = { previews: {}, errors: {} };
+  let status = EMPTY;
   const listeners = new Set<() => void>();
   return {
     get: () => status,
@@ -30,14 +32,13 @@ export function createTodoStatusStore(): TodoStatusStore {
 const TodoStatusContext = createContext<TodoStatusStore>(createTodoStatusStore());
 export const TodoStatusProvider = TodoStatusContext;
 
-/** The state the To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */
-export function usePreview(id: string): Todo["state"] | undefined {
+function useTodoStatus<T>(select: (status: TodoStatus) => T): T {
   const store = useContext(TodoStatusContext);
-  return useSyncExternalStore(store.subscribe, () => store.get().previews[id], () => undefined);
+  return useSyncExternalStore(store.subscribe, () => select(store.get()), () => select(EMPTY));
 }
 
+/** The state the To-do shows while its strike draws, before the write that closes (or reopens) it moves it. */
+export const usePreview = (id: string): Todo["state"] | undefined => useTodoStatus((s) => s.previews[id]);
+
 /** The last refused write on this To-do, shown under its row. */
-export function useTodoError(id: string): string | undefined {
-  const store = useContext(TodoStatusContext);
-  return useSyncExternalStore(store.subscribe, () => store.get().errors[id], () => undefined);
-}
+export const useTodoError = (id: string): string | undefined => useTodoStatus((s) => s.errors[id]);
