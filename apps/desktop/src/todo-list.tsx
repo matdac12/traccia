@@ -1,3 +1,4 @@
+import { titleSegments } from "@traccia/shared";
 import { Bell, Check, ChevronDown, X } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import type { Project, Todo } from "./api-client";
@@ -5,7 +6,6 @@ import { clockIn, dayLabel } from "./days";
 import type { Leaving } from "./leaving";
 import { headingOf, type ListLayout } from "./list";
 import type { CascadeConfirm } from "./row-actions";
-import { titleSegments } from "./title";
 
 /** What a row can ask for (docs/desktop-app.md §4); the list itself holds no state. */
 export type RowHandlers = {

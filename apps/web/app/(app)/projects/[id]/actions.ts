@@ -13,7 +13,7 @@ import { failure, success, toFailure, zodFieldErrors, type ActionResult } from "
 import { createLabel, deleteLabel, updateLabel } from "@/lib/api/labels";
 import { createMilestone, deleteMilestone, updateMilestone } from "@/lib/api/milestones";
 import { deleteProject, updateProject } from "@/lib/api/projects";
-import { restoreItem } from "@/lib/api/trash";
+import { restoreFromTrash } from "@/lib/trash-restore";
 
 const noInput = z.object({});
 
@@ -63,13 +63,8 @@ export async function deleteProjectAction(projectId: string): Promise<ActionResu
 }
 
 export async function restoreProjectAction(projectId: string): Promise<ActionResult> {
-  try {
-    await restoreItem("project", projectId);
-  } catch (err) {
-    return toFailure(err);
-  }
-  revalidatePath("/", "layout");
-  return success(undefined);
+  const attempt = await restoreFromTrash("project", projectId, () => revalidatePath("/", "layout"));
+  return attempt.ok ? success(undefined) : toFailure(attempt.error);
 }
 
 export type MilestoneFormValues = { name: string; /** `YYYY-MM-DD`, or empty for none. */ targetDate: string };

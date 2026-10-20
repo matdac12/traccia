@@ -1,8 +1,7 @@
 "use client";
-import type { Todo } from "@traccia/shared";
+import { titleSegments, type Todo } from "@traccia/shared";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { titleSegments } from "@/lib/personal/title";
 import { cn } from "@/lib/utils";
 import { useProjectOptions } from "./projects-context";
 

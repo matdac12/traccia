@@ -1,3 +1,4 @@
+import { isTimeZone } from "@traccia/shared";
 import type { ApiResult } from "./api-client";
 
 /** Settings (docs/desktop-app.md §7). The Token itself never comes back from the Rust side. */
@@ -26,10 +27,19 @@ export const FRESH_SETTINGS: SavedSettings = {
   hasToken: false,
 };
 
+/**
+ * An IANA zone, or a fixed offset like `+01:00`. The shared `isTimeZone` refuses offsets, but earlier versions of this
+ * form saved them, so a saved offset keeps working.
+ */
 export function isValidTimezone(name: string): boolean {
-  if (!name.trim()) return false;
+  const zone = name.trim();
+  return isTimeZone(zone) || isOffset(zone);
+}
+
+function isOffset(zone: string): boolean {
+  if (!/^[+-]\d{2}(:?\d{2})?$/.test(zone)) return false;
   try {
-    new Intl.DateTimeFormat("en", { timeZone: name.trim() });
+    new Intl.DateTimeFormat("en", { timeZone: zone });
     return true;
   } catch {
     return false;

@@ -8,9 +8,9 @@ import { createIssue, deleteIssue, findIssues, getIssue, getIssueDetail, patchIs
 import type { Comment, Issue, IssueRef, Reply } from "@/lib/api/schemas";
 import { ApiError } from "@/lib/api/client";
 import { deleteAttachment } from "@/lib/api/attachments";
-import { restoreItem } from "@/lib/api/trash";
 import { ATTACHMENT_ID } from "@/lib/attachments";
 import { type ActionResult, toFailure } from "@/lib/issue-detail/result";
+import { restoreFromTrash } from "@/lib/trash-restore";
 
 // Writes from the issue page. Each one validates its input, calls the server-only API client and
 // revalidates the page, so the next render shows the new issue and its activity row.
@@ -190,11 +190,6 @@ export async function deleteAttachmentAction(identifier: string, id: string): Pr
 
 export async function restoreAttachmentAction(identifier: string, id: string): Promise<ActionResult> {
   if (!refSchema.safeParse(identifier).success || !ATTACHMENT_ID.test(id)) return invalid("not a valid attachment");
-  try {
-    await restoreItem("attachment", id);
-    refresh(identifier);
-    return { ok: true };
-  } catch (err) {
-    return toFailure(err);
-  }
+  const attempt = await restoreFromTrash("attachment", id, () => refresh(identifier));
+  return attempt.ok ? { ok: true } : toFailure(attempt.error);
 }

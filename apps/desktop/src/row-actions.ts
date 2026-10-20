@@ -1,6 +1,6 @@
+import { titleSegments } from "@traccia/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ApiClient, ApiFailure, Todo } from "./api-client";
-import { titleSegments } from "./title";
 
 /**
  * Done, drop, reopen and undo on the list's rows (docs/desktop-app.md §4). Writes show at once and are put back,

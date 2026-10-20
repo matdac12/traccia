@@ -42,3 +42,27 @@ export function referencesIn(title: string, projects: readonly KeyedProject[], k
   const live = projects.filter((p) => keys.has(p.key.toUpperCase())).map((p) => ({ key: p.key, projectId: p.id, projectDeleted: false }));
   return [...live, ...kept.filter((r) => keys.has(r.key) && !live.some((l) => l.key === r.key))];
 }
+
+export type TitleSegment = { text: string } | TodoReference;
+
+/**
+ * A To-do title split into text and Project chips. The API decides which `@KEY`s are references; this only finds
+ * them again in the text, with the same candidate rule as `keyCandidatesIn`. A key the references don't name stays
+ * plain text. A key naming several Projects (keys can be shared) becomes one chip for the first of them the API lists.
+ */
+export function titleSegments(title: string, references: Todo["references"]): TitleSegment[] {
+  // A key shared by a live and a deleted Project only reaches the API's references as live.
+  const byKey = new Map<string, TodoReference>();
+  for (const r of references) if (!byKey.has(r.key)) byKey.set(r.key, r);
+  const out: TitleSegment[] = [];
+  let last = 0;
+  for (const { key, index, end } of keyCandidatesIn(title)) {
+    const ref = byKey.get(key);
+    if (!ref) continue;
+    if (index > last) out.push({ text: title.slice(last, index) });
+    out.push(ref);
+    last = end;
+  }
+  if (last < title.length) out.push({ text: title.slice(last) });
+  return out;
+}
