@@ -3,11 +3,16 @@ import { reminderTimeSchema } from "@traccia/shared";
 import { Bell } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { dayLabel, isMomentPast, ownerNow } from "@/lib/personal/days";
 import { cn } from "@/lib/utils";
 import { PICKER_BUTTON, PICKER_PANEL } from "./day-picker";
 
 export const REMINDER_PRESETS = ["09:00", "12:30", "15:00", "18:00", "20:30", "22:00"] as const;
+
+/** Why a preset is disabled (docs/personal-space.md §7.5): the tooltip on it, and the line under the presets. */
+export const PAST_PRESET_TOOLTIP = "That time has already passed";
+export const PAST_PRESETS_NOTE = "Times that have already passed are disabled.";
 
 type ReminderPickerProps = { day: string | null; time: string | null; today: string; timeZone: string; onSelect: (time: string | null) => void };
 
@@ -42,6 +47,8 @@ function ReminderPickerPanel({ day, time, today, timeZone, onSelect }: ReminderP
   const past = (h: string) => isMomentPast(target, h, now);
   const valid = reminderTimeSchema.safeParse(value).success;
   const valuePast = valid && past(value);
+  const anyPast = REMINDER_PRESETS.some(past);
+  const noteId = useId();
 
   return (
     <>
@@ -50,19 +57,38 @@ function ReminderPickerPanel({ day, time, today, timeZone, onSelect }: ReminderP
         {day ? "" : " (sets the Planned day)"}
       </p>
       {target < now.today ? <p className="px-1 pb-2 text-[11px] text-destructive">Its Planned day has passed: move it first.</p> : null}
-      <div className="grid grid-cols-3 gap-1">
-        {REMINDER_PRESETS.map((h) => (
-          <button
-            key={h}
-            type="button"
-            disabled={past(h)}
-            onClick={() => onSelect(h)}
-            className={cn(PICKER_BUTTON, "h-8 border font-mono text-[12px] disabled:opacity-35", time === h && "border-primary text-primary")}
-          >
-            {h}
-          </button>
-        ))}
-      </div>
+      <TooltipProvider>
+        <div className="grid grid-cols-3 gap-1">
+          {REMINDER_PRESETS.map((h) => {
+            const button = (
+              <button
+                type="button"
+                disabled={past(h)}
+                aria-describedby={past(h) ? noteId : undefined}
+                onClick={() => onSelect(h)}
+                className={cn(PICKER_BUTTON, "h-8 w-full border font-mono text-[12px] disabled:pointer-events-none disabled:opacity-35", time === h && "border-primary text-primary")}
+              >
+                {h}
+              </button>
+            );
+            if (!past(h)) return <span key={h}>{button}</span>;
+            // A disabled button takes no pointer events: the tooltip hangs on the span around it.
+            return (
+              <Tooltip key={h}>
+                <TooltipTrigger asChild>
+                  <span>{button}</span>
+                </TooltipTrigger>
+                <TooltipContent>{PAST_PRESET_TOOLTIP}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
+      {anyPast ? (
+        <p id={noteId} className="px-1 pt-1.5 text-[11px] text-muted-foreground">
+          {PAST_PRESETS_NOTE}
+        </p>
+      ) : null}
       <form
         className="mt-2 flex items-center gap-1"
         onSubmit={(e) => {

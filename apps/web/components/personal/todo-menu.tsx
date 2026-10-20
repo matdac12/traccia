@@ -16,7 +16,7 @@ import {
 import { addDays, dayLabel, isMomentPast, ownerNow } from "@/lib/personal/days";
 import { hasPendingReminder } from "@/lib/personal/lists";
 import type { TodoPatch } from "@/lib/personal/todo-changes";
-import { REMINDER_PRESETS } from "./reminder-picker";
+import { PAST_PRESETS_NOTE, REMINDER_PRESETS } from "./reminder-picker";
 import { useTodoActions } from "./todo-actions";
 
 /** Revealed on row hover or focus from `md` up; always shown on touch widths. Above the row's "Open" button. */
@@ -51,6 +51,7 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
   const reminderDay = todo.day ?? today;
   const update = (patch: TodoPatch) => void actions.update(todo, patch);
+  const anyPast = REMINDER_PRESETS.some((h) => isMomentPast(reminderDay, h, now));
 
   return (
     <>
@@ -75,7 +76,7 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
         <DropdownMenuSubTrigger>
           <Bell className="size-3.5" aria-hidden /> Reminder
         </DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="w-44">
+        <DropdownMenuSubContent className="w-48">
           <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">
             {todo.reminder ? `At ${todo.reminder.time}` : "None yet"} · {dayLabel(reminderDay, today)}
           </DropdownMenuLabel>
@@ -84,6 +85,7 @@ function TodoMenuItems({ todo }: { todo: Todo }) {
               <span className="font-mono">{h}</span>
             </DropdownMenuItem>
           ))}
+          {anyPast ? <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">{PAST_PRESETS_NOTE}</DropdownMenuLabel> : null}
           {todo.reminder ? (
             <>
               <DropdownMenuSeparator />

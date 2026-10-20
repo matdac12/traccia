@@ -70,6 +70,8 @@ const ok = (t: Todo) => ({ ok: true, data: { todo: t } });
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
+  // A tooltip opens on hover and Radix measures it; jsdom has no ResizeObserver.
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   // The poll stays quiet.
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
   updateTodoAction.mockReset();
@@ -202,6 +204,33 @@ describe("the day picker", () => {
 });
 
 describe("the Reminder picker", () => {
+  it("says why a preset is disabled: a tooltip on it and a line under the presets", async () => {
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(within(row("Gym")).getByRole("button", { name: "Add a Reminder" }));
+    const picker = await screen.findByRole("dialog", { name: "Reminder" });
+    const note = within(picker).getByText("Times that have already passed are disabled.");
+    // 15:00 in Rome now: 12:30 has passed, 18:00 has not.
+    expect(within(picker).getByRole("button", { name: "12:30" })).toHaveAccessibleDescription(note.textContent as string);
+    expect(within(picker).getByRole("button", { name: "18:00" })).not.toHaveAttribute("aria-describedby");
+    await user.hover(within(picker).getByRole("button", { name: "12:30" }).parentElement as HTMLElement);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("That time has already passed");
+  });
+
+  it("shows no such line while every preset is still ahead", async () => {
+    vi.setSystemTime(new Date("2026-10-17T05:00:00Z"));
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(within(row("Gym")).getByRole("button", { name: "Add a Reminder" }));
+    const picker = await screen.findByRole("dialog", { name: "Reminder" });
+    expect(within(picker).queryByText(/already passed are disabled/)).toBeNull();
+  });
+
+  it("repeats the line in the row menu's Reminder submenu", async () => {
+    const { user } = setup([todo({ title: "Gym" })]);
+    await user.click(screen.getByRole("button", { name: "Actions for Gym" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Reminder" }));
+    expect(await screen.findByText("Times that have already passed are disabled.")).toBeInTheDocument();
+  });
+
   it("disables the moments already past and sets a Reminder from a preset or an exact time", async () => {
     const t = todo({ title: "Gym" });
     updateTodoAction.mockReturnValue(hang());
