@@ -10,6 +10,7 @@ import { ReminderPicker } from "./reminder-picker";
 import { reminderDescription, ReminderTime } from "./reminder-time";
 import { useTodoSelection } from "./selection";
 import { useTodoActions } from "./todo-actions";
+import { usePreview, useTodoError } from "./todo-status";
 import { ROW_ICON_BUTTON, TodoMenu } from "./todo-menu";
 import { TodoTitle } from "./todo-title";
 
@@ -21,7 +22,7 @@ export type RowDrag = { ref: Ref<HTMLLIElement>; style: CSSProperties; dragging:
  * the panel waits to be sent (`useTodoWrites` times it).
  */
 function useShownTodo(todo: Todo): Todo {
-  const preview = useTodoActions().previewOf(todo.id);
+  const preview = usePreview(todo.id);
   return preview ? { ...todo, state: preview } : todo;
 }
 
@@ -33,13 +34,13 @@ export function useCheckToggle(todo: Todo) {
 
 /** A refused write on a To-do, with a way to dismiss it: under its row, and in the details panel. */
 export function TodoError({ todo, className }: { todo: Todo; className?: string }) {
-  const actions = useTodoActions();
-  const error = actions.errorFor(todo.id);
+  const { dismissError } = useTodoActions();
+  const error = useTodoError(todo.id);
   if (!error) return null;
   return (
     <p role="alert" className={cn("flex items-center gap-2 text-[12px] text-destructive", className)}>
       {error}
-      <button type="button" onClick={() => actions.dismissError(todo.id)} aria-label="Dismiss" className="grid size-5 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+      <button type="button" onClick={() => dismissError(todo.id)} aria-label="Dismiss" className="grid size-5 place-items-center rounded outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
         <X className="size-3" aria-hidden />
       </button>
     </p>

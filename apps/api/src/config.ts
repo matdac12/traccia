@@ -1,6 +1,6 @@
+import { canonicalTimeZone } from "@traccia/shared";
 import { z } from "zod";
 import { isAcceptableRedirectUri } from "./service/oauth.js";
-import { canonicalTimeZone } from "./time.js";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 

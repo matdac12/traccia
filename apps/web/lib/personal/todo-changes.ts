@@ -1,7 +1,6 @@
-import type { ProjectOption, Todo, UpdateTodoInput } from "@traccia/shared";
+import { type ProjectOption, referencesIn, type Todo, type UpdateTodoInput } from "@traccia/shared";
 import { isMomentPast, type OwnerNow } from "./days";
 import { byPosition } from "./lists";
-import { referencesIn } from "./title";
 
 /** What a write changes: a `PATCH /v1/todos/:id` body without `expectedUpdatedAt`, which the write adds itself. */
 export type TodoPatch = Omit<UpdateTodoInput, "expectedUpdatedAt">;
