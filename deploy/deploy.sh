@@ -111,9 +111,11 @@ else
     "$SSH 'for i in \$(seq 1 60); do if docker buildx imagetools inspect $GHCR_PREFIX-api:$TAG >/dev/null 2>&1 && docker buildx imagetools inspect $GHCR_PREFIX-web:$TAG >/dev/null 2>&1; then exit 0; fi; sleep 10; done; echo \"images for $TAG not found after 10 minutes; is the push to main green?\" >&2; exit 1'"
 
   # Pull and retag into the local names the compose file expects, so one compose
-  # file serves both this mode and the build-on-Mac mode.
+  # file serves both this mode and the build-on-Mac mode. The GHCR name is then
+  # untagged (the image stays under the local names), so the prune step below,
+  # which only sees traccia-*, also frees old CI images.
   step "pull images and retag" \
-    "for app in api web; do $SSH \"docker pull $GHCR_PREFIX-\$app:$TAG && docker tag $GHCR_PREFIX-\$app:$TAG traccia-\$app:$TAG && docker tag $GHCR_PREFIX-\$app:$TAG traccia-\$app:latest\"; done"
+    "for app in api web; do $SSH \"docker pull $GHCR_PREFIX-\$app:$TAG && docker tag $GHCR_PREFIX-\$app:$TAG traccia-\$app:$TAG && docker tag $GHCR_PREFIX-\$app:$TAG traccia-\$app:latest && docker rmi $GHCR_PREFIX-\$app:$TAG >/dev/null\"; done"
 fi
 
 step "copy compose file" \
