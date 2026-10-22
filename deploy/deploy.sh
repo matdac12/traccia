@@ -96,9 +96,10 @@ step "check the VPS is ready (.env present)" \
 if [[ "$MODE" == local ]]; then
   # Images are linux/amd64 and the Mac builds them natively (or under Docker Desktop's
   # emulation). On an aarch64 Linux host this fails in V8 under qemu; use --ci there.
+  # --pull re-resolves node:22-slim, so a cached base image cannot ship an unpatched Node.
   for app in api web; do
     step "build traccia-$app (linux/amd64)" \
-      "docker buildx build --platform linux/amd64 --load -f apps/$app/Dockerfile -t traccia-$app:$TAG -t traccia-$app:latest ."
+      "docker buildx build --pull --platform linux/amd64 --load -f apps/$app/Dockerfile -t traccia-$app:$TAG -t traccia-$app:latest ."
   done
 
   step "ship images" \
