@@ -328,7 +328,7 @@ Get a project with its description and milestones (with progress).
 | `project` | string | yes | Project key, name or id. |
 | `includeMilestones` | boolean | no | Default true. |
 
-**Returns:** A project (as in `list_projects`) plus `description`, `createdAt`, `updatedAt` and `milestones` with progress.
+**Returns:** A project (as in `list_projects`) plus `description`, `createdAt`, `updatedAt` and `milestones` with progress and full `description`.
 
 ## save_project
 

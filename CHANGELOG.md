@@ -16,3 +16,4 @@ All notable changes to Traccia are recorded here. The format follows [Keep a Cha
 ### Changed
 
 - The issues list gained nested sub-issues and a phone layout.
+- The MCP `get_project` tool now returns each milestone's full description, so agents can read milestone rules.

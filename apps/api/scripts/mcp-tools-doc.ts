@@ -30,7 +30,7 @@ export const RETURNS: Record<string, string> = {
   list_projects:
     "`{ items, nextCursor? }`. Each project: `id`, `key`, `name`, `status`, `issueCounts` (per status), `deleted`.",
   get_project:
-    "A project (as in `list_projects`) plus `description`, `createdAt`, `updatedAt` and `milestones` with progress.",
+    "A project (as in `list_projects`) plus `description`, `createdAt`, `updatedAt` and `milestones` with progress and full `description`.",
   save_project:
     "The saved project: `id`, `key`, `name`, `status`, `description`.",
   delete_project:

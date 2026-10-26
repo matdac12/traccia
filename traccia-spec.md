@@ -803,7 +803,7 @@ Returns: `{ items: [{ id, key, name, status, issueCounts: {backlog,todo,in_progr
 ```ts
 { project: ProjectRef, includeMilestones: z.boolean().default(true).optional() }
 ```
-Returns the full project including description (markdown) and milestones with progress.
+Returns the full project including description (markdown) and milestones with progress and their full description (markdown).
 
 ### `save_project`
 Create (no `id`) or update (with `id`).
