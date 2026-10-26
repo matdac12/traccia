@@ -25,6 +25,7 @@ describe("project tools", () => {
     const project = app.services.projects.get("Alpha");
     const ms = app.services.milestones.create("agent", project.id, {
       name: "M1",
+      description: "Rules: one PR per issue.",
     });
     app.services.issues.create("agent", {
       project: "Alpha",
@@ -59,7 +60,11 @@ describe("project tools", () => {
     const got = await call(agent, "get_project", { project: "Alpha" });
     expect(got.data.description).toBe("# Alpha");
     expect(got.data.milestones).toEqual([
-      expect.objectContaining({ name: "M1", progress: { done: 1, total: 2 } }),
+      expect.objectContaining({
+        name: "M1",
+        description: "Rules: one PR per issue.",
+        progress: { done: 1, total: 2 },
+      }),
     ]);
     const bare = await call(agent, "get_project", {
       project: "Alpha",

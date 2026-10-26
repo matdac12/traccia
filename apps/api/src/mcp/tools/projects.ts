@@ -83,7 +83,12 @@ export function registerProjectTools(server: McpServer, ctx: McpContext) {
         milestones:
           args.includeMilestones === false
             ? undefined
-            : milestoneView(stats, milestones.list(p.id), { [p.id]: p }),
+            : milestoneView(
+                stats,
+                milestones.list(p.id),
+                { [p.id]: p },
+                { withDescription: true },
+              ),
       });
     },
   );
