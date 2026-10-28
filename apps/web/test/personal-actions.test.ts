@@ -92,7 +92,7 @@ describe("deleteTodoAction", () => {
 
 describe("restoreTodoAction", () => {
   it("brings the To-do back from the Trash and re-renders /personal", async () => {
-    fetchMock.mockResolvedValueOnce(json({ type: "todo", id: "01TODO", counts: { projects: 0, milestones: 0, issues: 0, comments: 0, attachments: 0, todos: 3 } }));
+    fetchMock.mockResolvedValueOnce(json({ type: "todo", id: "01TODO", counts: { projects: 0, milestones: 0, issues: 0, comments: 0, attachments: 0, memories: 0, documents: 0, todos: 3 } }));
     expect(await restoreTodoAction("01TODO")).toEqual({ ok: true, data: undefined });
     expect(calls()).toEqual([{ url: "http://api/v1/restore", method: "POST", body: { type: "todo", id: "01TODO" } }]);
     expect(revalidatePath).toHaveBeenCalledWith("/personal");

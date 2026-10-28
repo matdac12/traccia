@@ -1,4 +1,4 @@
-import { ACTIVITY_TYPES, ISSUE_STATUSES, PROJECT_STATUSES, ACTORS } from "@traccia/shared";
+import { ACTIVITY_TYPES, ACTORS, ISSUE_STATUSES, PROJECT_STATUSES } from "@traccia/shared";
 import { z } from "zod";
 
 /**
@@ -33,7 +33,7 @@ export const errorBodySchema = z.object({
   }),
 });
 
-export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment", "todo"] as const;
+export const TRASH_TYPES = ["project", "milestone", "issue", "comment", "attachment", "memory", "document", "todo"] as const;
 export type TrashType = (typeof TRASH_TYPES)[number];
 
 export const trashItemSchema = z.object({
@@ -61,6 +61,8 @@ const countsSchema = z.object({
   issues: z.number().int(),
   comments: z.number().int(),
   attachments: z.number().int(),
+  memories: z.number().int(),
+  documents: z.number().int(),
   todos: z.number().int(),
 });
 export type TrashCounts = z.infer<typeof countsSchema>;
