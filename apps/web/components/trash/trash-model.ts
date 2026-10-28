@@ -9,6 +9,8 @@ export const TYPE_LABEL: Record<TrashType, string> = {
   issue: "Issue",
   comment: "Comment",
   attachment: "Attachment",
+  memory: "Memory",
+  document: "Document",
   todo: "To-do",
 };
 
@@ -21,9 +23,14 @@ const PLURAL: Record<Counted, [string, string]> = {
   issue: ["issue", "issues"],
   comment: ["comment", "comments"],
   attachment: ["attachment", "attachments"],
+  memory: ["memory", "memories"],
+  document: ["document", "documents"],
   todo: ["to-do", "to-dos"],
   subtodo: ["sub-to-do", "sub-to-dos"],
 };
+
+/** Capitalised plural, for filter tabs and empty states. */
+export const typePlural = (type: TrashType) => PLURAL[type][1].replace(/^./, (c) => c.toUpperCase());
 
 export const pluralize = (type: Counted, n: number) => plural(n, ...PLURAL[type]);
 
@@ -93,6 +100,8 @@ export function companions(item: TrashItem, all: readonly TrashItem[]): TrashIte
       return isSubTodo(item) ? [] : others.filter((o) => o.type === "todo" && o.parentId === item.id);
     case "milestone":
     case "attachment":
+    case "memory":
+    case "document":
       return [];
   }
 }
@@ -131,6 +140,8 @@ export function restoreSummary(result: RestoreResult): string {
     issue: counts.issues,
     comment: counts.comments,
     attachment: counts.attachments,
+    memory: counts.memories,
+    document: counts.documents,
     todo: counts.todos,
   };
   // Several items came back (the batch): list them all; a lone item just names its type.
@@ -139,7 +150,7 @@ export function restoreSummary(result: RestoreResult): string {
 }
 
 /** Where to open an item (restored or not). Comments and attachments open their issue. */
-export function itemHref(item: Pick<TrashItem, "type" | "id" | "label" | "issueId">): string | null {
+export function itemHref(item: Pick<TrashItem, "type" | "id" | "label" | "issueId" | "projectId">): string | null {
   switch (item.type) {
     case "issue":
       return `/issues/${encodeURIComponent(issueIdentifier(item.label))}`;
@@ -148,7 +159,10 @@ export function itemHref(item: Pick<TrashItem, "type" | "id" | "label" | "issueI
     case "comment":
     case "attachment":
       return item.issueId ? `/issues/${encodeURIComponent(item.issueId)}` : null;
+    case "document":
+      return item.projectId ? `/projects/${encodeURIComponent(item.projectId)}/documentation/files` : null;
     case "milestone":
+    case "memory":
     case "todo":
       return null;
   }

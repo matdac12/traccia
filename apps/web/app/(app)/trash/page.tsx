@@ -3,7 +3,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/traccia/empty-state";
 import { PageHeader } from "@/components/traccia/page-header";
 import { TrashList } from "@/components/trash/trash-list";
-import { TYPE_LABEL } from "@/components/trash/trash-model";
+import { typePlural } from "@/components/trash/trash-model";
 import { TRASH_TYPES, type TrashType } from "@/lib/api/schemas";
 import { listAllTrash, listTrash } from "@/lib/api/trash";
 import { cn } from "@/lib/utils";
@@ -38,12 +38,12 @@ export default async function TrashPage({ searchParams }: { searchParams: Search
             aria-current={t === type ? "page" : undefined}
             className={cn("rounded-md px-2 py-1 text-muted-foreground hover:bg-accent/50", t === type && "bg-accent text-foreground")}
           >
-            {t ? `${TYPE_LABEL[t]}s` : "All"}
+            {t ? typePlural(t) : "All"}
           </Link>
         ))}
       </nav>
       {page.items.length === 0 && !sp.cursor ? (
-        <EmptyState icon={Trash2} title={type ? `No ${TYPE_LABEL[type].toLowerCase()}s in the trash` : "Trash is empty"}>
+        <EmptyState icon={Trash2} title={type ? `No ${typePlural(type).toLowerCase()} in the trash` : "Trash is empty"}>
           Deleted items show up here, and can be restored until you purge them.
         </EmptyState>
       ) : (

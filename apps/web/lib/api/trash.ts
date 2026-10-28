@@ -1,7 +1,7 @@
 import "server-only";
 import { purgeQuerySchema, restoreBodySchema, trashQuerySchema } from "@traccia/shared";
 import { api } from "./client";
-import { pageOf, purgeResultSchema, restoreResultSchema, trashItemSchema, type TrashType } from "./schemas";
+import { pageOf, purgeResultSchema, restoreResultSchema, type TrashType, trashItemSchema } from "./schemas";
 
 const PAGE_SIZE = 50;
 const MAX_BATCH_PAGES = 20;
@@ -41,6 +41,8 @@ const PURGE_PATH: Record<TrashType, string> = {
   issue: "issues",
   comment: "comments",
   attachment: "attachments",
+  memory: "memories",
+  document: "documents",
   todo: "todos",
 };
 
